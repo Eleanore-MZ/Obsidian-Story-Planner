@@ -460,3 +460,99 @@
   opacity: 0.3;
   cursor: default;
 }
+
+/* View tabs */
+
+.story-planner-tabs-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: var(--size-4-2);
+}
+
+.story-planner-tabs {
+  display: flex;
+  gap: var(--size-4-1);
+  margin-right: auto;
+}
+
+.story-planner-tab-actions {
+  display: flex;
+  gap: var(--size-4-2);
+}
+
+.story-planner-tabs .story-planner-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-1) var(--size-4-3);
+  border-radius: var(--radius-l, 12px);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+}
+
+.story-planner-tabs .story-planner-tab:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.story-planner-tabs .story-planner-tab.is-active {
+  background: var(--background-modifier-active-hover, var(--background-modifier-hover));
+  color: var(--text-normal);
+}
+
+.story-planner-tab-icon {
+  display: flex;
+}
+
+.story-planner-tab-icon svg {
+  width: var(--icon-s, 16px);
+  height: var(--icon-s, 16px);
+}
+
+.story-planner-body[hidden] {
+  display: none;
+}
+
+/* Story setup page */
+
+.story-planner-setup {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--size-4-3) var(--size-4-6);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  gap: var(--size-4-4);
+  align-content: start;
+  align-items: start;
+}
+
+.story-planner-setup[hidden] {
+  display: none;
+}
+
+.story-planner-setup-section {
+  padding: var(--size-4-3) var(--size-4-4);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+
+.story-planner-setup-heading {
+  margin: 0 0 var(--size-4-1);
+  font-size: var(--font-ui-medium);
+}
+
+.story-planner-setup-section .story-planner-panel-hint {
+  margin-bottom: var(--size-4-3);
+}
+
+.story-planner-setup-section > input[type="text"] {
+  width: 100%;
+}

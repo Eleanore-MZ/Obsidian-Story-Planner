@@ -2,11 +2,15 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 import type StoryPlannerPlugin from "./main";
 import { Orientation } from "./view/layout";
 
+/** The views of a story, shown as tabs above it. */
+export type StoryTab = "board" | "setup";
+
 /** Per-story view preferences. Kept in data.json so viewing never changes the story note. */
 export interface StoryViewState {
   orientation?: Orientation;
   /** Compact mode: each plot line's cards stack from the top of the chapter. */
   compact?: boolean;
+  tab?: StoryTab;
 }
 
 export interface StoryPlannerSettings {

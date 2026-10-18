@@ -1,5 +1,6 @@
-import { Notice, Scope, TextFileView, WorkspaceLeaf } from "obsidian";
+import { Notice, Scope, setIcon, TextFileView, WorkspaceLeaf } from "obsidian";
 import type StoryPlannerPlugin from "../main";
+import type { StoryTab } from "../settings";
 import { addCardAt } from "../model/edits";
 import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
@@ -26,6 +27,12 @@ interface DropTargetSpec {
   middle: boolean;
   onDrop: (place: DropPlace) => void;
 }
+
+/** The view tabs: id, label and Lucide icon name. */
+const TABS: [StoryTab, string, string][] = [
+  ["board", "Board", "layout-dashboard"],
+  ["setup", "Setup", "settings-2"],
+];
 
 /** Board elements that count as empty space: clicking them clears the selection. */
 const EMPTY_SPACE = ".story-planner-grid, .story-planner-corner, .story-planner-cell, .story-planner-chapter-end";
@@ -59,7 +66,6 @@ export class StoryBoardView extends TextFileView {
   private boardEl: HTMLElement;
   private panel: CardPanel;
   private setup: SetupPanel;
-  private setupButton: HTMLButtonElement | null = null;
 
   constructor(leaf: WorkspaceLeaf, private plugin: StoryPlannerPlugin) {
     super(leaf);
@@ -77,8 +83,8 @@ export class StoryBoardView extends TextFileView {
       return false;
     });
     this.scope.register([], "Escape", () => {
-      if (!this.panel.selected && !this.setup.isOpen) return true;
-      this.closePanels();
+      if (!this.panel.selected) return true;
+      this.select(null);
       return false;
     });
 
@@ -90,7 +96,7 @@ export class StoryBoardView extends TextFileView {
     // click on an empty cell then goes on to create a card there.)
     this.boardEl.addEventListener("click", (e) => {
       const target = e.target as HTMLElement;
-      if (target === this.boardEl || target.matches(EMPTY_SPACE)) this.closePanels();
+      if (target === this.boardEl || target.matches(EMPTY_SPACE)) this.select(null);
     });
     this.panel = new CardPanel(this.bodyEl, {
       edit: (change, coalesce) => this.mutate(change, coalesce),
@@ -100,9 +106,8 @@ export class StoryBoardView extends TextFileView {
         new Notice(`Deleted "${title}". Press Ctrl+Z to undo.`);
       },
     });
-    this.setup = new SetupPanel(this.bodyEl, {
+    this.setup = new SetupPanel(this.contentEl, {
       edit: (change, coalesce) => this.mutate(change, coalesce),
-      close: () => this.closePanels(),
       choose: (choice) => new ChoiceModal(this.app, choice).open(),
       notice: (message) => new Notice(message),
     });
@@ -241,24 +246,25 @@ export class StoryBoardView extends TextFileView {
   /** Selects a card and shows it in the side panel; null closes the panel. */
   private select(cardId: Id | null): void {
     if (!this.story) return;
-    // The card panel and the setup panel share the side area.
-    if (cardId) this.setup.setOpen(false, this.story);
-    this.setupButton?.toggleClass("is-active", this.setup.isOpen);
     this.panel.show(this.story, cardId);
     for (const el of Array.from(this.boardEl.querySelectorAll<HTMLElement>("[data-card-id]"))) {
       el.classList.toggle("is-selected", el.dataset.cardId === this.panel.selected);
     }
   }
 
-  private closePanels(): void {
-    this.setup.setOpen(false, this.story);
-    this.select(null);
+  /** The view tab this story shows: the board, or the story setup page. */
+  private get tab(): StoryTab {
+    const path = this.file?.path;
+    return (path ? this.plugin.settings.viewState[path]?.tab : undefined) ?? "board";
   }
 
-  private toggleSetup(): void {
-    if (!this.story) return;
-    this.setup.setOpen(!this.setup.isOpen, this.story);
+  private showTab(tab: StoryTab): void {
+    const path = this.file?.path;
+    if (!path || tab === this.tab) return;
+    this.plugin.settings.viewState[path] = { ...this.plugin.settings.viewState[path], tab };
+    void this.plugin.saveSettings();
     this.select(null);
+    this.render();
   }
 
   /** Replaces a card's title with a text box, for renaming it in place. */
@@ -364,25 +370,46 @@ export class StoryBoardView extends TextFileView {
     toolbar.createEl("h2", { text: story.title, cls: "story-planner-title" });
     this.button(toolbar, "Undo", () => this.undo(), !this.history.canUndo);
     this.button(toolbar, "Redo", () => this.redo(), !this.history.canRedo);
-    this.button(toolbar, "Add plot line", () =>
-      new TextPromptModal(this.app, "New plot line", "", (name) => this.mutate((s) => void addPlotLine(s, name))).open(),
-    );
-    this.button(toolbar, "Add chapter", () =>
-      new TextPromptModal(this.app, "New chapter", `Chapter ${story.chapters.length + 1}`, (name) =>
-        this.mutate((s) => void addChapter(s, name)),
-      ).open(),
-    );
-    const compact = this.button(toolbar, "Compact", () => this.toggleCompact());
-    compact.toggleClass("is-active", this.compact);
-    compact.setAttr("aria-pressed", String(this.compact));
-    compact.setAttr("title", "Stack each plot line's cards from the top of the chapter");
-    this.setupButton = this.button(toolbar, "Story setup", () => this.toggleSetup());
-    this.setupButton.toggleClass("is-active", this.setup.isOpen);
+
+    // View tabs, like the views of a Notion database. More views (story
+    // time, characters) join this row later.
+    const tabsRow = root.createDiv({ cls: "story-planner-tabs-row" });
+    const tabs = tabsRow.createDiv({ cls: "story-planner-tabs" });
+    tabs.setAttr("role", "tablist");
+    const tab = this.tab;
+    for (const [id, label, icon] of TABS) {
+      const el = tabs.createEl("button", { cls: "story-planner-tab" });
+      el.setAttr("role", "tab");
+      el.setAttr("aria-selected", String(id === tab));
+      el.toggleClass("is-active", id === tab);
+      setIcon(el.createSpan({ cls: "story-planner-tab-icon" }), icon);
+      el.createSpan({ text: label });
+      el.addEventListener("click", () => this.showTab(id));
+    }
+
+    const onBoard = tab === "board";
+    this.bodyEl.hidden = !onBoard;
+    this.setup.setOpen(!onBoard, story);
+    if (onBoard) {
+      const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
+      this.button(actions, "Add plot line", () =>
+        new TextPromptModal(this.app, "New plot line", "", (name) => this.mutate((s) => void addPlotLine(s, name))).open(),
+      );
+      this.button(actions, "Add chapter", () =>
+        new TextPromptModal(this.app, "New chapter", `Chapter ${story.chapters.length + 1}`, (name) =>
+          this.mutate((s) => void addChapter(s, name)),
+        ).open(),
+      );
+      const compact = this.button(actions, "Compact", () => this.toggleCompact());
+      compact.toggleClass("is-active", this.compact);
+      compact.setAttr("aria-pressed", String(this.compact));
+      compact.setAttr("title", "Stack each plot line's cards from the top of the chapter");
+    }
 
     // Keep the panel on the selected card; it closes if the card is gone (after an undo, say).
-    this.panel.show(story, this.panel.selected, typing);
+    this.panel.show(story, onBoard ? this.panel.selected : null, typing);
     this.setup.refresh(story, typing);
-    this.renderBoard(story);
+    if (onBoard) this.renderBoard(story);
   }
 
   /**

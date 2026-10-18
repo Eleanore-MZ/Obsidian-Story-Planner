@@ -26,7 +26,6 @@ export interface Choice {
 export interface SetupPanelHost {
   /** Applies an edit with undo support; see CardPanelHost.edit. */
   edit(change: (story: Story) => boolean | void, coalesce?: string): void;
-  close(): void;
   /** Asks the writer to pick one option, for example where a deleted chapter's scenes should go. */
   choose(choice: Choice): void;
   notice(message: string): void;
@@ -35,9 +34,8 @@ export interface SetupPanelHost {
 const DELETE_CARDS = "\u0000delete";
 
 /**
- * The story setup panel: the story's title, plot lines, chapters and
- * characters. It shares the side area with the card panel; only one of the
- * two is open at a time.
+ * The story setup page, shown in the Setup tab: the story's title, plot
+ * lines, chapters and characters, each in its own section.
  */
 export class SetupPanel {
   readonly el: HTMLElement;
@@ -45,7 +43,7 @@ export class SetupPanel {
   private open = false;
 
   constructor(parent: HTMLElement, private host: SetupPanelHost) {
-    this.el = parent.createDiv({ cls: "story-planner-panel story-planner-setup" });
+    this.el = parent.createDiv({ cls: "story-planner-setup" });
     this.el.hidden = true;
   }
 
@@ -82,13 +80,7 @@ export class SetupPanel {
     const el = this.el;
     el.empty();
 
-    const header = el.createDiv({ cls: "story-planner-panel-header" });
-    header.createDiv({ cls: "story-planner-panel-heading", text: "Story setup" });
-    const close = header.createEl("button", { cls: "story-planner-panel-close clickable-icon", text: "×" });
-    close.setAttr("aria-label", "Close");
-    close.addEventListener("click", () => this.host.close());
-
-    const titleField = this.section("Title");
+    const titleField = this.section("Story", "The title shown on the board and in the note's outline.");
     const title = this.textInput(titleField, story.title, "story-title");
     title.addEventListener("input", () => {
       if (title.value.trim()) this.host.edit((s) => void (s.title = title.value.trim()), "story-title");
@@ -100,7 +92,7 @@ export class SetupPanel {
   }
 
   private buildPlotLines(story: Story): void {
-    const section = this.section("Plot lines");
+    const section = this.section("Plot lines", "The columns of the board. The number is how many cards live in each.");
     story.plotLines.forEach((plotLine, i) => {
       const row = section.createDiv({ cls: "story-planner-setup-row" });
       this.colorInput(row, plotLine.color, (color) =>
@@ -119,7 +111,7 @@ export class SetupPanel {
   }
 
   private buildChapters(story: Story): void {
-    const section = this.section("Chapters");
+    const section = this.section("Chapters", "In reading order. The number is how many scenes each has.");
     story.chapters.forEach((chapter, i) => {
       const row = section.createDiv({ cls: "story-planner-setup-row" });
       const name = this.textInput(row, chapter.name, `chapter:${chapter.id}`);
@@ -136,10 +128,7 @@ export class SetupPanel {
   }
 
   private buildCharacters(story: Story): void {
-    const section = this.section("Characters");
-    if (story.characters.length === 0) {
-      section.createDiv({ cls: "story-planner-panel-hint", text: "Characters added to cards appear here too." });
-    }
+    const section = this.section("Characters", "Characters added on cards appear here too. ⇥ merges a duplicate into another character.");
     story.characters.forEach((character, i) => {
       const row = section.createDiv({ cls: "story-planner-setup-row" });
       this.colorInput(row, character.color, (color) =>
@@ -226,10 +215,11 @@ export class SetupPanel {
   // -------------------------------------------------------------------------
   // Small builders
 
-  private section(label: string): HTMLElement {
-    const field = this.el.createDiv({ cls: "story-planner-panel-field" });
-    field.createDiv({ cls: "story-planner-panel-label", text: label });
-    return field;
+  private section(label: string, hint?: string): HTMLElement {
+    const section = this.el.createDiv({ cls: "story-planner-setup-section" });
+    section.createEl("h3", { cls: "story-planner-setup-heading", text: label });
+    if (hint) section.createDiv({ cls: "story-planner-panel-hint", text: hint });
+    return section;
   }
 
   private textInput(parent: HTMLElement, value: string, field: string): HTMLInputElement {

@@ -10,8 +10,17 @@ import { CardEditModal, TextPromptModal } from "./modals";
 
 export const STORY_BOARD_VIEW = "story-planner-board";
 
-/** What is being dragged. Kept on the view, since dataTransfer can't be read during dragover. */
+/** What is being dragged. */
 type Dragged = { kind: "card" | "plotLine" | "chapter"; id: string };
+
+interface DropTargetSpec {
+  accepts: Dragged["kind"];
+  axis: "slot" | "lane" | null;
+  onDrop: (after: boolean) => void;
+}
+
+/** Pixels the pointer must move before a press becomes a drag. */
+const DRAG_THRESHOLD = 5;
 
 /**
  * Shows a story note as a board. The note stays the source of truth: Obsidian
@@ -29,6 +38,8 @@ export class StoryBoardView extends TextFileView {
   /** The text we last produced, to tell our own saves apart from outside changes such as a sync. */
   private lastWritten: string | null = null;
   private dragged: Dragged | null = null;
+  private dropTargets = new Map<HTMLElement, DropTargetSpec>();
+  private suppressClick = false;
 
   constructor(leaf: WorkspaceLeaf, private plugin: StoryPlannerPlugin) {
     super(leaf);
@@ -45,6 +56,13 @@ export class StoryBoardView extends TextFileView {
       this.redo();
       return false;
     });
+    this.contentEl.addEventListener(
+      "click",
+      (e) => {
+        if (this.suppressClick) e.stopPropagation();
+      },
+      true,
+    );
   }
 
   getViewType(): string {
@@ -95,7 +113,12 @@ export class StoryBoardView extends TextFileView {
     this.render();
   }
 
+  async onClose(): Promise<void> {
+    this.cancelDrag();
+  }
+
   clear(): void {
+    this.cancelDrag();
     this.story = null;
     this.loadError = null;
     this.history.clear();
@@ -188,6 +211,7 @@ export class StoryBoardView extends TextFileView {
 
   private render(): void {
     const root = this.contentEl;
+    this.dropTargets.clear();
     root.empty();
     root.addClass("story-planner");
 
@@ -357,33 +381,82 @@ export class StoryBoardView extends TextFileView {
   }
 
   // -------------------------------------------------------------------------
-  // Drag and drop (desktop HTML5 drag and drop; a touch implementation can replace this later)
+  // Drag and drop. This uses plain pointer events rather than the browser's
+  // HTML5 drag and drop, which Obsidian's own drag handling interferes with.
+  // A press becomes a drag only after the pointer moves a few pixels, so a
+  // plain click still opens the card.
 
   private makeDraggable(el: HTMLElement, dragged: Dragged): void {
-    el.draggable = true;
-    el.addEventListener("dragstart", (e) => {
-      this.dragged = dragged;
-      e.dataTransfer?.setData("text/plain", dragged.id);
-      if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
-      el.addClass("is-dragging");
-      this.contentEl.addClass("is-drag-active");
-    });
-    el.addEventListener("dragend", () => {
-      el.removeClass("is-dragging");
-      this.endDrag();
+    el.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      this.cancelDrag();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      let ghost: HTMLElement | null = null;
+      let target: { el: HTMLElement; spec: DropTargetSpec } | null = null;
+      let after = false;
+
+      const clearMark = () => target?.el.removeClass("is-drop-target", "is-drop-before", "is-drop-after");
+
+      const onMove = (ev: PointerEvent) => {
+        if (!ghost) {
+          if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
+          this.dragged = dragged;
+          ghost = document.body.createDiv({ cls: "story-planner-drag-ghost", text: el.innerText.split("\n")[0] ?? "" });
+          el.addClass("is-dragging");
+          this.contentEl.addClass("is-drag-active");
+        }
+        ev.preventDefault();
+        ghost.style.left = `${ev.clientX + 12}px`;
+        ghost.style.top = `${ev.clientY + 12}px`;
+
+        clearMark();
+        target = this.dropTargetAt(ev.clientX, ev.clientY, dragged.kind);
+        if (target) {
+          after = this.isAfter(ev, target.el, target.spec.axis);
+          target.el.addClass(target.spec.axis ? (after ? "is-drop-after" : "is-drop-before") : "is-drop-target");
+        }
+      };
+
+      const finish = (drop: boolean) => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("keydown", onKey, true);
+        this.cancelDrag = () => {};
+        clearMark();
+        el.removeClass("is-dragging");
+        this.contentEl.removeClass("is-drag-active");
+        if (ghost) {
+          ghost.remove();
+          // The click that follows a drag must not open the card editor.
+          this.suppressClick = true;
+          window.setTimeout(() => (this.suppressClick = false), 0);
+          if (drop && target) target.spec.onDrop(after);
+        }
+        this.dragged = null;
+      };
+      const onUp = () => finish(true);
+      const onKey = (ev: KeyboardEvent) => {
+        if (ev.key === "Escape") {
+          ev.stopPropagation();
+          finish(false);
+        }
+      };
+
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("keydown", onKey, true);
+      this.cancelDrag = () => finish(false);
     });
   }
 
-  /** Also called on drop, because a drop re-renders the board and the dragged element may never get its dragend. */
-  private endDrag(): void {
-    this.dragged = null;
-    this.contentEl.removeClass("is-drag-active");
-  }
+  /** Ends any drag in progress without dropping; replaced while a drag is running. */
+  private cancelDrag: () => void = () => {};
 
   /**
-   * Accepts drops of one kind. With an axis, the drop lands before or after the
-   * target depending on which half the pointer is in: "slot" is the axis scenes
-   * run along, "lane" the axis plot lines run along.
+   * Registers a drop target for one kind of dragged item. With an axis, the
+   * drop lands before or after the target depending on which half the pointer
+   * is in: "slot" is the axis scenes run along, "lane" the axis plot lines run along.
    */
   private makeDropTarget(
     el: HTMLElement,
@@ -391,29 +464,22 @@ export class StoryBoardView extends TextFileView {
     axis: "slot" | "lane" | null,
     onDrop: (after: boolean) => void,
   ): void {
-    const isAfter = (e: DragEvent) => {
-      if (!axis) return false;
-      const rect = el.getBoundingClientRect();
-      const alongY = (axis === "slot") === (this.orientation === "vertical");
-      return alongY ? e.clientY > rect.top + rect.height / 2 : e.clientX > rect.left + rect.width / 2;
-    };
-    const clearMarks = () => el.removeClass("is-drop-target", "is-drop-before", "is-drop-after");
+    this.dropTargets.set(el, { accepts, axis, onDrop });
+  }
 
-    el.addEventListener("dragover", (e) => {
-      if (this.dragged?.kind !== accepts) return;
-      e.preventDefault();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-      clearMarks();
-      el.addClass(axis ? (isAfter(e) ? "is-drop-after" : "is-drop-before") : "is-drop-target");
-    });
-    el.addEventListener("dragleave", clearMarks);
-    el.addEventListener("drop", (e) => {
-      clearMarks();
-      if (this.dragged?.kind !== accepts) return;
-      e.preventDefault();
-      onDrop(isAfter(e));
-      this.endDrag();
-    });
+  private dropTargetAt(x: number, y: number, kind: Dragged["kind"]): { el: HTMLElement; spec: DropTargetSpec } | null {
+    for (let node = document.elementFromPoint(x, y); node && node !== this.contentEl; node = node.parentElement) {
+      const spec = this.dropTargets.get(node as HTMLElement);
+      if (spec) return spec.accepts === kind ? { el: node as HTMLElement, spec } : null;
+    }
+    return null;
+  }
+
+  private isAfter(e: PointerEvent, el: HTMLElement, axis: "slot" | "lane" | null): boolean {
+    if (!axis) return false;
+    const rect = el.getBoundingClientRect();
+    const alongY = (axis === "slot") === (this.orientation === "vertical");
+    return alongY ? e.clientY > rect.top + rect.height / 2 : e.clientX > rect.left + rect.width / 2;
   }
 
   /** A card (or echo) as a drop target: the dropped card goes before or after it, in the target's plot line. */

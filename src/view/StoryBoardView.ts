@@ -13,10 +13,15 @@ export const STORY_BOARD_VIEW = "story-planner-board";
 /** What is being dragged. */
 type Dragged = { kind: "card" | "plotLine" | "chapter"; id: string };
 
+/** Where a drop lands relative to its target. */
+type DropPlace = "before" | "after" | "on";
+
 interface DropTargetSpec {
   accepts: Dragged["kind"];
   axis: "slot" | "lane" | null;
-  onDrop: (after: boolean) => void;
+  /** With an axis, the middle half of the target means "on" rather than before or after. */
+  middle: boolean;
+  onDrop: (place: DropPlace) => void;
 }
 
 /** Pixels the pointer must move before a press becomes a drag. */
@@ -293,8 +298,10 @@ export class StoryBoardView extends TextFileView {
           ).open();
         });
         this.makeDraggable(el, { kind: "plotLine", id: item.plotLineId });
-        this.makeDropTarget(el, "plotLine", "lane", (after) =>
-          this.mutate((s) => moveInList(s.plotLines, this.dragged!.id, neighbour(s.plotLines, item.plotLineId, after))),
+        this.makeDropTarget(el, "plotLine", "lane", (place) =>
+          this.mutate((s) =>
+            moveInList(s.plotLines, this.dragged!.id, neighbour(s.plotLines, item.plotLineId, place === "after")),
+          ),
         );
         return el;
       }
@@ -314,8 +321,8 @@ export class StoryBoardView extends TextFileView {
             ).open();
           });
           this.makeDraggable(el, { kind: "chapter", id: chapter.id });
-          this.makeDropTarget(el, "chapter", "slot", (after) =>
-            this.mutate((s) => moveInList(s.chapters, this.dragged!.id, neighbour(s.chapters, chapter.id, after))),
+          this.makeDropTarget(el, "chapter", "slot", (place) =>
+            this.mutate((s) => moveInList(s.chapters, this.dragged!.id, neighbour(s.chapters, chapter.id, place === "after"))),
           );
         } else {
           el.addClass("is-off-page");
@@ -341,11 +348,12 @@ export class StoryBoardView extends TextFileView {
       }
 
       case "empty": {
-        // Empty space in a plot line, beside a scene in another plot line:
-        // the dropped card goes before or after that scene, in this plot line.
+        // Empty space in a plot line, in the row of a scene in another plot
+        // line: the middle puts the dropped card in that row, beside the scene;
+        // the edges put it in a new row just before or after.
         const el = grid.createDiv({ cls: "story-planner-cell" });
         const card = story.cards[item.cardId]!;
-        this.makeCardDropTarget(el, card, item.plotLineId);
+        this.makeCardDropTarget(el, card, item.plotLineId, true);
         return el;
       }
 
@@ -403,7 +411,7 @@ export class StoryBoardView extends TextFileView {
       const startY = e.clientY;
       let ghost: HTMLElement | null = null;
       let target: { el: HTMLElement; spec: DropTargetSpec } | null = null;
-      let after = false;
+      let place: DropPlace = "on";
 
       const clearMark = () => target?.el.removeClass("is-drop-target", "is-drop-before", "is-drop-after");
 
@@ -422,8 +430,8 @@ export class StoryBoardView extends TextFileView {
         clearMark();
         target = this.dropTargetAt(ev.clientX, ev.clientY, dragged.kind);
         if (target) {
-          after = this.isAfter(ev, target.el, target.spec.axis);
-          target.el.addClass(target.spec.axis ? (after ? "is-drop-after" : "is-drop-before") : "is-drop-target");
+          place = this.dropPlace(ev, target.el, target.spec);
+          target.el.addClass(place === "on" ? "is-drop-target" : place === "after" ? "is-drop-after" : "is-drop-before");
         }
       };
 
@@ -440,7 +448,7 @@ export class StoryBoardView extends TextFileView {
           // The click that follows a drag must not open the card editor.
           this.suppressClick = true;
           window.setTimeout(() => (this.suppressClick = false), 0);
-          if (drop && target) target.spec.onDrop(after);
+          if (drop && target) target.spec.onDrop(place);
         }
         this.dragged = null;
       };
@@ -471,9 +479,10 @@ export class StoryBoardView extends TextFileView {
     el: HTMLElement,
     accepts: Dragged["kind"],
     axis: "slot" | "lane" | null,
-    onDrop: (after: boolean) => void,
+    onDrop: (place: DropPlace) => void,
+    middle = false,
   ): void {
-    this.dropTargets.set(el, { accepts, axis, onDrop });
+    this.dropTargets.set(el, { accepts, axis, middle, onDrop });
   }
 
   private dropTargetAt(x: number, y: number, kind: Dragged["kind"]): { el: HTMLElement; spec: DropTargetSpec } | null {
@@ -491,26 +500,36 @@ export class StoryBoardView extends TextFileView {
     return null;
   }
 
-  private isAfter(e: PointerEvent, el: HTMLElement, axis: "slot" | "lane" | null): boolean {
-    if (!axis) return false;
+  private dropPlace(e: PointerEvent, el: HTMLElement, spec: DropTargetSpec): DropPlace {
+    if (!spec.axis) return "on";
     const rect = el.getBoundingClientRect();
-    const alongY = (axis === "slot") === (this.orientation === "vertical");
-    return alongY ? e.clientY > rect.top + rect.height / 2 : e.clientX > rect.left + rect.width / 2;
+    const alongY = (spec.axis === "slot") === (this.orientation === "vertical");
+    // Fraction of the way along the axis, from 0 at the start to 1 at the end.
+    const t = alongY ? (e.clientY - rect.top) / rect.height : (e.clientX - rect.left) / rect.width;
+    if (spec.middle && t > 0.25 && t < 0.75) return "on";
+    return t < 0.5 ? "before" : "after";
   }
 
-  /** A card (or echo) as a drop target: the dropped card goes before or after it, in the target's plot line. */
-  private makeCardDropTarget(el: HTMLElement, target: Card, plotLine: string): void {
-    this.makeDropTarget(el, "card", "slot", (after) =>
-      this.mutate((s) => {
-        const draggedId = this.dragged!.id;
-        let beforeCardId: string | null = target.id;
-        if (after) {
-          const siblings = chapterCards(s, target.chapter).filter((c) => c.id !== draggedId);
-          const index = siblings.findIndex((c) => c.id === target.id);
-          beforeCardId = siblings[index + 1]?.id ?? null;
-        }
-        return moveCard(s, draggedId, { chapter: target.chapter, plotLine, beforeCardId });
-      }),
+  /**
+   * A card, echo or empty cell as a drop target for cards: the dropped card
+   * goes into a new row before or after the target's row, in `plotLine`. An
+   * empty cell (`beside`) also takes drops in its middle, which put the card
+   * in the target's row.
+   */
+  private makeCardDropTarget(el: HTMLElement, target: Card, plotLine: string, beside = false): void {
+    this.makeDropTarget(
+      el,
+      "card",
+      "slot",
+      (place) =>
+        this.mutate((s) =>
+          moveCard(s, this.dragged!.id, {
+            chapter: target.chapter,
+            plotLine,
+            ...(place === "on" ? { besideCardId: target.id } : place === "after" ? { afterCardId: target.id } : { beforeCardId: target.id }),
+          }),
+        ),
+      beside,
     );
   }
 }

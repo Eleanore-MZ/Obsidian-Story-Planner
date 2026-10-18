@@ -82,6 +82,23 @@ describe("text that could break the note", () => {
   });
 });
 
+describe("scenes that share a row", () => {
+  it("lists them left to right by plot line in the outline, and keeps the shared order", () => {
+    const story = createEmptyStory("Parallel");
+    story.plotLines.push({ id: "p2", name: "Second", color: "#d9534f" });
+    const [first] = story.plotLines;
+    const chapter = story.chapters[0]!.id;
+    // Ids chosen so that sorting by id alone would give the wrong order.
+    story.cards.a = { ...createCard({ title: "Right column", plotLine: "p2", chapter, order: 1 }), id: "a" };
+    story.cards.b = { ...createCard({ title: "Left column", plotLine: first!.id, chapter, order: 1 }), id: "b" };
+    const outline = renderOutline(story);
+    expect(outline.indexOf("Left column")).toBeLessThan(outline.indexOf("Right column"));
+    const parsed = parseOk(serializeStory(story));
+    expect(parsed.story.cards.a!.order).toBe(1);
+    expect(parsed.story.cards.b!.order).toBe(1);
+  });
+});
+
 describe("damaged or unusual notes", () => {
   it("refuses notes that are not stories", () => {
     expect(parseStory("# Just a note").ok).toBe(false);

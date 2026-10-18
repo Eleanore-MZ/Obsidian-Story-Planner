@@ -78,4 +78,19 @@ describe("board layout", () => {
     expect(empties).toHaveLength(3);
     expect(empties.every((p) => p.item.kind === "empty" && story.cards[p.item.cardId])).toBe(true);
   });
+
+  it("puts cards that share an order on one row, and splits them if they would need the same cell", () => {
+    const { story, first, second } = storyWithTwoPlotLines();
+    const rowOf = (layout: ReturnType<typeof computeBoardLayout>, id: string) =>
+      layout.items.find((p) => p.item.kind === "card" && p.item.cardId === id)!.row;
+    // "First" has an echo in p2, where "Second" lives, so they cannot share a row.
+    second.order = first.order;
+    let layout = computeBoardLayout(story, "vertical");
+    expect(rowOf(layout, second.id)).toBe(rowOf(layout, first.id) + 1);
+    // Without the echo they sit side by side.
+    first.alsoIn = [];
+    layout = computeBoardLayout(story, "vertical");
+    expect(rowOf(layout, second.id)).toBe(rowOf(layout, first.id));
+    expect(layout.items.filter((p) => p.row === rowOf(layout, first.id) && p.item.kind === "empty")).toHaveLength(0);
+  });
 });

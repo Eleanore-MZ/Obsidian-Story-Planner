@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createCard, createEmptyStory } from "../src/model/defaults";
 import { History } from "../src/model/history";
-import { chapterCards, moveCard, moveInList } from "../src/model/moves";
+import { chapterCards, chapterRows, moveCard, moveInList } from "../src/model/moves";
 import { Story } from "../src/model/types";
 
 const OLD = "2026-01-01T00:00:00.000Z";
@@ -28,6 +28,8 @@ function story(): Story {
 }
 
 const ids = (s: Story, chapter: string | null) => chapterCards(s, chapter).map((c) => c.id);
+const rows = (s: Story, chapter: string | null) =>
+  chapterRows(s, chapter).map((row) => row.map((c) => c.id).join("+")).join(" ");
 
 describe("moveCard", () => {
   it("reorders within a chapter", () => {
@@ -82,6 +84,50 @@ describe("moveCard", () => {
     expect(moveCard(s, "a", { chapter: "c1", plotLine: "p1", beforeCardId: "b" }, NOW)).toBe(false);
     expect(moveCard(s, "a", { chapter: "c1", plotLine: "p1", beforeCardId: "a" }, NOW)).toBe(false);
     expect(s.cards.a!.modified).toBe(OLD);
+  });
+});
+
+describe("moveCard with shared rows", () => {
+  it("puts a card beside another, in the same row", () => {
+    const s = story();
+    expect(moveCard(s, "d", { chapter: "c1", plotLine: "p2", besideCardId: "b" }, NOW)).toBe(true);
+    expect(rows(s, "c1")).toBe("a b+d c");
+    expect(s.cards.d!.order).toBe(s.cards.b!.order);
+    expect(s.cards.d!.plotLine).toBe("p2");
+  });
+
+  it("places before and after a whole row", () => {
+    const s = story();
+    moveCard(s, "d", { chapter: "c1", plotLine: "p2", besideCardId: "b" }, NOW);
+    moveCard(s, "off", { chapter: "c1", plotLine: "p1", afterCardId: "d" }, NOW);
+    expect(rows(s, "c1")).toBe("a b+d off c");
+    moveCard(s, "c", { chapter: "c1", plotLine: "p1", beforeCardId: "d" }, NOW);
+    expect(rows(s, "c1")).toBe("a c b+d off");
+  });
+
+  it("takes a card out of a shared row into its own", () => {
+    const s = story();
+    moveCard(s, "d", { chapter: "c1", plotLine: "p2", besideCardId: "b" }, NOW);
+    moveCard(s, "d", { chapter: "c1", plotLine: "p2", afterCardId: "b" }, NOW);
+    expect(rows(s, "c1")).toBe("a b d c");
+    expect(chapterCards(s, "c1").map((c) => c.order)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("changes only the plot line when dropped beside itself", () => {
+    const s = story();
+    expect(moveCard(s, "b", { chapter: "c1", plotLine: "p2", besideCardId: "b" }, NOW)).toBe(true);
+    expect(rows(s, "c1")).toBe("a b c");
+    expect(s.cards.b!.plotLine).toBe("p2");
+    expect(s.cards.a!.modified).toBe(OLD);
+  });
+
+  it("keeps shared rows together when renumbering the chapter a card left", () => {
+    const s = story();
+    moveCard(s, "d", { chapter: "c1", plotLine: "p2", besideCardId: "c" }, NOW);
+    moveCard(s, "a", { chapter: "c2", plotLine: "p1" }, NOW);
+    expect(rows(s, "c1")).toBe("b c+d");
+    expect(s.cards.c!.order).toBe(2);
+    expect(s.cards.d!.order).toBe(2);
   });
 });
 

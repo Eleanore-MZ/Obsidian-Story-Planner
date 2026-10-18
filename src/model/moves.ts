@@ -3,14 +3,20 @@ import { Card, Id, Story } from "./types";
 // Pure edits behind drag and drop. They change the story in place, keep scene
 // orders as 1, 2, 3, ... within each chapter, and stamp every card whose
 // position changed, so a sync conflict keeps the most recent arrangement.
+// Cards that share an order share a row on the board: scenes in different plot
+// lines that happen at the same point of the book.
 
 export interface CardTarget {
   /** Destination chapter; null for the off-page group. */
   chapter: Id | null;
   /** Destination plot line (the card's new primary plot line). */
   plotLine: Id;
-  /** Place the card just before this card; null or omitted puts it last. */
+  /** Place the card in a new row just before this card's row; null or omitted puts it last. */
   beforeCardId?: Id | null;
+  /** Place the card in a new row just after this card's row. */
+  afterCardId?: Id | null;
+  /** Place the card in this card's row, beside it. */
+  besideCardId?: Id | null;
 }
 
 /** Cards of one chapter (or the off-page group) in scene order. */
@@ -21,10 +27,21 @@ export function chapterCards(story: Story, chapter: Id | null): Card[] {
     .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 }
 
+/** Rows of one chapter (or the off-page group): cards that share an order, in scene order. */
+export function chapterRows(story: Story, chapter: Id | null): Card[][] {
+  const rows: Card[][] = [];
+  for (const card of chapterCards(story, chapter)) {
+    const last = rows[rows.length - 1];
+    if (last && last[0]!.order === card.order) last.push(card);
+    else rows.push([card]);
+  }
+  return rows;
+}
+
 /** Moves a card to a new chapter, plot line and scene position. Returns false if nothing changed. */
 export function moveCard(story: Story, cardId: Id, target: CardTarget, now = new Date().toISOString()): boolean {
   const card = story.cards[cardId];
-  if (!card || target.beforeCardId === cardId) return false;
+  if (!card) return false;
 
   const sourceChapter = card.chapter;
   const before = summarize(story);
@@ -35,15 +52,25 @@ export function moveCard(story: Story, cardId: Id, target: CardTarget, now = new
     card.plotLine = target.plotLine;
   }
 
-  const siblings = chapterCards(story, target.chapter).filter((c) => c.id !== cardId);
-  let index = target.beforeCardId ? siblings.findIndex((c) => c.id === target.beforeCardId) : -1;
-  if (index === -1) index = siblings.length;
-  siblings.splice(index, 0, card);
+  // Find the reference row while the card is still in place, so a drop next
+  // to the card itself (for example to change only its plot line) keeps its row.
+  const rows = chapterRows(story, target.chapter);
+  const relative = target.besideCardId ?? target.beforeCardId ?? target.afterCardId ?? null;
+  const rowIndex = relative ? rows.findIndex((row) => row.some((c) => c.id === relative)) : -1;
+  for (const row of rows) {
+    const i = row.findIndex((c) => c.id === cardId);
+    if (i !== -1) row.splice(i, 1);
+  }
+
+  if (rowIndex === -1) rows.push([card]);
+  else if (target.besideCardId) rows[rowIndex]!.push(card);
+  else if (target.beforeCardId) rows.splice(rowIndex, 0, [card]);
+  else rows.splice(rowIndex + 1, 0, [card]);
   card.chapter = target.chapter;
-  renumber(siblings);
+  renumber(rows);
 
   if (sourceChapter !== target.chapter) {
-    renumber(chapterCards(story, sourceChapter));
+    renumber(chapterRows(story, sourceChapter));
   }
 
   // Stamp every card whose chapter, plot line or order changed.
@@ -70,8 +97,14 @@ export function moveInList<T extends { id: Id }>(list: T[], id: Id, beforeId: Id
   return list.map((x) => x.id).join("\n") !== original;
 }
 
-function renumber(cards: Card[]): void {
-  cards.forEach((c, i) => (c.order = i + 1));
+/** Numbers rows 1, 2, 3, ...; every card in a row gets its row's number. Empty rows disappear. */
+function renumber(rows: Card[][]): void {
+  let order = 0;
+  for (const row of rows) {
+    if (row.length === 0) continue;
+    order++;
+    for (const card of row) card.order = order;
+  }
 }
 
 function summarize(story: Story): Map<Id, string> {

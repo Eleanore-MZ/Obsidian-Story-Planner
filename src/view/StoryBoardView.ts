@@ -289,9 +289,9 @@ export class StoryBoardView extends TextFileView {
     const root = this.headerEl;
     this.dropTargets.clear();
     root.empty();
-    this.boardEl.empty();
 
     if (this.loadError || !this.story) {
+      this.boardEl.empty();
       this.panel.show({ cards: {} } as Story, null);
       const box = root.createDiv({ cls: "story-planner-error" });
       box.createEl("h3", { text: "This story could not be opened" });
@@ -334,14 +334,30 @@ export class StoryBoardView extends TextFileView {
 
     // Keep the panel on the selected card; it closes if the card is gone (after an undo, say).
     this.panel.show(story, this.panel.selected, typing);
+    this.renderBoard(story);
+  }
 
+  /**
+   * Draws the board off-screen and swaps it in, so it is never empty for a
+   * moment, and keeps the scroll position: an edit must not move the view.
+   */
+  private renderBoard(story: Story): void {
+    const { scrollTop, scrollLeft } = this.boardEl;
+    const content = document.createElement("div");
+    this.fillBoard(content, story);
+    this.boardEl.replaceChildren(...Array.from(content.childNodes));
+    this.boardEl.scrollTop = scrollTop;
+    this.boardEl.scrollLeft = scrollLeft;
+  }
+
+  private fillBoard(parent: HTMLElement, story: Story): void {
     if (story.plotLines.length === 0) {
-      this.boardEl.createDiv({ cls: "story-planner-empty", text: "Add a plot line to start planning." });
+      parent.createDiv({ cls: "story-planner-empty", text: "Add a plot line to start planning." });
       return;
     }
 
     const layout = computeBoardLayout(story, this.orientation);
-    const grid = this.boardEl.createDiv({ cls: `story-planner-grid is-${this.orientation}` });
+    const grid = parent.createDiv({ cls: `story-planner-grid is-${this.orientation}` });
     grid.style.gridTemplateRows = `repeat(${layout.rows}, auto)`;
     grid.style.gridTemplateColumns =
       this.orientation === "vertical"

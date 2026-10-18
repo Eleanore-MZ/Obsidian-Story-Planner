@@ -77,10 +77,12 @@ export class CardPanel {
     const active = document.activeElement;
     const focused = sameCard && active instanceof HTMLElement && this.el.contains(active) ? active.dataset.field : undefined;
     const selection = isTextField(active) ? [(active as HTMLInputElement).selectionStart, (active as HTMLInputElement).selectionEnd] : null;
+    const scroll = sameCard ? this.el.scrollTop : 0;
     this.build();
+    this.el.scrollTop = scroll;
     if (focused) {
       const again = this.el.querySelector<HTMLInputElement>(`[data-field="${CSS.escape(focused)}"]`);
-      again?.focus();
+      again?.focus({ preventScroll: true });
       if (again && selection) again.setSelectionRange(selection[0] ?? null, selection[1] ?? null);
     }
   }

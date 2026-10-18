@@ -1,13 +1,11 @@
 import { createCard, newId } from "./defaults";
 import { CardTarget, chapterCards, moveCard } from "./moves";
+import { freeColor } from "./setup";
 import { Card, CardCharacter, CharacterRole, Id, Story } from "./types";
 
 // Pure edits behind the card editor. Like moves.ts they change the story in
 // place and stamp `modified` on the card they touch, and they stay free of
 // Obsidian so they can be unit tested.
-
-/** Colours given to new plot lines and characters, in turn. */
-export const PALETTE = ["#4a90d9", "#d9534f", "#5cb85c", "#f0ad4e", "#9b59b6", "#1abc9c", "#e67e22", "#7f8c8d"];
 
 /** Creates a card at a board position and returns its id. Without a position it goes last in the chapter. */
 export function addCardAt(story: Story, target: CardTarget, title = "New card", now = new Date().toISOString()): Id {
@@ -63,7 +61,7 @@ export function addCharacterByName(
   if (!card || !trimmed) return false;
   let character = story.characters.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
   if (!character) {
-    character = { id: newId("x"), name: trimmed, color: PALETTE[story.characters.length % PALETTE.length]! };
+    character = { id: newId("x"), name: trimmed, color: freeColor(story.characters) };
     story.characters.push(character);
   }
   if (card.characters.some((c) => c.id === character!.id)) return false;

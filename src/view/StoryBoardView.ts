@@ -1,14 +1,15 @@
 import { Notice, Scope, TextFileView, WorkspaceLeaf } from "obsidian";
 import type StoryPlannerPlugin from "../main";
-import { newId } from "../model/defaults";
-import { addCardAt, PALETTE } from "../model/edits";
+import { addCardAt } from "../model/edits";
 import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { Card, Id, Story } from "../model/types";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
+import { addChapter, addPlotLine } from "../model/setup";
 import { CardPanel } from "./CardPanel";
+import { SetupPanel } from "./SetupPanel";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
-import { TextPromptModal } from "./modals";
+import { ChoiceModal, TextPromptModal } from "./modals";
 
 export const STORY_BOARD_VIEW = "story-planner-board";
 
@@ -57,6 +58,8 @@ export class StoryBoardView extends TextFileView {
   private bodyEl: HTMLElement;
   private boardEl: HTMLElement;
   private panel: CardPanel;
+  private setup: SetupPanel;
+  private setupButton: HTMLButtonElement | null = null;
 
   constructor(leaf: WorkspaceLeaf, private plugin: StoryPlannerPlugin) {
     super(leaf);
@@ -74,8 +77,8 @@ export class StoryBoardView extends TextFileView {
       return false;
     });
     this.scope.register([], "Escape", () => {
-      if (!this.panel.selected) return true;
-      this.select(null);
+      if (!this.panel.selected && !this.setup.isOpen) return true;
+      this.closePanels();
       return false;
     });
 
@@ -83,11 +86,11 @@ export class StoryBoardView extends TextFileView {
     this.headerEl = this.contentEl.createDiv({ cls: "story-planner-header" });
     this.bodyEl = this.contentEl.createDiv({ cls: "story-planner-body" });
     this.boardEl = this.bodyEl.createDiv({ cls: "story-planner-board" });
-    // A single click on empty board space closes the card panel. (A double
+    // A single click on empty board space closes the side panel. (A double
     // click on an empty cell then goes on to create a card there.)
     this.boardEl.addEventListener("click", (e) => {
       const target = e.target as HTMLElement;
-      if (target === this.boardEl || target.matches(EMPTY_SPACE)) this.select(null);
+      if (target === this.boardEl || target.matches(EMPTY_SPACE)) this.closePanels();
     });
     this.panel = new CardPanel(this.bodyEl, {
       edit: (change, coalesce) => this.mutate(change, coalesce),
@@ -96,6 +99,12 @@ export class StoryBoardView extends TextFileView {
         this.select(null);
         new Notice(`Deleted "${title}". Press Ctrl+Z to undo.`);
       },
+    });
+    this.setup = new SetupPanel(this.bodyEl, {
+      edit: (change, coalesce) => this.mutate(change, coalesce),
+      close: () => this.closePanels(),
+      choose: (choice) => new ChoiceModal(this.app, choice).open(),
+      notice: (message) => new Notice(message),
     });
     this.contentEl.addEventListener(
       "click",
@@ -170,6 +179,7 @@ export class StoryBoardView extends TextFileView {
     this.headerEl.empty();
     this.boardEl.empty();
     this.panel.show({ cards: {} } as Story, null);
+    this.setup.setOpen(false, null);
   }
 
   // -------------------------------------------------------------------------
@@ -231,10 +241,24 @@ export class StoryBoardView extends TextFileView {
   /** Selects a card and shows it in the side panel; null closes the panel. */
   private select(cardId: Id | null): void {
     if (!this.story) return;
+    // The card panel and the setup panel share the side area.
+    if (cardId) this.setup.setOpen(false, this.story);
+    this.setupButton?.toggleClass("is-active", this.setup.isOpen);
     this.panel.show(this.story, cardId);
     for (const el of Array.from(this.boardEl.querySelectorAll<HTMLElement>("[data-card-id]"))) {
       el.classList.toggle("is-selected", el.dataset.cardId === this.panel.selected);
     }
+  }
+
+  private closePanels(): void {
+    this.setup.setOpen(false, this.story);
+    this.select(null);
+  }
+
+  private toggleSetup(): void {
+    if (!this.story) return;
+    this.setup.setOpen(!this.setup.isOpen, this.story);
+    this.select(null);
   }
 
   /** Replaces a card's title with a text box, for renaming it in place. */
@@ -284,6 +308,19 @@ export class StoryBoardView extends TextFileView {
     return saved ?? this.plugin.settings.defaultOrientation;
   }
 
+  private get compact(): boolean {
+    const path = this.file?.path;
+    return (path ? this.plugin.settings.viewState[path]?.compact : undefined) ?? false;
+  }
+
+  private toggleCompact(): void {
+    const path = this.file?.path;
+    if (!path) return;
+    this.plugin.settings.viewState[path] = { ...this.plugin.settings.viewState[path], compact: !this.compact };
+    void this.plugin.saveSettings();
+    this.render();
+  }
+
   private toggleOrientation(): void {
     const path = this.file?.path;
     if (!path) return;
@@ -302,6 +339,7 @@ export class StoryBoardView extends TextFileView {
     if (this.loadError || !this.story) {
       this.boardEl.empty();
       this.panel.show({ cards: {} } as Story, null);
+      this.setup.setOpen(false, null);
       const box = root.createDiv({ cls: "story-planner-error" });
       box.createEl("h3", { text: "This story could not be opened" });
       box.createEl("p", { text: this.loadError ?? "Unknown error." });
@@ -327,22 +365,23 @@ export class StoryBoardView extends TextFileView {
     this.button(toolbar, "Undo", () => this.undo(), !this.history.canUndo);
     this.button(toolbar, "Redo", () => this.redo(), !this.history.canRedo);
     this.button(toolbar, "Add plot line", () =>
-      new TextPromptModal(this.app, "New plot line", "", (name) =>
-        this.mutate((s) => {
-          s.plotLines.push({ id: newId("p"), name, color: PALETTE[s.plotLines.length % PALETTE.length]! });
-        }),
-      ).open(),
+      new TextPromptModal(this.app, "New plot line", "", (name) => this.mutate((s) => void addPlotLine(s, name))).open(),
     );
     this.button(toolbar, "Add chapter", () =>
       new TextPromptModal(this.app, "New chapter", `Chapter ${story.chapters.length + 1}`, (name) =>
-        this.mutate((s) => {
-          s.chapters.push({ id: newId("c"), name });
-        }),
+        this.mutate((s) => void addChapter(s, name)),
       ).open(),
     );
+    const compact = this.button(toolbar, "Compact", () => this.toggleCompact());
+    compact.toggleClass("is-active", this.compact);
+    compact.setAttr("aria-pressed", String(this.compact));
+    compact.setAttr("title", "Stack each plot line's cards from the top of the chapter");
+    this.setupButton = this.button(toolbar, "Story setup", () => this.toggleSetup());
+    this.setupButton.toggleClass("is-active", this.setup.isOpen);
 
     // Keep the panel on the selected card; it closes if the card is gone (after an undo, say).
     this.panel.show(story, this.panel.selected, typing);
+    this.setup.refresh(story, typing);
     this.renderBoard(story);
   }
 
@@ -365,7 +404,7 @@ export class StoryBoardView extends TextFileView {
       return;
     }
 
-    const layout = computeBoardLayout(story, this.orientation);
+    const layout = computeBoardLayout(story, this.orientation, this.compact);
     const grid = parent.createDiv({ cls: `story-planner-grid is-${this.orientation}` });
     grid.style.gridTemplateRows = `repeat(${layout.rows}, auto)`;
     grid.style.gridTemplateColumns =
@@ -510,10 +549,11 @@ export class StoryBoardView extends TextFileView {
     }
   }
 
-  private button(parent: HTMLElement, text: string, onClick: () => void, disabled = false): void {
+  private button(parent: HTMLElement, text: string, onClick: () => void, disabled = false): HTMLButtonElement {
     const el = parent.createEl("button", { text });
     el.disabled = disabled;
     el.addEventListener("click", onClick);
+    return el;
   }
 
   // -------------------------------------------------------------------------

@@ -5,6 +5,8 @@ import { Orientation } from "./view/layout";
 /** Per-story view preferences. Kept in data.json so viewing never changes the story note. */
 export interface StoryViewState {
   orientation?: Orientation;
+  /** Compact mode: each plot line's cards stack from the top of the chapter. */
+  compact?: boolean;
 }
 
 export interface StoryPlannerSettings {

@@ -408,3 +408,55 @@
 .story-planner-panel-footer {
   margin-top: var(--size-4-6);
 }
+
+/* Toolbar toggles */
+
+.story-planner-toolbar button.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+/* Story setup panel */
+
+.story-planner-setup-row,
+.story-planner-setup-add {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  margin-bottom: var(--size-4-1);
+}
+
+.story-planner-setup-row input[type="text"],
+.story-planner-setup-add input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+.story-planner-setup-color {
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.story-planner-setup-count {
+  flex: none;
+  min-width: 1.5rem;
+  text-align: right;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+.story-planner-setup-button {
+  flex: none;
+  padding: var(--size-2-1) var(--size-4-1);
+}
+
+.story-planner-setup-button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}

@@ -93,4 +93,19 @@ describe("board layout", () => {
     expect(rowOf(layout, second.id)).toBe(rowOf(layout, first.id));
     expect(layout.items.filter((p) => p.row === rowOf(layout, first.id) && p.item.kind === "empty")).toHaveLength(0);
   });
+
+  it("stacks each plot line from the top in compact mode, with drop space below", () => {
+    const { story, first, second } = storyWithTwoPlotLines();
+    const layout = computeBoardLayout(story, "vertical", true);
+    const at = (kind: string, id: string) =>
+      layout.items.find((p) => p.item.kind === kind && "cardId" in p.item && p.item.cardId === id)!;
+    // "First" is in p1 with an echo in p2; "Second" is in p2 below that echo.
+    expect(at("card", first.id).row).toBe(at("echo", first.id).row);
+    expect(at("card", second.id).row).toBe(at("echo", first.id).row + 1);
+    expect(layout.items.some((p) => p.item.kind === "empty")).toBe(false);
+    const ends = layout.items.filter((p) => p.item.kind === "chapter-end");
+    // p1 has one card under a two-high stack: two drop slots; p2 has one.
+    expect(ends.filter((p) => p.column === 2)).toHaveLength(2);
+    expect(ends.filter((p) => p.column === 3)).toHaveLength(1);
+  });
 });

@@ -41,3 +41,40 @@ export class TextPromptModal extends Modal {
     this.contentEl.empty();
   }
 }
+
+/** Offers a few options in a dropdown, for example where a deleted chapter's scenes should go. */
+export class ChoiceModal extends Modal {
+  private value: string;
+
+  constructor(
+    app: App,
+    private choice: { title: string; message: string; options: { value: string; label: string }[]; confirm: string; onChoose: (value: string) => void },
+  ) {
+    super(app);
+    this.value = choice.options[0]?.value ?? "";
+  }
+
+  onOpen(): void {
+    this.titleEl.setText(this.choice.title);
+    this.contentEl.createEl("p", { text: this.choice.message });
+    new Setting(this.contentEl).addDropdown((d) => {
+      for (const option of this.choice.options) d.addOption(option.value, option.label);
+      d.setValue(this.value).onChange((v) => (this.value = v));
+    });
+    new Setting(this.contentEl)
+      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((b) =>
+        b
+          .setButtonText(this.choice.confirm)
+          .setWarning()
+          .onClick(() => {
+            this.close();
+            this.choice.onChoose(this.value);
+          }),
+      );
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}

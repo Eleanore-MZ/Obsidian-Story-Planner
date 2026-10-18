@@ -26,6 +26,9 @@ interface DropTargetSpec {
   onDrop: (place: DropPlace) => void;
 }
 
+/** Board elements that count as empty space: clicking them clears the selection. */
+const EMPTY_SPACE = ".story-planner-grid, .story-planner-corner, .story-planner-cell, .story-planner-chapter-end";
+
 /** Pixels the pointer must move before a press becomes a drag. */
 const DRAG_THRESHOLD = 5;
 
@@ -80,6 +83,12 @@ export class StoryBoardView extends TextFileView {
     this.headerEl = this.contentEl.createDiv({ cls: "story-planner-header" });
     this.bodyEl = this.contentEl.createDiv({ cls: "story-planner-body" });
     this.boardEl = this.bodyEl.createDiv({ cls: "story-planner-board" });
+    // A single click on empty board space closes the card panel. (A double
+    // click on an empty cell then goes on to create a card there.)
+    this.boardEl.addEventListener("click", (e) => {
+      const target = e.target as HTMLElement;
+      if (target === this.boardEl || target.matches(EMPTY_SPACE)) this.select(null);
+    });
     this.panel = new CardPanel(this.bodyEl, {
       edit: (change, coalesce) => this.mutate(change, coalesce),
       close: () => this.select(null),
@@ -363,6 +372,10 @@ export class StoryBoardView extends TextFileView {
       this.orientation === "vertical"
         ? `var(--story-planner-header-size) repeat(${layout.columns - 1}, minmax(var(--story-planner-card-width), 1fr))`
         : `var(--story-planner-header-size) repeat(${layout.columns - 1}, var(--story-planner-card-width))`;
+    if (this.orientation === "vertical") {
+      const lanes = layout.columns - 1;
+      grid.style.minWidth = `calc(var(--story-planner-header-size) + ${lanes} * (var(--story-planner-card-width) + var(--size-4-2)))`;
+    }
 
     for (const placed of layout.items) {
       const el = this.renderItem(grid, placed.item, story);

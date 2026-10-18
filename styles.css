@@ -26,7 +26,6 @@
   flex: 1;
   min-width: 0;
   overflow: auto;
-  padding: 0 var(--size-4-3) var(--size-4-3);
 }
 
 .story-planner-toolbar {
@@ -60,10 +59,42 @@
   text-align: center;
 }
 
+/* A board with more plot lines than fit scrolls sideways (Shift + mouse
+   wheel, or the scrollbar at the bottom); the view sets the grid's minimum
+   width so its box covers every column. */
 .story-planner-grid {
   display: grid;
   gap: var(--size-4-2);
   align-items: start;
+  /* Margin rather than padding on the board, so the sticky headers meet the
+     board's edge and nothing scrolls past beside them. */
+  margin: 0 var(--size-4-3) var(--size-4-3);
+}
+
+/* The header row and column stay in view while the board scrolls. */
+.story-planner-corner {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  align-self: stretch;
+  background: var(--background-primary);
+}
+
+.story-planner-grid.is-vertical .story-planner-chapter-header {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--background-primary);
+  /* Also covers the gap to the first plot line, so cards never show through. */
+  box-shadow: var(--size-4-2) 0 0 var(--background-primary);
+}
+
+.story-planner-grid.is-horizontal .story-planner-chapter-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--background-primary);
 }
 
 .story-planner-lane-header {

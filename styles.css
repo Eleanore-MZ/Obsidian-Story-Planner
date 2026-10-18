@@ -556,3 +556,8 @@
 .story-planner-setup-section > input[type="text"] {
   width: 100%;
 }
+
+.story-planner-snapshot-text {
+  flex: 1;
+  min-width: 0;
+}

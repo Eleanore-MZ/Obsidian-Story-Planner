@@ -4,6 +4,7 @@ import type { StoryTab } from "../settings";
 import { addCardAt } from "../model/edits";
 import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
+import { SnapshotInfo } from "../model/snapshots";
 import { Card, Id, Story } from "../model/types";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { addChapter, addPlotLine } from "../model/setup";
@@ -110,6 +111,9 @@ export class StoryBoardView extends TextFileView {
       edit: (change, coalesce) => this.mutate(change, coalesce),
       choose: (choice) => new ChoiceModal(this.app, choice).open(),
       notice: (message) => new Notice(message),
+      snapshot: (reason) => this.takeSnapshot(reason),
+      listSnapshots: () => this.listSnapshots(),
+      restore: (snapshot) => void this.restoreSnapshot(snapshot),
     });
     this.contentEl.addEventListener(
       "click",
@@ -252,6 +256,56 @@ export class StoryBoardView extends TextFileView {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Safety snapshots
+
+  /** Keeps a copy of the story as it is now, before a large destructive edit. */
+  private takeSnapshot(reason: string, text?: string): void {
+    if (!this.plugin.settings.snapshotsEnabled || !this.file) return;
+    const body = text ?? (this.story && !this.loadError ? serializeStory(this.story, this.frontmatter) : null);
+    if (body === null) return;
+    this.plugin.snapshots
+      .take(this.file.path, body, reason)
+      .then(() => this.setup.refresh(this.story))
+      .catch((e) => {
+        console.error("Story Planner: could not save a snapshot", e);
+        new Notice("Story Planner could not save a safety snapshot. See the developer console for details.");
+      });
+  }
+
+  private async listSnapshots(): Promise<SnapshotInfo[]> {
+    return this.file ? this.plugin.snapshots.list(this.file.path) : [];
+  }
+
+  /**
+   * Puts the story back as it was in a snapshot. On a story that opened
+   * normally this is one undoable edit, and the current state is snapshotted
+   * first. On a story that could not be read, the unreadable text is kept as a
+   * snapshot before the note is replaced.
+   */
+  async restoreSnapshot(info: SnapshotInfo): Promise<void> {
+    const snapshot = await this.plugin.snapshots.read(info);
+    const parsed = snapshot ? parseStory(snapshot.text) : null;
+    if (!snapshot || !parsed?.ok) {
+      new Notice("That snapshot could not be read.");
+      return;
+    }
+    const when = new Date(snapshot.takenAt).toLocaleString();
+    if (this.story && !this.loadError) {
+      this.takeSnapshot(`Before restoring the snapshot from ${when}`);
+      this.mutate((story) => {
+        for (const key of Object.keys(story)) delete (story as unknown as Record<string, unknown>)[key];
+        Object.assign(story, parsed.story);
+      });
+      new Notice(`Restored the story as it was on ${when}. Press Ctrl+Z to undo.`);
+    } else {
+      this.takeSnapshot("The note as it was before restoring (it could not be read)", this.data);
+      this.setViewData(snapshot.text, false);
+      this.requestSave();
+      new Notice(`Restored the story as it was on ${when}.`);
+    }
+  }
+
   /** The view tab this story shows: the board, or the story setup page. */
   private get tab(): StoryTab {
     const path = this.file?.path;
@@ -351,6 +405,13 @@ export class StoryBoardView extends TextFileView {
       box.createEl("p", { text: this.loadError ?? "Unknown error." });
       box.createEl("p", {
         text: "The note has not been changed. You can open it as Markdown, or restore an earlier version with File recovery.",
+      });
+      void this.listSnapshots().then((snapshots) => {
+        if (snapshots.length === 0 || !box.isConnected) return;
+        box.createEl("p", { text: `This story also has ${snapshots.length} safety ${snapshots.length === 1 ? "snapshot" : "snapshots"}.` });
+        box.createEl("button", { text: "Restore from a snapshot…", cls: "mod-cta" }).addEventListener("click", () => {
+          void this.plugin.pickSnapshot(this);
+        });
       });
       return;
     }

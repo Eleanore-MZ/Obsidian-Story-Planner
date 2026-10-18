@@ -11,6 +11,7 @@ import {
   mergeCharacters,
   shiftInList,
 } from "../model/setup";
+import { SnapshotInfo } from "../model/snapshots";
 import { Id, Story } from "../model/types";
 
 /** A choice offered before an edit that affects cards, such as deleting a plot line that has cards. */
@@ -29,6 +30,11 @@ export interface SetupPanelHost {
   /** Asks the writer to pick one option, for example where a deleted chapter's scenes should go. */
   choose(choice: Choice): void;
   notice(message: string): void;
+  /** Keeps a safety snapshot of the story before a large destructive edit. */
+  snapshot(reason: string): void;
+  /** This story's safety snapshots, newest first; empty when snapshots are off. */
+  listSnapshots(): Promise<SnapshotInfo[]>;
+  restore(snapshot: SnapshotInfo): void;
 }
 
 const DELETE_CARDS = "\u0000delete";
@@ -89,6 +95,29 @@ export class SetupPanel {
     this.buildPlotLines(story);
     this.buildChapters(story);
     this.buildCharacters(story);
+    this.buildSnapshots();
+  }
+
+  private buildSnapshots(): void {
+    const section = this.section(
+      "Safety snapshots",
+      "A copy of the whole story is kept before large deletions and merges. Restoring one can itself be undone.",
+    );
+    const list = section.createDiv({ cls: "story-planner-snapshots" });
+    void this.host.listSnapshots().then((snapshots) => {
+      if (!list.isConnected) return;
+      if (snapshots.length === 0) {
+        list.createDiv({ cls: "story-planner-panel-hint", text: "No snapshots yet." });
+        return;
+      }
+      for (const snapshot of snapshots) {
+        const row = list.createDiv({ cls: "story-planner-setup-row" });
+        const text = row.createDiv({ cls: "story-planner-snapshot-text" });
+        text.createDiv({ text: snapshot.reason });
+        text.createDiv({ cls: "story-planner-panel-hint", text: new Date(snapshot.takenAt).toLocaleString() });
+        row.createEl("button", { text: "Restore" }).addEventListener("click", () => this.host.restore(snapshot));
+      }
+    });
   }
 
   private buildPlotLines(story: Story): void {
@@ -148,6 +177,7 @@ export class SetupPanel {
       );
       this.iconButton(row, "×", `Delete ${character.name}`, true, () => {
         const used = cardsWithCharacter(story, character.id).length;
+        if (used > 0) this.host.snapshot(`Before deleting character ${character.name}`);
         this.host.edit((s) => deleteCharacter(s, character.id));
         this.host.notice(
           `Deleted ${character.name}${used ? ` from ${used} ${used === 1 ? "card" : "cards"}` : ""}. Press Ctrl+Z to undo.`,
@@ -175,7 +205,10 @@ export class SetupPanel {
         { value: DELETE_CARDS, label: `Delete ${count === 1 ? "the card" : `all ${count} cards`}` },
       ],
       confirm: "Delete plot line",
-      onChoose: (value) => this.host.edit((s) => deletePlotLine(s, id, value === DELETE_CARDS ? null : value)),
+      onChoose: (value) => {
+        this.host.snapshot(`Before deleting plot line ${plotLine.name}`);
+        this.host.edit((s) => deletePlotLine(s, id, value === DELETE_CARDS ? null : value));
+      },
     });
   }
 
@@ -197,7 +230,10 @@ export class SetupPanel {
         { value: DELETE_CARDS, label: `Delete ${count === 1 ? "the scene" : `all ${count} scenes`}` },
       ],
       confirm: "Delete chapter",
-      onChoose: (value) => this.host.edit((s) => deleteChapter(s, id, value === DELETE_CARDS ? null : value)),
+      onChoose: (value) => {
+        this.host.snapshot(`Before deleting chapter ${chapter.name}`);
+        this.host.edit((s) => deleteChapter(s, id, value === DELETE_CARDS ? null : value));
+      },
     });
   }
 
@@ -208,7 +244,10 @@ export class SetupPanel {
       message: `Every card with ${character.name} will have the character you pick instead, and ${character.name} is removed. Use this for duplicates.`,
       options: story.characters.filter((c) => c.id !== id).map((c) => ({ value: c.id, label: `Merge into ${c.name}` })),
       confirm: "Merge",
-      onChoose: (value) => this.host.edit((s) => mergeCharacters(s, id, value)),
+      onChoose: (value) => {
+        this.host.snapshot(`Before merging ${character.name}`);
+        this.host.edit((s) => mergeCharacters(s, id, value));
+      },
     });
   }
 

@@ -20,6 +20,10 @@ export interface StoryPlannerSettings {
   newStoryFolder: string;
   /** Open story notes as boards automatically. */
   autoOpenStories: boolean;
+  /** Keep a safety snapshot of a story before large deletions and merges. */
+  snapshotsEnabled: boolean;
+  /** How many snapshots to keep for each story. */
+  snapshotsPerStory: number;
   /** View state per story, keyed by vault path. */
   viewState: Record<string, StoryViewState>;
 }
@@ -29,6 +33,8 @@ export const DEFAULT_SETTINGS: StoryPlannerSettings = {
   defaultStoryTimeOrientation: "horizontal",
   newStoryFolder: "",
   autoOpenStories: true,
+  snapshotsEnabled: true,
+  snapshotsPerStory: 10,
   viewState: {},
 };
 
@@ -93,6 +99,32 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
           this.plugin.settings.autoOpenStories = value;
           await this.plugin.saveSettings();
         }),
+      );
+
+    new Setting(containerEl)
+      .setName("Safety snapshots")
+      .setDesc(
+        "Before deleting a plot line, chapter or character that cards use, or merging characters, keep a copy of the whole story in the plugin's folder. Restore one from the story's Setup tab or with the \"Restore story from a snapshot\" command.",
+      )
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.snapshotsEnabled).onChange(async (value) => {
+          this.plugin.settings.snapshotsEnabled = value;
+          await this.plugin.saveSettings();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName("Snapshots kept per story")
+      .setDesc("Older snapshots are removed once a story has more than this.")
+      .addSlider((s) =>
+        s
+          .setLimits(1, 50, 1)
+          .setValue(this.plugin.settings.snapshotsPerStory)
+          .setDynamicTooltip()
+          .onChange(async (value) => {
+            this.plugin.settings.snapshotsPerStory = value;
+            await this.plugin.saveSettings();
+          }),
       );
   }
 }

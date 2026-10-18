@@ -142,3 +142,51 @@
 .story-planner-wide-input {
   width: 100%;
 }
+
+/* Drag and drop */
+
+.story-planner-toolbar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.story-planner-card[draggable="true"],
+.story-planner-lane-header[draggable="true"],
+.story-planner-chapter-header[draggable="true"] {
+  cursor: grab;
+}
+
+.story-planner .is-dragging {
+  opacity: 0.4;
+}
+
+.story-planner-chapter-end {
+  min-height: var(--size-4-2);
+  border-radius: var(--radius-s);
+}
+
+.story-planner.is-drag-active .story-planner-chapter-end {
+  min-height: var(--size-4-6);
+  border: 1px dashed var(--background-modifier-border);
+}
+
+.story-planner .is-drop-target {
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent);
+}
+
+.story-planner-grid.is-vertical .is-drop-before {
+  box-shadow: 0 -3px 0 0 var(--interactive-accent);
+}
+
+.story-planner-grid.is-vertical .is-drop-after {
+  box-shadow: 0 3px 0 0 var(--interactive-accent);
+}
+
+.story-planner-grid.is-horizontal .is-drop-before {
+  box-shadow: -3px 0 0 0 var(--interactive-accent);
+}
+
+.story-planner-grid.is-horizontal .is-drop-after {
+  box-shadow: 3px 0 0 0 var(--interactive-accent);
+}

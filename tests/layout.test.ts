@@ -54,4 +54,13 @@ describe("board layout", () => {
     story.cards[offPage.id] = offPage;
     expect(headers()).toHaveLength(2);
   });
+
+  it("ends every chapter with a drop zone in each plot line", () => {
+    const { story, second } = storyWithTwoPlotLines();
+    const layout = computeBoardLayout(story, "vertical");
+    const ends = layout.items.filter((p) => p.item.kind === "chapter-end");
+    expect(ends).toHaveLength(2);
+    const last = layout.items.find((p) => p.item.kind === "card" && p.item.cardId === second.id)!;
+    expect(ends.every((e) => e.row === last.row + 1)).toBe(true);
+  });
 });

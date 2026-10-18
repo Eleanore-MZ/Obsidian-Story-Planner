@@ -2,8 +2,9 @@ import { Card, Story } from "../model/types";
 
 // Pure layout of the plot line board, kept free of Obsidian and the DOM so it
 // can be unit tested. The board is a grid of lanes (plot lines) and slots.
-// Each chapter contributes a header slot followed by one slot per scene, in
-// scene order, so reading along the slots gives the order of the book.
+// Each chapter contributes a header slot, one slot per scene in scene order,
+// and a thin drop-zone slot at its end, so reading along the slots gives the
+// order of the book.
 // Orientation only decides whether lanes are columns or rows.
 
 export type Orientation = "vertical" | "horizontal";
@@ -14,7 +15,9 @@ export type BoardItem =
   | { kind: "chapter-header"; chapterId: string | null }
   | { kind: "card"; cardId: string }
   | { kind: "echo"; cardId: string; plotLineId: string }
-  | { kind: "add-card"; chapterId: string | null; plotLineId: string };
+  | { kind: "add-card"; chapterId: string | null; plotLineId: string }
+  /** Drop zone after a chapter's last scene, so cards can be dropped at the end. */
+  | { kind: "chapter-end"; chapterId: string | null; plotLineId: string };
 
 export interface PlacedItem {
   item: BoardItem;
@@ -70,6 +73,10 @@ export function computeBoardLayout(story: Story, orientation: Orientation): Boar
       }
       slot++;
     }
+    story.plotLines.forEach((p, i) => {
+      items.push({ item: { kind: "chapter-end", chapterId: group.chapterId, plotLineId: p.id }, slot, lane: i + 1 });
+    });
+    slot++;
   }
 
   const vertical = orientation === "vertical";

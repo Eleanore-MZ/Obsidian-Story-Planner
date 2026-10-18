@@ -340,6 +340,15 @@ export class StoryBoardView extends TextFileView {
         return el;
       }
 
+      case "empty": {
+        // Empty space in a plot line, beside a scene in another plot line:
+        // the dropped card goes before or after that scene, in this plot line.
+        const el = grid.createDiv({ cls: "story-planner-cell" });
+        const card = story.cards[item.cardId]!;
+        this.makeCardDropTarget(el, card, item.plotLineId);
+        return el;
+      }
+
       case "chapter-end": {
         const el = grid.createDiv({ cls: "story-planner-chapter-end" });
         this.makeDropTarget(el, "card", null, () =>
@@ -468,9 +477,16 @@ export class StoryBoardView extends TextFileView {
   }
 
   private dropTargetAt(x: number, y: number, kind: Dragged["kind"]): { el: HTMLElement; spec: DropTargetSpec } | null {
-    for (let node = document.elementFromPoint(x, y); node && node !== this.contentEl; node = node.parentElement) {
-      const spec = this.dropTargets.get(node as HTMLElement);
-      if (spec) return spec.accepts === kind ? { el: node as HTMLElement, spec } : null;
+    // The pointer can sit in the gap between grid cells; look a few pixels
+    // around it so there is no dead space between targets.
+    for (const [dx, dy] of GAP_PROBES) {
+      for (let node = document.elementFromPoint(x + dx, y + dy); node && node !== this.contentEl; node = node.parentElement) {
+        const spec = this.dropTargets.get(node as HTMLElement);
+        if (spec) {
+          if (spec.accepts === kind) return { el: node as HTMLElement, spec };
+          break;
+        }
+      }
     }
     return null;
   }
@@ -505,5 +521,13 @@ function neighbour<T extends { id: string }>(list: T[], targetId: string, after:
   const index = list.findIndex((x) => x.id === targetId);
   return list[index + 1]?.id ?? null;
 }
+
+const GAP_PROBES: [number, number][] = [
+  [0, 0],
+  [0, -6],
+  [0, 6],
+  [-6, 0],
+  [6, 0],
+];
 
 const PALETTE = ["#4a90d9", "#d9534f", "#5cb85c", "#f0ad4e", "#9b59b6", "#1abc9c", "#e67e22", "#7f8c8d"];

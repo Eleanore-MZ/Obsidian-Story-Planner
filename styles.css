@@ -160,6 +160,25 @@
   opacity: 0.4;
 }
 
+/* Empty cells, the add-card cells and the chapter-end strips fill their whole
+   grid cell, so a card can be dropped anywhere in a plot line. */
+.story-planner-cell,
+.story-planner-add-card,
+.story-planner-chapter-end {
+  align-self: stretch;
+  justify-self: stretch;
+}
+
+.story-planner-cell {
+  min-height: var(--size-4-6);
+  border-radius: var(--radius-m);
+}
+
+.story-planner.is-drag-active .story-planner-cell {
+  outline: 1px dashed var(--background-modifier-border);
+  outline-offset: -1px;
+}
+
 .story-planner-chapter-end {
   min-height: var(--size-4-2);
   border-radius: var(--radius-s);

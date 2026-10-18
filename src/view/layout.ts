@@ -4,7 +4,8 @@ import { Card, Story } from "../model/types";
 // can be unit tested. The board is a grid of lanes (plot lines) and slots.
 // Each chapter contributes a header slot, one slot per scene in scene order,
 // and a thin drop-zone slot at its end, so reading along the slots gives the
-// order of the book.
+// order of the book. Every lane has an item in every content slot (a card, an
+// echo or an empty cell), so there is somewhere to drop anywhere on the board.
 // Orientation only decides whether lanes are columns or rows.
 
 export type Orientation = "vertical" | "horizontal";
@@ -16,6 +17,8 @@ export type BoardItem =
   | { kind: "card"; cardId: string }
   | { kind: "echo"; cardId: string; plotLineId: string }
   | { kind: "add-card"; chapterId: string | null; plotLineId: string }
+  /** Empty space beside a scene in another plot line; a drop lands next to that scene. */
+  | { kind: "empty"; cardId: string; plotLineId: string }
   /** Drop zone after a chapter's last scene, so cards can be dropped at the end. */
   | { kind: "chapter-end"; chapterId: string | null; plotLineId: string };
 
@@ -66,11 +69,17 @@ export function computeBoardLayout(story: Story, orientation: Orientation): Boar
       const lane = laneIndex.get(card.plotLine);
       if (lane === undefined) continue; // its plot line no longer exists
       items.push({ item: { kind: "card", cardId: card.id }, slot, lane: lane + 1 });
+      const filled = new Set([lane]);
       for (const other of card.alsoIn) {
         const echoLane = laneIndex.get(other);
-        if (echoLane === undefined || echoLane === lane) continue;
+        if (echoLane === undefined || filled.has(echoLane)) continue;
+        filled.add(echoLane);
         items.push({ item: { kind: "echo", cardId: card.id, plotLineId: other }, slot, lane: echoLane + 1 });
       }
+      // Every other lane gets an empty cell, so the whole row accepts drops.
+      story.plotLines.forEach((p, i) => {
+        if (!filled.has(i)) items.push({ item: { kind: "empty", cardId: card.id, plotLineId: p.id }, slot, lane: i + 1 });
+      });
       slot++;
     }
     story.plotLines.forEach((p, i) => {

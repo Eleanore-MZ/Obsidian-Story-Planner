@@ -1,12 +1,14 @@
 import { Notice, Scope, TextFileView, WorkspaceLeaf } from "obsidian";
 import type StoryPlannerPlugin from "../main";
-import { createCard, newId } from "../model/defaults";
+import { newId } from "../model/defaults";
+import { addCardAt, PALETTE } from "../model/edits";
 import { History } from "../model/history";
-import { chapterCards, moveCard, moveInList } from "../model/moves";
-import { Card, Story } from "../model/types";
+import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
+import { Card, Id, Story } from "../model/types";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
+import { CardPanel } from "./CardPanel";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
-import { CardEditModal, TextPromptModal } from "./modals";
+import { TextPromptModal } from "./modals";
 
 export const STORY_BOARD_VIEW = "story-planner-board";
 
@@ -45,6 +47,13 @@ export class StoryBoardView extends TextFileView {
   private dragged: Dragged | null = null;
   private dropTargets = new Map<HTMLElement, DropTargetSpec>();
   private suppressClick = false;
+  /** Key of the last coalescing edit, so a run of typing is one undo step. */
+  private lastCoalesce: string | null = null;
+  /** The view's parts: banners and toolbar, then the board beside the card panel. */
+  private headerEl: HTMLElement;
+  private bodyEl: HTMLElement;
+  private boardEl: HTMLElement;
+  private panel: CardPanel;
 
   constructor(leaf: WorkspaceLeaf, private plugin: StoryPlannerPlugin) {
     super(leaf);
@@ -60,6 +69,24 @@ export class StoryBoardView extends TextFileView {
     this.scope.register(["Mod"], "y", () => {
       this.redo();
       return false;
+    });
+    this.scope.register([], "Escape", () => {
+      if (!this.panel.selected) return true;
+      this.select(null);
+      return false;
+    });
+
+    this.contentEl.addClass("story-planner");
+    this.headerEl = this.contentEl.createDiv({ cls: "story-planner-header" });
+    this.bodyEl = this.contentEl.createDiv({ cls: "story-planner-body" });
+    this.boardEl = this.bodyEl.createDiv({ cls: "story-planner-board" });
+    this.panel = new CardPanel(this.bodyEl, {
+      edit: (change, coalesce) => this.mutate(change, coalesce),
+      close: () => this.select(null),
+      deleted: (title) => {
+        this.select(null);
+        new Notice(`Deleted "${title}". Press Ctrl+Z to undo.`);
+      },
     });
     this.contentEl.addEventListener(
       "click",
@@ -114,7 +141,11 @@ export class StoryBoardView extends TextFileView {
       this.warnings = [];
       this.outlineEdited = false;
     }
-    if (clear) this.contentEl.scrollTop = 0;
+    if (clear) {
+      this.boardEl.scrollTop = 0;
+      this.boardEl.scrollLeft = 0;
+    }
+    this.lastCoalesce = null;
     this.render();
   }
 
@@ -127,21 +158,29 @@ export class StoryBoardView extends TextFileView {
     this.story = null;
     this.loadError = null;
     this.history.clear();
-    this.contentEl.empty();
+    this.headerEl.empty();
+    this.boardEl.empty();
+    this.panel.show({ cards: {} } as Story, null);
   }
 
   // -------------------------------------------------------------------------
   // Editing, undo and redo
 
-  /** Applies a change with undo support. The change returns false when it turned out to change nothing. */
-  private mutate(change: (story: Story) => boolean | void): void {
+  /**
+   * Applies a change with undo support. The change returns false when it
+   * turned out to change nothing. Changes with the same `coalesce` key in a
+   * row (typing in one field) share one undo step and leave the panel's
+   * fields alone.
+   */
+  private mutate(change: (story: Story) => boolean | void, coalesce?: string): void {
     if (!this.story) return;
     const before = JSON.stringify(this.story);
     const draft = JSON.parse(before) as Story;
     if (change(draft) === false || JSON.stringify(draft) === before) return;
-    this.history.record(this.story);
+    if (!coalesce || coalesce !== this.lastCoalesce) this.history.record(this.story);
+    this.lastCoalesce = coalesce ?? null;
     this.story = draft;
-    this.changed();
+    this.changed(coalesce !== undefined);
   }
 
   undo(): void {
@@ -149,6 +188,7 @@ export class StoryBoardView extends TextFileView {
     const previous = this.history.undo(this.story);
     if (!previous) return;
     this.story = previous;
+    this.lastCoalesce = null;
     this.changed();
   }
 
@@ -157,43 +197,73 @@ export class StoryBoardView extends TextFileView {
     const next = this.history.redo(this.story);
     if (!next) return;
     this.story = next;
+    this.lastCoalesce = null;
     this.changed();
   }
 
-  private changed(): void {
+  private changed(typing = false): void {
     this.outlineEdited = false;
     this.requestSave();
-    this.render();
+    this.render(typing);
   }
 
-  private addCard(chapterId: string | null, plotLineId: string): void {
-    const draft = { title: "", synopsis: "", status: "idea" as const };
-    new CardEditModal(this.app, draft, (edit) => {
-      this.mutate((story) => {
-        const order = chapterCards(story, chapterId).reduce((max, c) => Math.max(max, c.order), 0) + 1;
-        const card = createCard({ ...edit, plotLine: plotLineId, chapter: chapterId, order });
-        story.cards[card.id] = card;
-      });
-    }).open();
+  /** Creates a card at a board position, selects it and puts the cursor in its title. */
+  private addCard(target: CardTarget): void {
+    let id: Id | null = null;
+    this.mutate((story) => {
+      id = addCardAt(story, target);
+    });
+    if (id) {
+      this.select(id);
+      this.panel.focusTitle();
+    }
   }
 
-  private editCard(cardId: string): void {
-    const card = this.story?.cards[cardId];
-    if (!card) return;
-    new CardEditModal(
-      this.app,
-      card,
-      (edit) =>
-        this.mutate((story) => {
-          Object.assign(story.cards[cardId]!, edit, { modified: new Date().toISOString() });
-        }),
-      () => {
-        this.mutate((story) => {
-          delete story.cards[cardId];
+  /** Selects a card and shows it in the side panel; null closes the panel. */
+  private select(cardId: Id | null): void {
+    if (!this.story) return;
+    this.panel.show(this.story, cardId);
+    for (const el of Array.from(this.boardEl.querySelectorAll<HTMLElement>("[data-card-id]"))) {
+      el.classList.toggle("is-selected", el.dataset.cardId === this.panel.selected);
+    }
+  }
+
+  /** Replaces a card's title with a text box, for renaming it in place. */
+  private editTitleInPlace(cardEl: HTMLElement, card: Card): void {
+    const titleEl = cardEl.querySelector<HTMLElement>(".story-planner-card-title");
+    if (!titleEl) return;
+    const input = document.createElement("input");
+    input.className = "story-planner-card-title-input";
+    input.type = "text";
+    input.value = card.title;
+    titleEl.replaceWith(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (save: boolean) => {
+      if (done) return;
+      done = true;
+      const title = input.value.trim();
+      if (save && title && title !== card.title) {
+        this.mutate((s) => {
+          const c = s.cards[card.id];
+          if (!c) return false;
+          c.title = title;
+          c.modified = new Date().toISOString();
         });
-        new Notice(`Deleted "${card.title}". Press Ctrl+Z to undo.`);
-      },
-    ).open();
+      } else {
+        input.replaceWith(titleEl);
+      }
+    };
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") finish(true);
+      else if (e.key === "Escape") finish(false);
+    });
+    input.addEventListener("blur", () => finish(true));
+    // Clicks in the box must not start a drag or reselect the card.
+    input.addEventListener("pointerdown", (e) => e.stopPropagation());
+    input.addEventListener("click", (e) => e.stopPropagation());
   }
 
   // -------------------------------------------------------------------------
@@ -214,13 +284,15 @@ export class StoryBoardView extends TextFileView {
     this.render();
   }
 
-  private render(): void {
-    const root = this.contentEl;
+  /** Redraws the toolbar and board. `typing` means the change came from typing in the panel. */
+  private render(typing = false): void {
+    const root = this.headerEl;
     this.dropTargets.clear();
     root.empty();
-    root.addClass("story-planner");
+    this.boardEl.empty();
 
     if (this.loadError || !this.story) {
+      this.panel.show({ cards: {} } as Story, null);
       const box = root.createDiv({ cls: "story-planner-error" });
       box.createEl("h3", { text: "This story could not be opened" });
       box.createEl("p", { text: this.loadError ?? "Unknown error." });
@@ -260,13 +332,16 @@ export class StoryBoardView extends TextFileView {
       ).open(),
     );
 
+    // Keep the panel on the selected card; it closes if the card is gone (after an undo, say).
+    this.panel.show(story, this.panel.selected, typing);
+
     if (story.plotLines.length === 0) {
-      root.createDiv({ cls: "story-planner-empty", text: "Add a plot line to start planning." });
+      this.boardEl.createDiv({ cls: "story-planner-empty", text: "Add a plot line to start planning." });
       return;
     }
 
     const layout = computeBoardLayout(story, this.orientation);
-    const grid = root.createDiv({ cls: `story-planner-grid is-${this.orientation}` });
+    const grid = this.boardEl.createDiv({ cls: `story-planner-grid is-${this.orientation}` });
     grid.style.gridTemplateRows = `repeat(${layout.rows}, auto)`;
     grid.style.gridTemplateColumns =
       this.orientation === "vertical"
@@ -333,7 +408,8 @@ export class StoryBoardView extends TextFileView {
       case "add-card": {
         const el = grid.createDiv({ cls: "story-planner-add-card", text: "+" });
         el.setAttr("aria-label", "Add card");
-        el.addEventListener("click", () => this.addCard(item.chapterId, item.plotLineId));
+        el.setAttr("title", "Add a card at the end of this chapter");
+        el.addEventListener("click", () => this.addCard({ chapter: item.chapterId, plotLine: item.plotLineId }));
         // Dropping here puts the card first in the chapter.
         this.makeDropTarget(el, "card", null, () =>
           this.mutate((s) =>
@@ -354,11 +430,16 @@ export class StoryBoardView extends TextFileView {
         const el = grid.createDiv({ cls: "story-planner-cell" });
         const card = story.cards[item.cardId]!;
         this.makeCardDropTarget(el, card, item.plotLineId, true);
+        // Double-click creates a card here, in this row.
+        el.addEventListener("dblclick", () =>
+          this.addCard({ chapter: card.chapter, plotLine: item.plotLineId, besideCardId: card.id }),
+        );
         return el;
       }
 
       case "chapter-end": {
         const el = grid.createDiv({ cls: "story-planner-chapter-end" });
+        el.addEventListener("dblclick", () => this.addCard({ chapter: item.chapterId, plotLine: item.plotLineId }));
         this.makeDropTarget(el, "card", null, () =>
           this.mutate((s) => moveCard(s, this.dragged!.id, { chapter: item.chapterId, plotLine: item.plotLineId })),
         );
@@ -372,7 +453,10 @@ export class StoryBoardView extends TextFileView {
         el.style.setProperty("--lane-color", plotLine?.color ?? "var(--interactive-accent)");
         el.createDiv({ cls: "story-planner-card-title", text: card.title });
         if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
-        el.addEventListener("click", () => this.editCard(card.id));
+        el.dataset.cardId = card.id;
+        if (card.id === this.panel.selected) el.addClass("is-selected");
+        el.addEventListener("click", () => this.select(card.id));
+        el.addEventListener("dblclick", () => this.editTitleInPlace(el, card));
         this.makeDraggable(el, { kind: "card", id: card.id });
         this.makeCardDropTarget(el, card, card.plotLine);
         return el;
@@ -384,7 +468,13 @@ export class StoryBoardView extends TextFileView {
         const el = grid.createDiv({ cls: "story-planner-echo", text: card.title });
         el.style.setProperty("--lane-color", home?.color ?? "var(--interactive-accent)");
         el.setAttr("aria-label", `Also in ${home?.name ?? "another plot line"}`);
-        el.addEventListener("click", () => this.editCard(card.id));
+        // Clicking an echo selects the real card and brings it into view.
+        el.addEventListener("click", () => {
+          this.select(card.id);
+          this.boardEl
+            .querySelector(`.story-planner-card[data-card-id="${CSS.escape(card.id)}"]`)
+            ?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        });
         this.makeCardDropTarget(el, card, item.plotLineId);
         return el;
       }
@@ -549,4 +639,3 @@ const GAP_PROBES: [number, number][] = [
   [6, 0],
 ];
 
-const PALETTE = ["#4a90d9", "#d9534f", "#5cb85c", "#f0ad4e", "#9b59b6", "#1abc9c", "#e67e22", "#7f8c8d"];

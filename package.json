@@ -1,0 +1,35 @@
+{
+  "name": "obsidian-story-planner",
+  "version": "0.1.0",
+  "description": "Lightweight plot planning for Obsidian: plot lines, chapters, story time and characters, one note per story.",
+  "main": "main.js",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc --noEmit && node esbuild.config.mjs production",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "samples": "tsx scripts/make-samples.ts"
+  },
+  "keywords": [
+    "obsidian",
+    "plugin",
+    "writing",
+    "plot",
+    "story"
+  ],
+  "author": "Eleanore-MZ",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "obsidian": "^1.8.7",
+    "tslib": "^2.8.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^5.0.5"
+  }
+}

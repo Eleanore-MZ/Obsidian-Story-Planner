@@ -1,0 +1,144 @@
+/* Story Planner board. Uses Obsidian's theme variables so it follows any theme. */
+
+.story-planner {
+  --story-planner-header-size: 9rem;
+  --story-planner-card-width: 14rem;
+  padding: var(--size-4-3);
+}
+
+.story-planner-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+}
+
+.story-planner-title {
+  margin: 0 auto 0 0;
+}
+
+.story-planner-banner {
+  padding: var(--size-4-2) var(--size-4-3);
+  margin-bottom: var(--size-4-2);
+  border-radius: var(--radius-m);
+  background: var(--background-modifier-message);
+  color: var(--text-normal);
+}
+
+.story-planner-error {
+  max-width: 40rem;
+  margin: var(--size-4-8) auto;
+  color: var(--text-normal);
+}
+
+.story-planner-empty {
+  color: var(--text-muted);
+  padding: var(--size-4-8);
+  text-align: center;
+}
+
+.story-planner-grid {
+  display: grid;
+  gap: var(--size-4-2);
+  align-items: start;
+  overflow: auto;
+}
+
+.story-planner-lane-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--size-4-2);
+  font-weight: var(--font-semibold);
+  background: var(--background-primary);
+  border-bottom: 3px solid var(--lane-color);
+  cursor: default;
+}
+
+.story-planner-grid.is-horizontal .story-planner-lane-header {
+  position: sticky;
+  left: 0;
+  top: auto;
+  border-bottom: none;
+  border-left: 3px solid var(--lane-color);
+  align-self: stretch;
+}
+
+.story-planner-chapter-header {
+  padding: var(--size-4-2);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-grid.is-horizontal .story-planner-chapter-header {
+  border-top: none;
+  border-left: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-chapter-header.is-off-page {
+  font-style: italic;
+}
+
+.story-planner-add-card {
+  text-align: center;
+  color: var(--text-faint);
+  border: 1px dashed transparent;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+}
+
+.story-planner-add-card:hover {
+  color: var(--text-normal);
+  border-color: var(--background-modifier-border);
+}
+
+.story-planner-card {
+  padding: var(--size-4-2) var(--size-4-3);
+  border-radius: var(--radius-m);
+  border: 1px solid var(--background-modifier-border);
+  border-left: 4px solid var(--lane-color);
+  background: var(--background-secondary);
+  cursor: pointer;
+}
+
+.story-planner-card:hover {
+  border-color: var(--interactive-accent);
+  border-left-color: var(--lane-color);
+}
+
+.story-planner-card-title {
+  font-weight: var(--font-semibold);
+}
+
+.story-planner-card-synopsis {
+  margin-top: var(--size-4-1);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.story-planner-card.status-idea {
+  border-style: dashed;
+  border-left-style: solid;
+}
+
+/* An echo is a slim, title-only strip in a secondary plot line. */
+.story-planner-echo {
+  padding: var(--size-2-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  border: 1px dashed var(--lane-color);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.story-planner-wide-input {
+  width: 100%;
+}

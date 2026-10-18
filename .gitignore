@@ -4,3 +4,9 @@ main.js
 coverage/
 .DS_Store
 Thumbs.db
+
+# Test vault: build output and per-device Obsidian state
+test-vault/.obsidian/plugins/
+test-vault/.obsidian/workspace.json
+test-vault/.obsidian/workspace-mobile.json
+test-vault/.trash/

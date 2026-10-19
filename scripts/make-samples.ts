@@ -1,7 +1,7 @@
 // Regenerates the sample stories in test-vault/Stories with `npm run samples`.
 // Ids and timestamps are fixed so the output only changes when the format does.
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { serializeStory } from "../src/format/storyFile";
 import { dayFromNumber, dayNumber } from "../src/model/calendar";
 import { createEmptyStory } from "../src/model/defaults";
@@ -120,14 +120,14 @@ function harbourStory(): Story {
   ];
   s.referenceZone = "z1";
   s.locations = [
-    { id: "l1", name: "Glass Harbour", zone: "z1" },
+    { id: "l1", name: "Glass Harbour", zone: "z1", note: "Sample notes/Places/Glass Harbour.md" },
     { id: "l2", name: "The pier", parent: "l1" },
     { id: "l3", name: "Harbourmaster's office", parent: "l1" },
     { id: "l4", name: "Eastern Provinces", zone: "z2" },
     { id: "l5", name: "Vell Manor", parent: "l4" },
   ];
   s.characters = [
-    { id: "x1", name: "Mara", color: "#9b59b6", description: "Harbour watch investigator." },
+    { id: "x1", name: "Mara", color: "#9b59b6", description: "Harbour watch investigator.", note: "Sample notes/People/Mara.md" },
     { id: "x2", name: "Ilse", color: "#1abc9c", description: "Courier from the east.", zone: "z2" },
     { id: "x3", name: "Harbourmaster Oren", color: "#7f8c8d" },
   ];
@@ -150,6 +150,7 @@ function harbourStory(): Story {
       id: "k01", title: "Body found at the pier", plotLine: "p1", chapter: "c1", order: 1,
       synopsis: "Mara is called out before dawn and finds the harbourmaster's body at the end of the pier.",
       date: date(5, 4, { dayPart: "dawn" }), location: "l2", tags: ["g1"],
+      notes: ["Sample notes/Drafts/Body found at the pier.md", "Sample notes/Research/Tides of the harbour.md"],
       characters: [{ id: "x1", role: "pov", note: "Notices the missing ring." }, { id: "x3", role: "mentioned" }],
     }),
     card({
@@ -162,6 +163,8 @@ function harbourStory(): Story {
       id: "k03", title: "The office ledger", plotLine: "p1", chapter: "c2", order: 1,
       synopsis: "A page has been cut from the harbourmaster's ledger.",
       date: date(5, 5, { minutes: 6 * 50 + 25 }), location: "l3", tags: ["g1", "g2"],
+      // Deliberately missing, to show the broken-link marker.
+      notes: ["Sample notes/Drafts/The office ledger.md"],
       characters: [{ id: "x1", role: "pov", note: "Finds the cut page." }],
     }),
     card({
@@ -253,7 +256,20 @@ function largeStory(): Story {
   return s;
 }
 
+/** Ordinary notes the samples link to. The plugin never writes these; only this script does. */
+const LINKED_NOTES: Record<string, string> = {
+  "Sample notes/People/Mara.md": "# Mara\n\nHarbour watch investigator. Linked from the Glass Harbour story's characters.\n",
+  "Sample notes/Places/Glass Harbour.md": "# Glass Harbour\n\nThe port city. Linked from the Glass Harbour story's places.\n",
+  "Sample notes/Drafts/Body found at the pier.md": "# Body found at the pier\n\nA draft of the opening scene.\n",
+  "Sample notes/Research/Tides of the harbour.md": "# Tides of the harbour\n\nResearch notes.\n",
+};
+
 mkdirSync(OUT, { recursive: true });
+for (const [path, text] of Object.entries(LINKED_NOTES)) {
+  const full = join("test-vault", path);
+  mkdirSync(dirname(full), { recursive: true });
+  writeFileSync(full, text);
+}
 for (const story of [smallStory(), harbourStory(), largeStory()]) {
   const path = join(OUT, `${story.title}.md`);
   writeFileSync(path, serializeStory(story));

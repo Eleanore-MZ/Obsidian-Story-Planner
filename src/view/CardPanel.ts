@@ -12,6 +12,7 @@ import { setCardDate, setCardLocation, setCardTag, setRelationshipState } from "
 import { locationTree, relationshipOf } from "../model/setup";
 import { CardStatus, CharacterRole, Id, Story } from "../model/types";
 import { DateEditor } from "./DateEditor";
+import { addCardNote, noteName, removeCardNote } from "../model/links";
 
 export const STATUS_LABELS: Record<CardStatus, string> = {
   idea: "Idea",
@@ -26,6 +27,16 @@ const ROLE_LABELS: Record<CharacterRole, string> = {
   mentioned: "Mentioned",
 };
 
+/** Linked notes, as the board offers them to its panels. */
+export interface NoteHost {
+  exists(path: string): boolean;
+  /** Opens a note beside the board, or in a new tab. */
+  open(path: string, newTab: boolean): void;
+  pick(placeholder: string, onPick: (path: string) => void): void;
+  /** Makes a new note from the card, links it and opens it. */
+  createFromCard(cardId: Id): void;
+}
+
 /** What the panel needs from the board that hosts it. */
 export interface CardPanelHost {
   /**
@@ -37,6 +48,7 @@ export interface CardPanelHost {
   close(): void;
   /** Called after the card was deleted from the panel. */
   deleted(title: string): void;
+  notes: NoteHost;
 }
 
 /**
@@ -200,6 +212,7 @@ export class CardPanel {
 
     this.buildCharacters(this.field("Characters"));
     this.buildTagsAndState();
+    this.buildNotes();
 
     const footer = el.createDiv({ cls: "story-planner-panel-footer" });
     const remove = footer.createEl("button", { cls: "mod-warning", text: "Delete card" });
@@ -292,6 +305,34 @@ export class CardPanel {
       for (const state of states) list.createEl("option").value = state;
       input.addEventListener("input", () => this.host.edit((s) => setRelationshipState(s, id, input.value), `relationship:${id}`));
     }
+  }
+
+  /** Notes linked to the card, such as a draft of the scene or research. */
+  private buildNotes(): void {
+    const card = this.card!;
+    const id = card.id;
+    const notes = this.host.notes;
+    const field = this.field("Notes", card.notes.length === 0 ? "Link a draft, research or any other note. Linked notes open beside the board." : undefined);
+    for (const path of card.notes) {
+      const row = field.createDiv({ cls: "story-planner-panel-note" });
+      const exists = notes.exists(path);
+      const link = row.createEl("a", { cls: "story-planner-panel-note-link", text: noteName(path) });
+      link.setAttr("title", exists ? `${path} (Ctrl+click opens it in a new tab)` : `${path} is missing. It may have been deleted or moved outside Obsidian.`);
+      link.toggleClass("is-broken", !exists);
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        notes.open(path, e.ctrlKey || e.metaKey);
+      });
+      if (!exists) row.createSpan({ cls: "story-planner-panel-note-missing", text: "missing" });
+      const remove = row.createEl("button", { cls: "clickable-icon", text: "×" });
+      remove.setAttr("aria-label", `Unlink ${noteName(path)} (the note itself is kept)`);
+      remove.addEventListener("click", () => this.host.edit((s) => removeCardNote(s, id, path)));
+    }
+    const actions = field.createDiv({ cls: "story-planner-panel-note-actions" });
+    actions.createEl("button", { text: "Link a note" }).addEventListener("click", () =>
+      notes.pick("Link a note to this card…", (path) => this.host.edit((s) => addCardNote(s, id, path))),
+    );
+    actions.createEl("button", { text: "Create note from card" }).addEventListener("click", () => notes.createFromCard(id));
   }
 
   private buildCharacters(section: HTMLElement): void {

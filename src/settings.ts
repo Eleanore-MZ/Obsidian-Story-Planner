@@ -33,6 +33,10 @@ export interface StoryPlannerSettings {
   defaultStoryTimeOrientation: Orientation;
   /** Folder offered by the "New story" command; empty means the vault root. */
   newStoryFolder: string;
+  /** Folder for notes created from cards; empty means the story's own folder. */
+  cardNoteFolder: string;
+  /** Vault path of a template note for notes created from cards; empty uses the built-in one. */
+  cardNoteTemplate: string;
   /** Open story notes as boards automatically. */
   autoOpenStories: boolean;
   /** Keep a safety snapshot of a story before large deletions and merges. */
@@ -47,6 +51,8 @@ export const DEFAULT_SETTINGS: StoryPlannerSettings = {
   defaultOrientation: "vertical",
   defaultStoryTimeOrientation: "vertical",
   newStoryFolder: "",
+  cardNoteFolder: "",
+  cardNoteTemplate: "",
   autoOpenStories: true,
   snapshotsEnabled: true,
   snapshotsPerStory: 10,
@@ -106,6 +112,34 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.newStoryFolder)
           .onChange(async (value) => {
             this.plugin.settings.newStoryFolder = value.trim().replace(/^\/+|\/+$/g, "");
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Folder for notes made from cards")
+      .setDesc("Where \"Create note from card\" puts new notes. Leave empty to put them beside the story note.")
+      .addText((t) =>
+        t
+          .setPlaceholder("Drafts")
+          .setValue(this.plugin.settings.cardNoteFolder)
+          .onChange(async (value) => {
+            this.plugin.settings.cardNoteFolder = value.trim().replace(/^\/+|\/+$/g, "");
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Template for notes made from cards")
+      .setDesc(
+        "Path of a note to copy into each new note, such as Templates/Scene.md. It can use {{title}}, {{synopsis}}, {{story}}, {{plotLine}}, {{chapter}}, {{date}}, {{location}}, {{characters}} and {{status}}. Leave empty for a short built-in template. The template is used once, when the note is made; after that the note is yours.",
+      )
+      .addText((t) =>
+        t
+          .setPlaceholder("Templates/Scene.md")
+          .setValue(this.plugin.settings.cardNoteTemplate)
+          .onChange(async (value) => {
+            this.plugin.settings.cardNoteTemplate = value.trim().replace(/^\/+/, "");
             await this.plugin.saveSettings();
           }),
       );

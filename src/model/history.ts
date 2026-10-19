@@ -43,6 +43,20 @@ export class History {
     return this.redoStack.length > 0;
   }
 
+  /**
+   * Applies a change to every state in the history, for changes that are facts
+   * about the vault rather than edits, such as a linked note being renamed:
+   * undoing an edit must not bring back the old path.
+   */
+  rewrite(change: (story: Story) => boolean): void {
+    const apply = (entry: string) => {
+      const story = JSON.parse(entry) as Story;
+      return change(story) ? JSON.stringify(story) : entry;
+    };
+    this.undoStack = this.undoStack.map(apply);
+    this.redoStack = this.redoStack.map(apply);
+  }
+
   clear(): void {
     this.undoStack = [];
     this.redoStack = [];

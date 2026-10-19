@@ -95,6 +95,35 @@ describe("text that could break the note", () => {
     Object.values(story.cards)[0]!.notes = ["Drafts/Chapter 1.md"];
     expect(renderOutline(story)).toContain("[[Drafts/Chapter 1]]");
   });
+
+  it("links characters and places that have notes, showing their names", () => {
+    const story = sampleStory();
+    story.characters = [
+      { id: "x1", name: "Mara", color: "#000", note: "People/Mara Venn.md" },
+      { id: "x2", name: "Ilse", color: "#000" },
+    ];
+    story.locations = [{ id: "l1", name: "The pier", note: "Places/The pier.md" }];
+    const card = Object.values(story.cards)[0]!;
+    card.characters = [{ id: "x1", role: "pov" }, { id: "x2", role: "present" }];
+    card.location = "l1";
+    const outline = renderOutline(story);
+    expect(outline).toContain("Characters: [[People/Mara Venn|Mara]], Ilse");
+    expect(outline).toContain("[[Places/The pier]])");
+  });
+
+  it("never writes a link that could break the note", () => {
+    const story = sampleStory();
+    const card = Object.values(story.cards)[0]!;
+    card.notes = ["Drafts/100%% done.md"];
+    story.characters = [{ id: "x1", name: "Mara | the [watch]", color: "#000", note: "People/Mara.md" }];
+    card.characters = [{ id: "x1", role: "pov" }];
+    const outline = renderOutline(story);
+    expect(outline).not.toContain("%%");
+    expect(outline).toContain(String.raw`Notes: 100\%\% done`);
+    // A name that would break the link's label falls back to the note's own name.
+    expect(outline).toContain("Characters: [[People/Mara]]");
+    expect(parseOk(serializeStory(story)).story).toEqual(story);
+  });
 });
 
 describe("scenes that share a row", () => {

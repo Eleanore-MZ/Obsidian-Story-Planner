@@ -1,6 +1,8 @@
 import { FuzzySuggestModal, MarkdownView, normalizePath, Notice, Plugin, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
-import { FRONTMATTER_KEY, FRONTMATTER_VALUE, serializeStory } from "./format/storyFile";
+import { FRONTMATTER_KEY, FRONTMATTER_VALUE, parseStory, serializeStory } from "./format/storyFile";
 import { createEmptyStory } from "./model/defaults";
+import { DEFAULT_NOTE_TEMPLATE, fillTemplate, noteFileName, noteValues, renameLinkedPath } from "./model/links";
+import { Card, Story } from "./model/types";
 import { SnapshotInfo } from "./model/snapshots";
 import { SnapshotStore } from "./snapshotStore";
 import { DEFAULT_SETTINGS, StoryPlannerSettings, StoryPlannerSettingTab } from "./settings";
@@ -12,6 +14,8 @@ export default class StoryPlannerPlugin extends Plugin {
   /** Story notes the user chose to read as Markdown in this session; auto-open leaves them alone. */
   private markdownOverride = new Set<string>();
   snapshots!: SnapshotStore;
+  /** The pane linked notes open in, beside the board; reused while it is open. */
+  private noteLeaf: WorkspaceLeaf | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -96,8 +100,100 @@ export default class StoryPlannerPlugin extends Plugin {
         }
         if (this.markdownOverride.delete(oldPath)) this.markdownOverride.add(file.path);
         if (file instanceof TFile && file.extension === "md") void this.snapshots.renamed(oldPath, file.path);
+        void this.followRename(oldPath, file.path);
       }),
     );
+
+    // Boards show a broken-link marker for linked notes that are gone, and drop it when they come back.
+    this.registerEvent(this.app.vault.on("delete", (file) => this.refreshLinks(file.path)));
+    this.registerEvent(this.app.vault.on("create", (file) => this.refreshLinks(file.path)));
+  }
+
+  private boards(): StoryBoardView[] {
+    return this.app.workspace
+      .getLeavesOfType(STORY_BOARD_VIEW)
+      .map((leaf) => leaf.view)
+      .filter((view): view is StoryBoardView => view instanceof StoryBoardView);
+  }
+
+  private refreshLinks(path: string): void {
+    for (const view of this.boards()) view.linksChanged(path);
+  }
+
+  /**
+   * Keeps links pointing at a note (or the notes in a folder) after it is
+   * renamed or moved. Open boards update in memory and save at once; other
+   * stories are rewritten only if they link to it, and never if they cannot
+   * be read.
+   */
+  private async followRename(oldPath: string, newPath: string): Promise<void> {
+    const open = new Set<string>();
+    for (const view of this.boards()) {
+      if (!view.file) continue;
+      open.add(view.file.path);
+      await view.followRename(oldPath, newPath);
+    }
+    for (const story of this.storyFiles()) {
+      if (open.has(story.path)) continue;
+      const text = await this.app.vault.cachedRead(story);
+      if (!text.includes(oldPath)) continue;
+      await this.app.vault.process(story, (current) => {
+        const parsed = parseStory(current);
+        if (!parsed.ok || !renameLinkedPath(parsed.story, oldPath, newPath)) return current;
+        return serializeStory(parsed.story, parsed.frontmatter);
+      });
+    }
+  }
+
+  /** True when a linked note exists in the vault. */
+  noteExists(path: string): boolean {
+    return this.app.vault.getAbstractFileByPath(path) instanceof TFile;
+  }
+
+  /** Lets the writer pick a note to link; story notes are left out. */
+  pickNote(placeholder: string, onPick: (path: string) => void): void {
+    new NotePickerModal(this, placeholder, (file) => onPick(file.path)).open();
+  }
+
+  /** Opens a linked note in a pane beside the board, reusing that pane while it is open. */
+  async openNote(path: string, newTab = false): Promise<void> {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!(file instanceof TFile)) {
+      new Notice(`"${path}" is not in the vault any more. It may have been deleted or moved outside Obsidian.`);
+      return;
+    }
+    let leaf: WorkspaceLeaf;
+    if (newTab) {
+      leaf = this.app.workspace.getLeaf("tab");
+    } else {
+      const reusable = this.noteLeaf && this.app.workspace.getLeavesOfType("markdown").includes(this.noteLeaf);
+      leaf = reusable ? this.noteLeaf! : this.app.workspace.getLeaf("split", "vertical");
+      this.noteLeaf = leaf;
+    }
+    await leaf.openFile(file, { active: true });
+  }
+
+  /**
+   * Makes a new note from a card, filled once from the template, and returns
+   * its path. The note gets no back-reference; the story links to it.
+   */
+  async createCardNote(storyFile: TFile, story: Story, card: Card): Promise<string> {
+    const folder = this.settings.cardNoteFolder || storyFile.parent?.path || "";
+    const dir = normalizePath(folder || "/");
+    if (folder && !this.app.vault.getAbstractFileByPath(dir)) await this.app.vault.createFolder(dir);
+    const base = noteFileName(card.title);
+    const prefix = folder && dir !== "/" ? dir + "/" : "";
+    let path = normalizePath(`${prefix}${base}.md`);
+    for (let n = 2; this.app.vault.getAbstractFileByPath(path); n++) path = normalizePath(`${prefix}${base} ${n}.md`);
+
+    let template = DEFAULT_NOTE_TEMPLATE;
+    if (this.settings.cardNoteTemplate) {
+      const file = this.app.vault.getAbstractFileByPath(normalizePath(this.settings.cardNoteTemplate));
+      if (file instanceof TFile) template = await this.app.vault.read(file);
+      else new Notice(`The template note "${this.settings.cardNoteTemplate}" was not found, so the built-in template was used.`);
+    }
+    await this.app.vault.create(path, fillTemplate(template, noteValues(story, card)));
+    return path;
   }
 
   async loadSettings(): Promise<void> {
@@ -174,6 +270,29 @@ class StoryPickerModal extends FuzzySuggestModal<TFile> {
 
   onChooseItem(file: TFile): void {
     void this.plugin.openAsBoard(this.app.workspace.getLeaf(false), file);
+  }
+}
+
+class NotePickerModal extends FuzzySuggestModal<TFile> {
+  constructor(
+    private plugin: StoryPlannerPlugin,
+    placeholder: string,
+    private onPick: (file: TFile) => void,
+  ) {
+    super(plugin.app);
+    this.setPlaceholder(placeholder);
+  }
+
+  getItems(): TFile[] {
+    return this.app.vault.getMarkdownFiles().filter((f) => !this.plugin.isStoryFile(f));
+  }
+
+  getItemText(file: TFile): string {
+    return file.path.replace(/\.md$/, "");
+  }
+
+  onChooseItem(file: TFile): void {
+    this.onPick(file);
   }
 }
 

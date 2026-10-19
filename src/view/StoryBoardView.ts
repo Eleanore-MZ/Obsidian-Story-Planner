@@ -10,7 +10,8 @@ import { Clash, findClashes, reorderInTime, referenceDate } from "../model/story
 import { Card, CharacterRole, Id, Story } from "../model/types";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree } from "../model/setup";
-import { CardPanel } from "./CardPanel";
+import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
+import { CardPanel, NoteHost } from "./CardPanel";
 import { SetupPanel } from "./SetupPanel";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
 import { ChoiceModal, DateModal, LaneModal, TextPromptModal } from "./modals";
@@ -119,6 +120,7 @@ export class StoryBoardView extends TextFileView {
         this.select(null);
         new Notice(`Deleted "${title}". Press Ctrl+Z to undo.`);
       },
+      notes: this.noteHost(),
     });
     this.setup = new SetupPanel(this.contentEl, {
       edit: (change, coalesce) => this.mutate(change, coalesce),
@@ -127,6 +129,7 @@ export class StoryBoardView extends TextFileView {
       snapshot: (reason) => this.takeSnapshot(reason),
       listSnapshots: () => this.listSnapshots(),
       restore: (snapshot) => void this.restoreSnapshot(snapshot),
+      notes: this.noteHost(),
     });
     this.contentEl.addEventListener(
       "click",
@@ -267,6 +270,51 @@ export class StoryBoardView extends TextFileView {
     for (const el of Array.from(this.boardEl.querySelectorAll<HTMLElement>("[data-card-id]"))) {
       el.classList.toggle("is-selected", el.dataset.cardId === this.panel.selected);
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Linked notes
+
+  /** What the panels need to show, open, link and create notes. */
+  private noteHost(): NoteHost {
+    return {
+      exists: (path) => this.plugin.noteExists(path),
+      open: (path, newTab) => void this.plugin.openNote(path, newTab),
+      pick: (placeholder, onPick) => this.plugin.pickNote(placeholder, onPick),
+      createFromCard: (cardId) => void this.createCardNote(cardId),
+    };
+  }
+
+  private async createCardNote(cardId: Id): Promise<void> {
+    const card = this.story?.cards[cardId];
+    if (!this.story || !card || !this.file) return;
+    try {
+      const path = await this.plugin.createCardNote(this.file, this.story, card);
+      this.mutate((s) => addCardNote(s, cardId, path));
+      await this.plugin.openNote(path);
+    } catch (e) {
+      console.error("Story Planner: could not create a note", e);
+      new Notice("Story Planner could not create the note. See the developer console for details.");
+    }
+  }
+
+  /**
+   * A linked note (or a folder of them) was renamed or moved. That is a fact
+   * about the vault, not an edit, so it is applied to the undo history too and
+   * saved at once, before anything else rewrites the note.
+   */
+  async followRename(oldPath: string, newPath: string): Promise<void> {
+    if (!this.story || this.loadError) return;
+    if (!renameLinkedPath(this.story, oldPath, newPath)) return;
+    this.history.rewrite((s) => renameLinkedPath(s, oldPath, newPath));
+    this.outlineEdited = false;
+    this.render();
+    await this.save();
+  }
+
+  /** A note was created or deleted somewhere; redraw if this story links to it. */
+  linksChanged(path: string): void {
+    if (this.story && linkedPaths(this.story).has(path)) this.render();
   }
 
   // -------------------------------------------------------------------------
@@ -742,6 +790,14 @@ export class StoryBoardView extends TextFileView {
       }
     }
     if (card.relationshipState) el.createDiv({ cls: "story-planner-card-state", text: card.relationshipState });
+    if (card.notes.length > 0) {
+      const missing = card.notes.filter((n) => !this.plugin.noteExists(n)).length;
+      const notes = el.createDiv({ cls: "story-planner-card-links", text: `${card.notes.length} ${card.notes.length === 1 ? "note" : "notes"}` });
+      if (missing > 0) {
+        notes.addClass("is-broken");
+        notes.setText(missing === card.notes.length && missing === 1 ? "Linked note missing" : `${card.notes.length} notes, ${missing} missing`);
+      }
+    }
     const match = this.highlighted(card, story);
     if (match === false) el.addClass("is-dimmed");
     if (match && roleNote && this.highlight.startsWith("character:")) {

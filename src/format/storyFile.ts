@@ -1,4 +1,5 @@
 import { formatStoryDate } from "../model/calendar";
+import { linkTarget, noteName } from "../model/links";
 import { Card, STORY_SCHEMA_VERSION, Story, StorySetup } from "../model/types";
 
 // A story note has three parts:
@@ -126,8 +127,10 @@ export function renderOutline(story: Story): string {
   out.push("");
 
   const plotLineName = new Map(story.plotLines.map((p) => [p.id, p.name]));
-  const characterName = new Map(story.characters.map((c) => [c.id, c.name]));
-  const locationName = new Map(story.locations.map((l) => [l.id, l.name]));
+  // Characters and places with a note of their own are written as links to it,
+  // so the note shows the story in its backlinks.
+  const characterName = new Map(story.characters.map((c) => [c.id, named(c.name, c.note)]));
+  const locationName = new Map(story.locations.map((l) => [l.id, named(l.name, l.note)]));
   const tagName = new Map(story.tags.map((t) => [t.id, t.name]));
   const cards = Object.values(story.cards);
   const chapterIds = new Set(story.chapters.map((c) => c.id));
@@ -135,12 +138,13 @@ export function renderOutline(story: Story): string {
   const renderCard = (card: Card) => {
     const details = [plotLineName.get(card.plotLine) ?? "Unknown plot line"];
     if (card.date) details.push(formatStoryDate(story, card.date));
-    if (card.location) details.push(locationName.get(card.location) ?? "Unknown place");
-    out.push(`**${escapeText(card.title)}** (${details.map(escapeText).join(", ")})`);
+    const parts = details.map(escapeText);
+    if (card.location) parts.push(locationName.get(card.location) ?? "Unknown place");
+    out.push(`**${escapeText(card.title)}** (${parts.join(", ")})`);
     const people = card.characters
       .map((c) => characterName.get(c.id))
       .filter((n): n is string => n !== undefined);
-    if (people.length > 0) out.push(`Characters: ${people.map(escapeText).join(", ")}`);
+    if (people.length > 0) out.push(`Characters: ${people.join(", ")}`);
     // Story tags are written as plain words, never as Obsidian #tags.
     const tags = story.tagsEnabled ? card.tags.map((t) => tagName.get(t)).filter((n): n is string => n !== undefined) : [];
     if (tags.length > 0) out.push(`Story tags: ${tags.map(escapeText).join(", ")}`);
@@ -149,7 +153,7 @@ export function renderOutline(story: Story): string {
       out.push(...card.synopsis.trim().split(/\n+/).map(escapeLine));
     }
     if (card.notes.length > 0) {
-      out.push(`Notes: ${card.notes.map((n) => `[[${n.replace(/\.md$/, "")}]]`).join(", ")}`);
+      out.push(`Notes: ${card.notes.map((n) => noteLink(n, noteName(n))).join(", ")}`);
     }
     out.push("");
   };
@@ -177,6 +181,23 @@ export function renderOutline(story: Story): string {
   }
 
   return out.join("\n").trimEnd() + "\n";
+}
+
+/** A name, linked to its note when it has one. The result is ready to write: already escaped. */
+function named(name: string, note: string | undefined): string {
+  return note ? noteLink(note, name) : escapeText(name);
+}
+
+/**
+ * A wikilink to a note, showing `label`. Paths that cannot be written safely
+ * as a link, and labels that would break one, fall back to escaped text.
+ */
+function noteLink(path: string, label: string): string {
+  const target = linkTarget(path);
+  if (target === null) return escapeText(label);
+  const text = label.replace(/\s*\n\s*/g, " ").trim();
+  if (!text || text === noteName(path) || /[[\]|#^]|%%/.test(text)) return `[[${target}]]`;
+  return `[[${target}|${text}]]`;
 }
 
 const INLINE_SPECIAL = /[\\`*_[\]#%<>|~=^$]/g;

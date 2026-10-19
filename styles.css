@@ -967,3 +967,62 @@
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
 }
+
+/* Linked notes. */
+
+.story-planner-card-links {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+.story-planner-card-links::before {
+  content: "\1F4C4 ";
+}
+
+.story-planner-card-links.is-broken,
+.story-planner-panel-note-missing {
+  color: var(--text-error);
+}
+
+.story-planner-card-links.is-broken::before {
+  content: "\26A0\FE0E  ";
+}
+
+.story-planner-panel-note {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+
+.story-planner-panel-note-link,
+.story-planner-setup-note {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.story-planner-setup-note {
+  flex: 0 1 auto;
+  max-width: 12em;
+  font-size: var(--font-ui-smaller);
+}
+
+.story-planner-panel-note-link.is-broken,
+.story-planner-setup-note.is-broken {
+  color: var(--text-error);
+  text-decoration: line-through;
+}
+
+.story-planner-panel-note-missing {
+  font-size: var(--font-ui-smaller);
+}
+
+.story-planner-panel-note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-1);
+}

@@ -30,8 +30,10 @@ import {
   mergeCharacters,
   shiftInList,
 } from "../model/setup";
+import { noteName, setEntityNote } from "../model/links";
 import { SnapshotInfo } from "../model/snapshots";
 import { Calendar, Id, Story } from "../model/types";
+import type { NoteHost } from "./CardPanel";
 
 /** A choice offered before an edit that affects cards, such as deleting a plot line that has cards. */
 export interface Choice {
@@ -54,6 +56,7 @@ export interface SetupPanelHost {
   /** This story's safety snapshots, newest first; empty when snapshots are off. */
   listSnapshots(): Promise<SnapshotInfo[]>;
   restore(snapshot: SnapshotInfo): void;
+  notes: NoteHost;
 }
 
 const DELETE_CARDS = "\u0000delete";
@@ -211,6 +214,7 @@ export class SetupPanel {
         );
         zone.setAttr("aria-label", `Time zone for scenes from ${character.name}'s point of view`);
       }
+      this.noteButtons(row, "character", character.id, character.name, character.note);
       this.count(row, cardsWithCharacter(story, character.id).length);
       this.reorderButtons(row, i, story.characters.length, (by) => this.host.edit((s) => shiftInList(s.characters, character.id, by)));
       this.iconButton(row, "⇥", `Merge ${character.name} into another character`, story.characters.length > 1, () =>
@@ -285,6 +289,7 @@ export class SetupPanel {
         );
         zone.setAttr("aria-label", `Time zone of ${location.name}`);
       }
+      this.noteButtons(row, "location", location.id, location.name, location.note);
       this.count(row, cardsAtLocation(story, location.id).length);
       const siblings = story.locations.filter((l) => l.parent === location.parent);
       const index = siblings.indexOf(location);
@@ -736,6 +741,28 @@ export class SetupPanel {
   private reorderButtons(parent: HTMLElement, index: number, length: number, shift: (by: -1 | 1) => void): void {
     this.iconButton(parent, "↑", "Move up", index > 0, () => shift(-1));
     this.iconButton(parent, "↓", "Move down", index < length - 1, () => shift(1));
+  }
+
+  /** Links a character or place to a note of its own, or opens and unlinks the one it has. */
+  private noteButtons(row: HTMLElement, kind: "character" | "location", id: Id, name: string, note: string | undefined): void {
+    const notes = this.host.notes;
+    if (!note) {
+      this.iconButton(row, "\u{1F517}", `Link a note to ${name}`, true, () =>
+        notes.pick(`Link a note to ${name}…`, (path) => this.host.edit((s) => setEntityNote(s, kind, id, path))),
+      );
+      return;
+    }
+    const exists = notes.exists(note);
+    const link = row.createEl("a", { cls: "story-planner-setup-note", text: noteName(note) });
+    link.toggleClass("is-broken", !exists);
+    link.setAttr("title", exists ? `Open ${note} (Ctrl+click opens it in a new tab)` : `${note} is missing. It may have been deleted or moved outside Obsidian.`);
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      notes.open(note, e.ctrlKey || e.metaKey);
+    });
+    this.iconButton(row, "⊘", `Unlink ${noteName(note)} from ${name} (the note itself is kept)`, true, () =>
+      this.host.edit((s) => setEntityNote(s, kind, id, undefined)),
+    );
   }
 
   private iconButton(parent: HTMLElement, text: string, label: string, enabled: boolean, onClick: () => void): void {

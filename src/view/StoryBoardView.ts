@@ -173,6 +173,9 @@ export class StoryBoardView extends TextFileView {
       if (this.file) void this.plugin.openAsMarkdown(this.leaf, this.file);
     });
     this.addAction("arrow-left-right", "Transpose board", () => this.toggleOrientation());
+    this.addAction("file-output", "Export story", () => {
+      if (this.file && this.currentStory) this.plugin.promptExport(this.file, this.currentStory);
+    });
   }
 
   getViewData(): string {

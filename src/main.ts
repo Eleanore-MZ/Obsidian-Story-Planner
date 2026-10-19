@@ -3,12 +3,13 @@ import { FRONTMATTER_KEY, FRONTMATTER_VALUE, parseStory, serializeStory } from "
 import { createEmptyStory } from "./model/defaults";
 import { DEFAULT_NOTE_TEMPLATE, fillTemplate, noteFileName, noteValues, renameLinkedPath } from "./model/links";
 import { cardsInReadingOrder } from "./model/search";
+import { EXPORT_EXTENSIONS, exportStory } from "./format/export";
 import { Card, Story } from "./model/types";
 import { SnapshotInfo } from "./model/snapshots";
 import { SnapshotStore } from "./snapshotStore";
 import { DEFAULT_SETTINGS, StoryPlannerSettings, StoryPlannerSettingTab } from "./settings";
 import { STORY_BOARD_VIEW, StoryBoardView } from "./view/StoryBoardView";
-import { TextPromptModal } from "./view/modals";
+import { ExportChoice, ExportModal, TextPromptModal } from "./view/modals";
 
 export default class StoryPlannerPlugin extends Plugin {
   settings: StoryPlannerSettings = DEFAULT_SETTINGS;
@@ -44,6 +45,17 @@ export default class StoryPlannerPlugin extends Plugin {
       id: "jump-to-card",
       name: "Jump to card",
       callback: () => void this.jumpToCard(),
+    });
+
+    this.addCommand({
+      id: "export-story",
+      name: "Export story",
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(StoryBoardView);
+        if (!view?.file || !view.currentStory) return false;
+        if (!checking) this.promptExport(view.file, view.currentStory);
+        return true;
+      },
     });
 
     this.addCommand({
@@ -196,6 +208,31 @@ export default class StoryPlannerPlugin extends Plugin {
       view = leaf.view instanceof StoryBoardView ? leaf.view : undefined;
     }
     view?.revealCard(cardId);
+  }
+
+  /** Asks how to export a story, then writes the export to a new file. */
+  promptExport(file: TFile, story: Story): void {
+    const folder = file.parent && file.parent.path !== "/" ? `${file.parent.path}/` : "";
+    new ExportModal(this.app, `${folder}${file.basename} export`, (choice) => void this.writeExport(story, choice)).open();
+  }
+
+  private async writeExport(story: Story, choice: ExportChoice): Promise<void> {
+    try {
+      const ext = EXPORT_EXTENSIONS[choice.format];
+      const wanted = normalizePath(choice.path.endsWith(`.${ext}`) ? choice.path : `${choice.path}.${ext}`);
+      const slash = wanted.lastIndexOf("/");
+      const dir = slash > 0 ? wanted.slice(0, slash) : "";
+      if (dir && !this.app.vault.getAbstractFileByPath(dir)) await this.app.vault.createFolder(dir);
+      const stem = wanted.slice(0, -(ext.length + 1));
+      let path = wanted;
+      for (let n = 2; this.app.vault.getAbstractFileByPath(path); n++) path = `${stem} ${n}.${ext}`;
+      const file = await this.app.vault.create(path, exportStory(story, choice.format, choice.order));
+      new Notice(`Exported the story to ${path}.`);
+      if (choice.format === "markdown") await this.app.workspace.getLeaf("tab").openFile(file);
+    } catch (e) {
+      console.error("Story Planner: could not export the story", e);
+      new Notice("Story Planner could not write the export. See the developer console for details.");
+    }
   }
 
   /** True when a linked note exists in the vault. */

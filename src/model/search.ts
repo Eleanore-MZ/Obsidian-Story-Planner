@@ -8,7 +8,7 @@ import { Card, Story } from "./types";
 
 /** Lower case without accents, so "Ilse" matches "ilsé". */
 export function fold(text: string): string {
-  return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
 /** Everything a search looks at on a card, folded. */

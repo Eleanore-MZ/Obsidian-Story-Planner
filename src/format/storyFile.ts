@@ -211,7 +211,7 @@ export function escapeText(text: string): string {
 }
 
 /** Like escapeText, but also stops a line from starting a list, quote or heading. */
-function escapeLine(line: string): string {
+export function escapeLine(line: string): string {
   return escapeText(line.trim())
     .replace(/^([-+])(\s)/, "\\$1$2")
     .replace(/^(\d+)\.(\s)/, "$1\\.$2");

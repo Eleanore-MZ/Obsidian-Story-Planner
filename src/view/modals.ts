@@ -1,4 +1,5 @@
 import { App, Modal, Setting } from "obsidian";
+import { EXPORT_EXTENSIONS, ExportFormat, ExportOrder } from "../format/export";
 import { Story, StoryDate } from "../model/types";
 import { DateEditor } from "./DateEditor";
 
@@ -215,6 +216,82 @@ export class LaneModal extends Modal {
     const [id] = this.chosen.splice(index, 1);
     this.chosen.splice(index + by, 0, id!);
     this.draw();
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+export interface ExportChoice {
+  format: ExportFormat;
+  order: ExportOrder;
+  /** Vault path of the new file. */
+  path: string;
+}
+
+const FORMAT_LABELS: Record<ExportFormat, string> = {
+  markdown: "Markdown outline (a readable note)",
+  csv: "CSV (one row per card, for spreadsheets)",
+  json: "JSON (all of the story's data)",
+};
+
+/** Asks how to export a story and where the new file goes. */
+export class ExportModal extends Modal {
+  private choice: ExportChoice;
+
+  constructor(
+    app: App,
+    /** The file path without its extension, such as "Stories/The Glass Harbour export". */
+    private base: string,
+    private onExport: (choice: ExportChoice) => void,
+  ) {
+    super(app);
+    this.choice = { format: "markdown", order: "reading", path: `${base}.md` };
+  }
+
+  onOpen(): void {
+    this.titleEl.setText("Export story");
+    this.contentEl.createEl("p", {
+      text: "The export is written to a new file. The story note is not changed, and an existing file is never overwritten.",
+    });
+    let pathInput: HTMLInputElement | null = null;
+    let orderSetting: Setting | null = null;
+    new Setting(this.contentEl).setName("Format").addDropdown((d) => {
+      for (const [value, label] of Object.entries(FORMAT_LABELS)) d.addOption(value, label);
+      d.setValue(this.choice.format).onChange((value) => {
+        this.choice.format = value as ExportFormat;
+        // Follow the format with the extension, keeping a name the writer typed.
+        const ext = EXPORT_EXTENSIONS[this.choice.format];
+        this.choice.path = this.choice.path.replace(/\.(md|csv|json)$/i, "") + `.${ext}`;
+        if (pathInput) pathInput.value = this.choice.path;
+        orderSetting?.settingEl.toggle(this.choice.format !== "json");
+      });
+    });
+    orderSetting = new Setting(this.contentEl).setName("Order").addDropdown((d) =>
+      d
+        .addOption("reading", "Reading order (chapters and scenes)")
+        .addOption("time", "Story time (the order things happen)")
+        .setValue(this.choice.order)
+        .onChange((value) => (this.choice.order = value as ExportOrder)),
+    );
+    new Setting(this.contentEl).setName("File").setDesc("A path in the vault. A number is added if the file already exists.").addText((t) => {
+      pathInput = t.inputEl;
+      t.inputEl.addClass("story-planner-wide-input");
+      t.setValue(this.choice.path).onChange((value) => (this.choice.path = value.trim()));
+    });
+    new Setting(this.contentEl)
+      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((b) =>
+        b
+          .setButtonText("Export")
+          .setCta()
+          .onClick(() => {
+            if (!this.choice.path) return;
+            this.close();
+            this.onExport({ ...this.choice });
+          }),
+      );
   }
 
   onClose(): void {

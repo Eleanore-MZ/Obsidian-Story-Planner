@@ -128,6 +128,7 @@ export function renderOutline(story: Story): string {
   const plotLineName = new Map(story.plotLines.map((p) => [p.id, p.name]));
   const characterName = new Map(story.characters.map((c) => [c.id, c.name]));
   const locationName = new Map(story.locations.map((l) => [l.id, l.name]));
+  const tagName = new Map(story.tags.map((t) => [t.id, t.name]));
   const cards = Object.values(story.cards);
   const chapterIds = new Set(story.chapters.map((c) => c.id));
 
@@ -140,6 +141,10 @@ export function renderOutline(story: Story): string {
       .map((c) => characterName.get(c.id))
       .filter((n): n is string => n !== undefined);
     if (people.length > 0) out.push(`Characters: ${people.map(escapeText).join(", ")}`);
+    // Story tags are written as plain words, never as Obsidian #tags.
+    const tags = story.tagsEnabled ? card.tags.map((t) => tagName.get(t)).filter((n): n is string => n !== undefined) : [];
+    if (tags.length > 0) out.push(`Story tags: ${tags.map(escapeText).join(", ")}`);
+    if (card.relationshipState?.trim()) out.push(`Relationship: ${escapeText(card.relationshipState.trim())}`);
     if (card.synopsis.trim()) {
       out.push(...card.synopsis.trim().split(/\n+/).map(escapeLine));
     }

@@ -4,14 +4,25 @@ import { chapterRows } from "../src/model/moves";
 import { blankCalendar } from "../src/model/defaults";
 import { momentOf } from "../src/model/calendar";
 import {
+  addLocation,
   addPlotLine,
+  addTag,
   addZone,
   applyCalendar,
   cardsWithBadDates,
   deleteChapter,
   deleteCharacter,
   deletePlotLine,
+  deleteLocation,
+  deleteTag,
   deleteZone,
+  finalRelationshipState,
+  locationAndInside,
+  locationPath,
+  locationTree,
+  nestLocation,
+  relationshipOf,
+  shiftLocation,
   mergeCharacters,
   setReferenceZone,
   shiftInList,
@@ -177,5 +188,73 @@ describe("calendar and zones", () => {
     expect(s.locations[0]!.zone).toBeUndefined();
     deleteZone(s, east, NOW);
     expect(s.referenceZone).toBeUndefined();
+  });
+});
+
+describe("locations", () => {
+  function places() {
+    const s = story();
+    const city = addLocation(s, "City");
+    const house = addLocation(s, "House", city);
+    const room = addLocation(s, "Room", house);
+    const port = addLocation(s, "Port");
+    return { s, city, house, room, port };
+  }
+
+  it("lists a nested tree with depths and paths", () => {
+    const { s, room, city } = places();
+    expect(locationTree(s).map((t) => `${"-".repeat(t.depth)}${t.location.name}`)).toEqual(["City", "-House", "--Room", "Port"]);
+    expect(locationPath(s, room)).toBe("City › House › Room");
+    expect([...locationAndInside(s, city)].length).toBe(3);
+  });
+
+  it("indents, outdents and reorders among siblings", () => {
+    const { s, port, house } = places();
+    expect(nestLocation(s, port, true)).toBe(true);
+    expect(locationTree(s).at(-1)).toMatchObject({ location: { name: "Port" }, depth: 1 });
+    expect(nestLocation(s, port, false)).toBe(true);
+    expect(locationTree(s).at(-1)).toMatchObject({ depth: 0 });
+    expect(shiftLocation(s, port, -1)).toBe(true);
+    expect(locationTree(s)[0]!.location.name).toBe("Port");
+    expect(shiftLocation(s, house, -1)).toBe(false);
+  });
+
+  it("deletes a location, moving what was inside it up and freeing its cards", () => {
+    const { s, house, room, city } = places();
+    s.cards.a!.location = house;
+    deleteLocation(s, house, NOW);
+    expect(s.locations.find((l) => l.id === room)!.parent).toBe(city);
+    expect(s.cards.a!.location).toBeUndefined();
+  });
+
+  it("survives a loop of parents", () => {
+    const s = story();
+    s.locations = [
+      { id: "a", name: "A", parent: "b" },
+      { id: "b", name: "B", parent: "a" },
+    ];
+    expect(locationTree(s).length).toBe(2);
+    expect(locationPath(s, "a")).toBe("B › A");
+  });
+});
+
+describe("tags and relationships", () => {
+  it("deletes a tag from every card", () => {
+    const s = story();
+    const tag = addTag(s, "clue");
+    s.cards.a!.tags = [tag];
+    deleteTag(s, tag, NOW);
+    expect(s.tags).toEqual([]);
+    expect(s.cards.a!.tags).toEqual([]);
+  });
+
+  it("finds a card's relationship plot line and how it ends", () => {
+    const s = story();
+    // p2 names tom, so it is a relationship; card a echoes into it.
+    expect(relationshipOf(s, s.cards.a!)?.id).toBe("p2");
+    expect(relationshipOf(s, s.cards.c!)).toBeUndefined();
+    s.cards.b!.relationshipState = "strangers";
+    s.cards.d!.relationshipState = "allies";
+    expect(finalRelationshipState(s, "p2")).toBe("allies");
   });
 });

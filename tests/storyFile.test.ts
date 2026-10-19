@@ -75,6 +75,21 @@ describe("text that could break the note", () => {
     expect(outline).toContain("2\\. not numbered");
   });
 
+  it("writes story tags and relationship states as plain text, never as Obsidian tags", () => {
+    const story = sampleStory();
+    story.tags = [{ id: "g1", name: "#clue", color: "#000" }, { id: "g2", name: "red herring", color: "#111" }];
+    const card = Object.values(story.cards)[0]!;
+    card.tags = ["g1", "g2"];
+    card.relationshipState = "trust [[broken]]";
+    const outline = renderOutline(story);
+    expect(outline).toContain("Story tags: \\#clue, red herring");
+    expect(outline).toContain("Relationship: trust \\[\\[broken\\]\\]");
+    expect(outline).not.toMatch(/(^|[^\\])#clue/);
+    story.tagsEnabled = false;
+    expect(renderOutline(story)).not.toContain("Story tags:");
+    expect(parseOk(serializeStory(story)).story).toEqual(story);
+  });
+
   it("does write real links for notes linked to cards", () => {
     const story = sampleStory();
     Object.values(story.cards)[0]!.notes = ["Drafts/Chapter 1.md"];

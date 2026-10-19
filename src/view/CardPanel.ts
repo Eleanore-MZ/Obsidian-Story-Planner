@@ -8,7 +8,8 @@ import {
   updateCardCharacter,
 } from "../model/edits";
 import { compareDates, effectiveZone, ZoneSource } from "../model/calendar";
-import { setCardDate } from "../model/edits";
+import { setCardDate, setCardLocation, setCardTag, setRelationshipState } from "../model/edits";
+import { locationTree, relationshipOf } from "../model/setup";
 import { CardStatus, CharacterRole, Id, Story } from "../model/types";
 import { DateEditor } from "./DateEditor";
 
@@ -110,6 +111,7 @@ export class CardPanel {
       const field = el.dataset.field!;
       if (field === "title") el.value = card.title;
       else if (field === "synopsis") el.value = card.synopsis;
+      else if (field === "relationship") el.value = card.relationshipState ?? "";
       else if (field.startsWith("note:")) {
         el.value = card.characters.find((c) => `note:${c.id}` === field)?.note ?? "";
       }
@@ -181,6 +183,7 @@ export class CardPanel {
     );
 
     this.buildDates();
+    this.buildPlace();
 
     const others = story.plotLines.filter((p) => p.id !== card.plotLine);
     if (others.length > 0) {
@@ -196,6 +199,7 @@ export class CardPanel {
     }
 
     this.buildCharacters(this.field("Characters"));
+    this.buildTagsAndState();
 
     const footer = el.createDiv({ cls: "story-planner-panel-footer" });
     const remove = footer.createEl("button", { cls: "mod-warning", text: "Delete card" });
@@ -241,6 +245,52 @@ export class CardPanel {
     } else {
       const add = when.createEl("button", { cls: "story-planner-date-add", text: "Add an end date" });
       add.addEventListener("click", () => this.host.edit((s) => setCardDate(s, id, "endDate", { ...s.cards[id]!.date! })));
+    }
+  }
+
+  private buildPlace(): void {
+    const card = this.card!;
+    const story = this.story!;
+    if (story.locations.length === 0) return;
+    const options: Record<string, string> = { "": "No location" };
+    for (const { location, depth } of locationTree(story)) options[location.id] = `${"\u2003".repeat(depth)}${location.name}`;
+    const select = this.select(this.field("Where"), options, card.location ?? "", (value) =>
+      this.host.edit((s) => setCardLocation(s, card.id, value || undefined)),
+    );
+    select.dataset.field = "location";
+  }
+
+  private buildTagsAndState(): void {
+    const card = this.card!;
+    const story = this.story!;
+    const id = card.id;
+    if (story.tagsEnabled && story.tags.length > 0) {
+      const field = this.field("Story tags");
+      const chips = field.createDiv({ cls: "story-planner-tag-chips" });
+      for (const tag of story.tags) {
+        const on = card.tags.includes(tag.id);
+        const chip = chips.createEl("button", { cls: "story-planner-tag-chip", text: tag.name });
+        chip.toggleClass("is-on", on);
+        chip.style.setProperty("--tag-color", tag.color);
+        chip.setAttr("aria-pressed", String(on));
+        chip.addEventListener("click", () => this.host.edit((s) => setCardTag(s, id, tag.id, !on)));
+      }
+    }
+    const relationship = relationshipOf(story, card);
+    if (relationship) {
+      const field = this.field("Relationship", `How things stand in "${relationship.name}" after this scene.`);
+      const input = field.createEl("input");
+      input.type = "text";
+      input.placeholder = "e.g. allies, trust broken";
+      input.value = card.relationshipState ?? "";
+      input.dataset.field = "relationship";
+      const listId = `story-planner-states-${id}`;
+      input.setAttr("list", listId);
+      const list = field.createEl("datalist");
+      list.id = listId;
+      const states = new Set(Object.values(story.cards).map((c) => c.relationshipState?.trim()).filter((x): x is string => !!x));
+      for (const state of states) list.createEl("option").value = state;
+      input.addEventListener("input", () => this.host.edit((s) => setRelationshipState(s, id, input.value), `relationship:${id}`));
     }
   }
 

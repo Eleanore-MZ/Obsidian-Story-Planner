@@ -3,12 +3,22 @@ import { CALENDAR_PRESETS } from "../model/defaults";
 import {
   addChapter,
   addCharacter,
+  addLocation,
   addPlotLine,
+  addTag,
   addZone,
   applyCalendar,
   cardsWithBadDates,
   cardsWithDates,
+  deleteLocation,
+  deleteTag,
   deleteZone,
+  cardsAtLocation,
+  cardsWithTag,
+  finalRelationshipState,
+  locationTree,
+  nestLocation,
+  shiftLocation,
   setReferenceZone,
   zoneUses,
   cardsInChapter,
@@ -107,6 +117,9 @@ export class SetupPanel {
     this.buildPlotLines(story);
     this.buildChapters(story);
     this.buildCharacters(story);
+    this.buildRelationships(story);
+    this.buildLocations(story);
+    this.buildTags(story);
     this.buildCalendar(story);
     this.buildZones(story);
     this.buildSnapshots();
@@ -213,6 +226,107 @@ export class SetupPanel {
       });
     });
     this.addRow(section, "New character", "add-character", (name) => this.host.edit((s) => void addCharacter(s, name)));
+  }
+
+  private buildRelationships(story: Story): void {
+    const section = this.section(
+      "Relationships",
+      "A plot line that names its characters follows their relationship. Its cards can then carry a state, such as \"allies\" or \"trust broken\".",
+    );
+    if (story.characters.length === 0) {
+      section.createDiv({ cls: "story-planner-panel-hint", text: "Add characters first." });
+      return;
+    }
+    for (const plotLine of story.plotLines) {
+      const block = section.createDiv({ cls: "story-planner-setup-relationship" });
+      const head = block.createDiv({ cls: "story-planner-setup-row" });
+      head.createSpan({ cls: "story-planner-setup-dot" }).style.setProperty("--dot-color", plotLine.color);
+      head.createSpan({ cls: "story-planner-setup-name", text: plotLine.name });
+      const names = plotLine.characters ?? [];
+      if (names.length > 0) {
+        const end = finalRelationshipState(story, plotLine.id);
+        head.createSpan({ cls: "story-planner-panel-hint", text: end ? `Ends: ${end}` : "No states yet" });
+      }
+      const people = block.createDiv({ cls: "story-planner-setup-chips" });
+      for (const character of story.characters) {
+        this.checkbox(people, character.name, names.includes(character.id), (on) =>
+          this.host.edit((s) => {
+            const p = s.plotLines.find((x) => x.id === plotLine.id)!;
+            const list = (p.characters ?? []).filter((c) => c !== character.id);
+            if (on) list.push(character.id);
+            if (list.length > 0) p.characters = list;
+            else delete p.characters;
+          }),
+        );
+      }
+    }
+  }
+
+  private buildLocations(story: Story): void {
+    const section = this.section(
+      "Locations",
+      "Places, nested like a room inside a house inside a city. A zone set on a place covers everything inside it. ⇥ puts a place inside the one above; ⇤ takes it out.",
+    );
+    for (const { location, depth } of locationTree(story)) {
+      const row = section.createDiv({ cls: "story-planner-setup-row" });
+      row.style.paddingLeft = `calc(${depth} * var(--size-4-4, 16px))`;
+      const name = this.textInput(row, location.name, `location:${location.id}`);
+      name.addEventListener("input", () => {
+        const value = name.value.trim();
+        if (value) this.host.edit((s) => void (s.locations.find((l) => l.id === location.id)!.name = value), `location:${location.id}`);
+      });
+      if (story.zones.length > 0) {
+        const zone = this.dropdown(row, [["", "Zone from above"], ...story.zones.map((z): [string, string] => [z.id, z.name])], location.zone ?? "", (value) =>
+          this.calendarEdit((s) => {
+            const l = s.locations.find((x) => x.id === location.id)!;
+            if (value) l.zone = value;
+            else delete l.zone;
+          }),
+        );
+        zone.setAttr("aria-label", `Time zone of ${location.name}`);
+      }
+      this.count(row, cardsAtLocation(story, location.id).length);
+      const siblings = story.locations.filter((l) => l.parent === location.parent);
+      const index = siblings.indexOf(location);
+      this.reorderButtons(row, index, siblings.length, (by) => this.host.edit((s) => shiftLocation(s, location.id, by)));
+      this.iconButton(row, "⇤", `Take ${location.name} out of the place it is in`, !!location.parent, () =>
+        this.host.edit((s) => nestLocation(s, location.id, false)),
+      );
+      this.iconButton(row, "⇥", `Put ${location.name} inside the place above`, index > 0, () => this.host.edit((s) => nestLocation(s, location.id, true)));
+      this.iconButton(row, "×", `Delete ${location.name}`, true, () => {
+        const used = cardsAtLocation(story, location.id).length;
+        this.host.edit((s) => deleteLocation(s, location.id));
+        this.host.notice(`Deleted ${location.name}${used ? `; ${used} ${used === 1 ? "card has" : "cards have"} no location now` : ""}. Press Ctrl+Z to undo.`);
+      });
+    }
+    this.addRow(section, "New place", "add-location", (name) => this.host.edit((s) => void addLocation(s, name)));
+  }
+
+  private buildTags(story: Story): void {
+    const section = this.section(
+      "Story tags",
+      "Labels such as \"clue\" or \"flashback\" for this story only. They never become Obsidian #tags.",
+    );
+    const on = this.checkbox(section, "Use story tags", story.tagsEnabled, (value) => this.host.edit((s) => void (s.tagsEnabled = value)));
+    on.dataset.field = "tags-enabled";
+    if (!story.tagsEnabled) return;
+    story.tags.forEach((tag, i) => {
+      const row = section.createDiv({ cls: "story-planner-setup-row" });
+      this.colorInput(row, tag.color, (color) => this.host.edit((s) => void (s.tags.find((t) => t.id === tag.id)!.color = color)));
+      const name = this.textInput(row, tag.name, `tag:${tag.id}`);
+      name.addEventListener("input", () => {
+        const value = name.value.trim();
+        if (value) this.host.edit((s) => void (s.tags.find((t) => t.id === tag.id)!.name = value), `tag:${tag.id}`);
+      });
+      this.count(row, cardsWithTag(story, tag.id).length);
+      this.reorderButtons(row, i, story.tags.length, (by) => this.host.edit((s) => shiftInList(s.tags, tag.id, by)));
+      this.iconButton(row, "×", `Delete ${tag.name}`, true, () => {
+        const used = cardsWithTag(story, tag.id).length;
+        this.host.edit((s) => deleteTag(s, tag.id));
+        this.host.notice(`Deleted the tag ${tag.name}${used ? ` from ${used} ${used === 1 ? "card" : "cards"}` : ""}. Press Ctrl+Z to undo.`);
+      });
+    });
+    this.addRow(section, "New tag", "add-tag", (name) => this.host.edit((s) => void addTag(s, name)));
   }
 
   // -------------------------------------------------------------------------

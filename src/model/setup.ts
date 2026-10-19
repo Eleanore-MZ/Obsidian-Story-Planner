@@ -1,7 +1,7 @@
 import { newId, PALETTE } from "./defaults";
 import { chapterRows } from "./moves";
 import { dateProblem } from "./calendar";
-import { Calendar, Card, CardCharacter, CharacterRole, Id, Story } from "./types";
+import { Calendar, Card, CardCharacter, CharacterRole, Id, Location, PlotLine, Story } from "./types";
 
 // Pure edits behind the story setup panel: plot lines, chapters and
 // characters. Deleting something that cards depend on always says what
@@ -276,4 +276,165 @@ export function deleteZone(story: Story, zoneId: Id, now = new Date().toISOStrin
   story.zones = story.zones.filter((z) => z.id !== zoneId);
   if (story.zones.length === 0) delete story.referenceZone;
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Locations: a nested list, e.g. a room inside a house inside a city
+
+export function addLocation(story: Story, name: string, parent?: Id): Id {
+  const id = newId("l");
+  story.locations.push(parent ? { id, name, parent } : { id, name });
+  return id;
+}
+
+/** Locations in list order with their depth, parents before children; a broken parent counts as none. */
+export function locationTree(story: Story): { location: Location; depth: number }[] {
+  const ids = new Set(story.locations.map((l) => l.id));
+  const children = new Map<Id | undefined, Location[]>();
+  for (const location of story.locations) {
+    const parent = location.parent && ids.has(location.parent) && location.parent !== location.id ? location.parent : undefined;
+    children.set(parent, [...(children.get(parent) ?? []), location]);
+  }
+  const out: { location: Location; depth: number }[] = [];
+  const seen = new Set<Id>();
+  const walk = (parent: Id | undefined, depth: number) => {
+    for (const location of children.get(parent) ?? []) {
+      if (seen.has(location.id)) continue;
+      seen.add(location.id);
+      out.push({ location, depth });
+      walk(location.id, depth + 1);
+    }
+  };
+  walk(undefined, 0);
+  // Anything caught in a loop of parents still shows, at the top level.
+  for (const location of story.locations) if (!seen.has(location.id)) out.push({ location, depth: 0 });
+  return out;
+}
+
+/** A location and every location inside it. */
+export function locationAndInside(story: Story, id: Id): Set<Id> {
+  const inside = new Set<Id>([id]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const l of story.locations) {
+      if (l.parent && inside.has(l.parent) && !inside.has(l.id)) {
+        inside.add(l.id);
+        grew = true;
+      }
+    }
+  }
+  return inside;
+}
+
+/** "Glass Harbour › The pier": a location's name with the places it sits in. */
+export function locationPath(story: Story, id: Id): string {
+  const names: string[] = [];
+  const seen = new Set<Id>();
+  for (let l = story.locations.find((x) => x.id === id); l && !seen.has(l.id); l = story.locations.find((x) => x.id === l!.parent)) {
+    seen.add(l.id);
+    names.unshift(l.name);
+  }
+  return names.join(" › ");
+}
+
+export function cardsAtLocation(story: Story, id: Id): Card[] {
+  return Object.values(story.cards).filter((c) => c.location === id);
+}
+
+/** Moves a location one place up or down among the locations that share its parent. */
+export function shiftLocation(story: Story, id: Id, by: -1 | 1): boolean {
+  const location = story.locations.find((l) => l.id === id);
+  if (!location) return false;
+  const siblings = story.locations.filter((l) => l.parent === location.parent);
+  const target = siblings[siblings.indexOf(location) + by];
+  if (!target) return false;
+  const a = story.locations.indexOf(location);
+  const b = story.locations.indexOf(target);
+  [story.locations[a], story.locations[b]] = [target, location];
+  return true;
+}
+
+/** Puts a location inside the sibling just above it (indent), or beside its parent (outdent). */
+export function nestLocation(story: Story, id: Id, inward: boolean): boolean {
+  const location = story.locations.find((l) => l.id === id);
+  if (!location) return false;
+  if (inward) {
+    const siblings = story.locations.filter((l) => l.parent === location.parent);
+    const above = siblings[siblings.indexOf(location) - 1];
+    if (!above) return false;
+    location.parent = above.id;
+    return true;
+  }
+  if (!location.parent) return false;
+  const parent = story.locations.find((l) => l.id === location.parent);
+  if (parent?.parent) location.parent = parent.parent;
+  else delete location.parent;
+  return true;
+}
+
+/** Deletes a location. Places inside it move up to its parent; cards there lose their location. */
+export function deleteLocation(story: Story, id: Id, now = new Date().toISOString()): boolean {
+  const location = story.locations.find((l) => l.id === id);
+  if (!location) return false;
+  for (const l of story.locations) {
+    if (l.parent !== id) continue;
+    if (location.parent) l.parent = location.parent;
+    else delete l.parent;
+  }
+  for (const card of cardsAtLocation(story, id)) {
+    delete card.location;
+    card.modified = now;
+  }
+  story.locations = story.locations.filter((l) => l.id !== id);
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Story tags, kept apart from Obsidian's own #tags
+
+export function addTag(story: Story, name: string): Id {
+  const id = newId("g");
+  story.tags.push({ id, name, color: freeColor(story.tags) });
+  return id;
+}
+
+export function cardsWithTag(story: Story, id: Id): Card[] {
+  return Object.values(story.cards).filter((c) => c.tags.includes(id));
+}
+
+export function deleteTag(story: Story, id: Id, now = new Date().toISOString()): boolean {
+  if (!story.tags.some((t) => t.id === id)) return false;
+  for (const card of cardsWithTag(story, id)) {
+    card.tags = card.tags.filter((t) => t !== id);
+    card.modified = now;
+  }
+  story.tags = story.tags.filter((t) => t.id !== id);
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Relationships: a plot line that names the characters it is about
+
+/** Plot lines that name characters, so their cards can carry a relationship state. */
+export function relationshipPlotLines(story: Story): PlotLine[] {
+  return story.plotLines.filter((p) => (p.characters ?? []).length > 0);
+}
+
+/** The relationship plot line a card belongs to, primarily or as an echo, if any. */
+export function relationshipOf(story: Story, card: Card): PlotLine | undefined {
+  const lines = relationshipPlotLines(story);
+  return lines.find((p) => p.id === card.plotLine) ?? lines.find((p) => card.alsoIn.includes(p.id));
+}
+
+/**
+ * How a relationship stands at the end of the story: the state on its last
+ * card in reading order that has one.
+ */
+export function finalRelationshipState(story: Story, plotLineId: Id): string | undefined {
+  const chapterIndex = new Map(story.chapters.map((c, i) => [c.id, i]));
+  const cards = Object.values(story.cards)
+    .filter((c) => (c.plotLine === plotLineId || c.alsoIn.includes(plotLineId)) && c.relationshipState?.trim() && c.chapter && chapterIndex.has(c.chapter))
+    .sort((a, b) => chapterIndex.get(a.chapter!)! - chapterIndex.get(b.chapter!)! || a.order - b.order);
+  return cards.at(-1)?.relationshipState?.trim();
 }

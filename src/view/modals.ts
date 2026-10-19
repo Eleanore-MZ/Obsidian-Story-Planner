@@ -1,4 +1,6 @@
 import { App, Modal, Setting } from "obsidian";
+import { Story, StoryDate } from "../model/types";
+import { DateEditor } from "./DateEditor";
 
 /** Asks for a single line of text, such as a story or chapter name. */
 export class TextPromptModal extends Modal {
@@ -72,6 +74,49 @@ export class ChoiceModal extends Modal {
             this.choice.onChoose(this.value);
           }),
       );
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+/**
+ * Confirms a new date for a card moved to another span in story time. Dates
+ * are facts in these stories, so a drag never changes one silently.
+ */
+export class DateModal extends Modal {
+  constructor(
+    app: App,
+    private story: Story,
+    private heading: string,
+    private message: string,
+    private initial: StoryDate,
+    private onConfirm: (date: StoryDate) => void,
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.titleEl.setText(this.heading);
+    this.contentEl.addClass("story-planner-date-modal");
+    this.contentEl.createEl("p", { text: this.message });
+    const field = this.contentEl.createDiv({ cls: "story-planner-panel-field" });
+    const editor = new DateEditor(field, this.story, this.initial, "modal", "Zone: default", () => {});
+    new Setting(this.contentEl)
+      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((b) => {
+        b.setButtonText("Change date")
+          .setCta()
+          .onClick(() => {
+            if (!editor.valid) return;
+            this.close();
+            this.onConfirm(editor.valid);
+          });
+        const sync = () => b.setDisabled(!editor.valid);
+        field.addEventListener("input", sync);
+        field.addEventListener("change", sync);
+      });
   }
 
   onClose(): void {

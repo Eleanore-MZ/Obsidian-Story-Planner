@@ -12,6 +12,8 @@ const CLOCK = "\u0000clock";
 export class DateEditor {
   private readonly hint: HTMLElement;
   private hadValue = false;
+  /** The date as the fields stand, when it is complete and valid. */
+  valid: StoryDate | undefined;
   private readonly fields: {
     era?: HTMLSelectElement;
     year: HTMLInputElement;
@@ -130,6 +132,7 @@ export class DateEditor {
   }
 
   private showHint(date: StoryDate | undefined, problem: string | null): void {
+    this.valid = problem ? undefined : date;
     this.hint.toggleClass("is-problem", !!problem);
     if (problem) {
       this.hint.setText(problem);

@@ -86,7 +86,7 @@ Edits to the calendar or to zone offsets after cards are dated could move events
 
 ### How the story-time axis is drawn
 
-In story-time mode, the rows (or columns, when transposed) become spans of time. A zoom control chooses the grain, such as years, months, days or parts of the day, and empty stretches of time collapse into a thin "gap" marker showing how much time passes ("— 3 years later —") rather than producing pages of empty rows. This keeps a story that spans decades readable while still letting a single dense week expand to show each evening. Each card in story-time mode shows a small badge with its chapter, so the reader-order position stays visible.
+In story-time mode, the rows (or columns, when transposed) become spans of time. A zoom control chooses the grain, such as years, months, days or parts of the day, and empty stretches of time collapse into a thin "gap" marker showing how much time passes ("— 3 years later —") rather than producing pages of empty rows. This keeps a story that spans decades readable while still letting a single dense week expand to show each evening. Each card in story-time mode shows a small badge with its chapter, so the reader-order position stays visible. Double-clicking empty space in story time creates an off-page event at that time, and dropping a dated card on the undated tray takes its date off.
 
 ### Off-page events
 

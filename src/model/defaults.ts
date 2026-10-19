@@ -1,7 +1,8 @@
+import { DEFAULT_PALETTE, nextColor } from "./palette";
 import { Calendar, Card, STORY_SCHEMA_VERSION, Story } from "./types";
 
-/** Colours given to new plot lines and characters. */
-export const PALETTE = ["#4a90d9", "#d9534f", "#5cb85c", "#f0ad4e", "#9b59b6", "#1abc9c", "#e67e22", "#7f8c8d"];
+/** The default colour palette; the one in use is a plugin setting (see model/palette.ts). */
+export const PALETTE = DEFAULT_PALETTE;
 
 /** Short random ids; unique enough within one story. */
 export function newId(prefix: string): string {
@@ -64,7 +65,7 @@ export const CALENDAR_PRESETS: { name: string; create: () => Calendar }[] = [
 ];
 
 export function createEmptyStory(title: string): Story {
-  const plotLine = { id: newId("p"), name: "Main plot", color: "#4a90d9" };
+  const plotLine = { id: newId("p"), name: "Main plot", color: nextColor([]) };
   const chapter = { id: newId("c"), name: "" };
   return {
     schema: STORY_SCHEMA_VERSION,

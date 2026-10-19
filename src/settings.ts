@@ -4,6 +4,8 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 import { formatStoryDate } from "./model/calendar";
 import { DATE_TOKENS, DEFAULT_DATE_FORMAT, DEFAULT_TIME_FORMAT, setDefaultFormats, TIME_TOKENS } from "./model/dateFormat";
 import { createEmptyStory } from "./model/defaults";
+import { cleanPalette, DEFAULT_PALETTE, normalizeHex, setPalette } from "./model/palette";
+import { reorderHandle } from "./view/reorder";
 import type StoryPlannerPlugin from "./main";
 import { Orientation } from "./view/layout";
 
@@ -58,6 +60,8 @@ export function orderedTabs(order: StoryTab[] | undefined): StoryTab[] {
 export type EchoModifier = "alt" | "ctrl" | "shift" | "off";
 
 export interface StoryPlannerSettings {
+  /** The colours new plot lines, characters, categories and tags take, and the colour board offers. */
+  palette: string[];
   /** How story dates and times are shown, unless a story sets its own; see model/dateFormat.ts. */
   dateFormat: string;
   timeFormat: string;
@@ -83,6 +87,7 @@ export interface StoryPlannerSettings {
 }
 
 export const DEFAULT_SETTINGS: StoryPlannerSettings = {
+  palette: [...DEFAULT_PALETTE],
   dateFormat: DEFAULT_DATE_FORMAT,
   timeFormat: DEFAULT_TIME_FORMAT,
   echoModifier: "alt",
@@ -101,6 +106,61 @@ export const DEFAULT_SETTINGS: StoryPlannerSettings = {
 export class StoryPlannerSettingTab extends PluginSettingTab {
   constructor(app: App, private plugin: StoryPlannerPlugin) {
     super(app, plugin);
+  }
+
+  private async savePalette(colors: string[]): Promise<void> {
+    this.plugin.settings.palette = cleanPalette(colors);
+    setPalette(this.plugin.settings.palette);
+    await this.plugin.saveSettings();
+  }
+
+  /** The palette as a list: drag to reorder, click a square to change it, type a hex code, or remove it. */
+  private drawPalette(list: HTMLElement): void {
+    list.empty();
+    const colors = [...this.plugin.settings.palette];
+    const redraw = async (next: string[]) => {
+      await this.savePalette(next);
+      this.drawPalette(list);
+    };
+    colors.forEach((color, i) => {
+      const row = list.createDiv({ cls: "story-planner-palette-row" });
+      reorderHandle(row, "palette", i, (to) => {
+        const next = [...colors];
+        const [moved] = next.splice(i, 1);
+        next.splice(to, 0, moved!);
+        void redraw(next);
+      });
+      const pick = row.createEl("input", { cls: "story-planner-palette-color" });
+      pick.type = "color";
+      pick.value = color;
+      const hex = row.createEl("input", { cls: "story-planner-palette-hex" });
+      hex.type = "text";
+      hex.value = color;
+      hex.spellcheck = false;
+      pick.addEventListener("change", () => {
+        colors[i] = pick.value;
+        void redraw(colors);
+      });
+      hex.addEventListener("change", () => {
+        const value = normalizeHex(hex.value);
+        if (!value) {
+          hex.value = color;
+          return;
+        }
+        colors[i] = value;
+        void redraw(colors);
+      });
+      const remove = row.createEl("button", { cls: "clickable-icon", text: "×" });
+      remove.setAttr("aria-label", "Remove");
+      remove.disabled = colors.length <= 1;
+      remove.addEventListener("click", () => void redraw(colors.filter((_, k) => k !== i)));
+    });
+    const add = list.createEl("button", { text: "+ Add colour" });
+    add.addEventListener("click", () => {
+      const color = Array.from({ length: 256 }, (_, n) => `#${n.toString(16).padStart(2, "0").repeat(3)}`)
+        .find((candidate) => !colors.includes(candidate)) ?? "#888888";
+      void redraw([...colors, color]);
+    });
   }
 
   display(): void {
@@ -246,6 +306,17 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }),
       );
+
+    new Setting(containerEl).setName("Colours").setHeading();
+    const palette = new Setting(containerEl).setName("Colour palette").setDesc("Offered by every colour square, and given in turn to new plot lines, characters, categories and tags.");
+    palette.addButton((b) =>
+      b.setButtonText("Reset to default").onClick(async () => {
+        await this.savePalette([...DEFAULT_PALETTE]);
+        this.drawPalette(list);
+      }),
+    );
+    const list = containerEl.createDiv({ cls: "story-planner-palette-editor" });
+    this.drawPalette(list);
 
     new Setting(containerEl).setName("Safety").setHeading();
 

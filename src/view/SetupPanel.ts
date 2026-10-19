@@ -1,5 +1,6 @@
 import { setIcon } from "obsidian";
 import { reorderHandle } from "./reorder";
+import { colorSwatch } from "./colorPicker";
 import { formatOffset, formatStoryDate, parseOffset } from "../model/calendar";
 import { DATE_TOKENS, defaultFormats, TIME_TOKENS } from "../model/dateFormat";
 import { CALENDAR_PRESETS } from "../model/defaults";
@@ -960,12 +961,9 @@ export class SetupPanel {
     return input;
   }
 
-  private colorInput(parent: HTMLElement, value: string, onChange: (color: string) => void): HTMLInputElement {
-    const input = parent.createEl("input", { cls: "story-planner-setup-color" });
-    input.type = "color";
-    input.value = value;
-    input.addEventListener("change", () => onChange(input.value));
-    return input;
+  /** A colour square that opens the colour board (see colorPicker.ts). */
+  private colorInput(parent: HTMLElement, value: string, onChange: (color: string) => void): HTMLButtonElement {
+    return colorSwatch(parent, value, onChange);
   }
 
   private count(parent: HTMLElement, n: number): void {

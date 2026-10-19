@@ -2481,7 +2481,7 @@ body.story-planner-reordering * {
 }
 
 /* Buttons: quiet ghost buttons with square corners. */
-.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item),
+.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch),
 .story-planner-form-modal button {
   height: auto;
   padding: var(--size-2-2) var(--size-4-3);
@@ -2493,7 +2493,7 @@ body.story-planner-reordering * {
   font-weight: normal;
 }
 
-.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):hover,
+.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch):hover,
 .story-planner-form-modal button:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
@@ -2601,4 +2601,146 @@ body.story-planner-reordering * {
 .story-planner-date-approx {
   font-size: var(--font-ui-small);
   color: var(--text-muted);
+}
+
+/* A colour square, and the board of colours it opens. */
+.story-planner .story-planner-swatch,
+.story-planner-color-board .story-planner-color-choice {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--text-normal) 15%, transparent);
+  border-radius: 0;
+  background: var(--swatch);
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.story-planner .story-planner-swatch:hover:not(:disabled) {
+  outline: 1px solid var(--text-muted);
+  outline-offset: 1px;
+  background: var(--swatch);
+}
+
+.story-planner .story-planner-swatch:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.story-planner-color-board {
+  position: fixed;
+  z-index: var(--layer-menu, 65);
+  display: grid;
+  grid-template-columns: repeat(6, 22px);
+  gap: 6px;
+  padding: var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+}
+
+.story-planner-color-board .story-planner-color-choice {
+  width: 22px;
+  height: 22px;
+}
+
+.story-planner-color-board .story-planner-color-choice:hover,
+.story-planner-color-board .story-planner-color-choice:focus-visible {
+  outline: 2px solid var(--text-muted);
+  outline-offset: 1px;
+  background: var(--swatch);
+}
+
+.story-planner-color-board .story-planner-color-choice.is-current {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 1px;
+}
+
+.story-planner-color-custom {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding-top: var(--size-4-1);
+  border-top: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.story-planner-color-custom input[type="color"] {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* The palette in plugin settings. */
+.story-planner-palette-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 var(--size-4-4);
+}
+
+.story-planner-palette-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+
+.story-planner-palette-row.is-drop-before {
+  box-shadow: inset 0 2px 0 var(--interactive-accent);
+}
+
+.story-planner-palette-row.is-drop-after {
+  box-shadow: inset 0 -2px 0 var(--interactive-accent);
+}
+
+.story-planner-palette-row input.story-planner-palette-color {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.story-planner-palette-row input.story-planner-palette-hex {
+  width: 7em;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-small);
+}
+
+
+/* Native colour inputs (the palette in settings, "Custom" on the colour
+   board): square, with the colour filling the whole square. */
+.story-planner-palette-row input[type="color"],
+.story-planner-color-custom input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--text-normal) 15%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.story-planner-palette-row input[type="color"]::-webkit-color-swatch-wrapper,
+.story-planner-color-custom input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.story-planner-palette-row input[type="color"]::-webkit-color-swatch,
+.story-planner-color-custom input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 0;
 }

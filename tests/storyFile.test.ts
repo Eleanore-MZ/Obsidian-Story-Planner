@@ -165,8 +165,10 @@ describe("written and unwritten scenes", () => {
 
 describe("relationships, which were removed", () => {
   it("still opens stories that have them, and drops them on the next save", () => {
-    const text = serializeStory(sampleStory())
-      .replace('"color":"#4a90d9"}', '"color":"#4a90d9","characters":["x1"]}')
+    const story = sampleStory();
+    const color = story.plotLines[0]!.color;
+    const text = serializeStory(story)
+      .replace(`"color":"${color}"}`, `"color":"${color}","characters":["x1"]}`)
       .replace(/"written":false/, '"written":false,"relationshipState":"allies"');
     expect(text).toContain('"characters":["x1"]');
     expect(text).toContain('"relationshipState":"allies"');

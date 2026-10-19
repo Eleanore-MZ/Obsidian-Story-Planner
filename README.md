@@ -27,6 +27,7 @@ Desktop only.
 
 **Story setup**
 - Plot lines and categories, scene tags, acts and chapters, characters, places nested inside each other, the calendar and time zones, and safety snapshots taken before large deletions.
+- Choose colours from a palette or pick a custom colour; edit and reorder the palette in plugin settings. New story elements use its colours in order.
 
 **Export**
 - The story as a readable Markdown outline, a CSV with one row per card, or JSON.

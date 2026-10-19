@@ -1,4 +1,5 @@
-import { newId, PALETTE } from "./defaults";
+import { newId } from "./defaults";
+import { nextColor } from "./palette";
 import { chapterRows } from "./moves";
 import { dateProblem } from "./calendar";
 import { Calendar, Card, CardCharacter, CharacterRole, Id, Location, PlotLine, Story } from "./types";
@@ -68,8 +69,7 @@ export function addCharacter(story: Story, name: string): Id {
 
 /** The first palette colour nobody uses yet, or the next one in turn when all are taken. */
 export function freeColor(used: { color: string }[]): string {
-  const taken = new Set(used.map((u) => u.color.toLowerCase()));
-  return PALETTE.find((c) => !taken.has(c.toLowerCase())) ?? PALETTE[used.length % PALETTE.length]!;
+  return nextColor(used);
 }
 
 /** Moves an item one place up (-1) or down (+1) in its list. */

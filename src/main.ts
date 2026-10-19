@@ -5,6 +5,7 @@ import { DEFAULT_NOTE_TEMPLATE, fillTemplate, noteFileName, noteValues, renameLi
 import { cardsInReadingOrder } from "./model/search";
 import { chapterTitleOf } from "./model/chapters";
 import { setDefaultFormats } from "./model/dateFormat";
+import { cleanPalette, setPalette } from "./model/palette";
 import { EXPORT_EXTENSIONS, exportStory } from "./format/export";
 import { Card, Story } from "./model/types";
 import { SnapshotInfo } from "./model/snapshots";
@@ -297,6 +298,8 @@ export default class StoryPlannerPlugin extends Plugin {
   async loadSettings(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, { viewState: {} }, await this.loadData());
     setDefaultFormats({ date: this.settings.dateFormat, time: this.settings.timeFormat });
+    this.settings.palette = cleanPalette(this.settings.palette);
+    setPalette(this.settings.palette);
   }
 
   async saveSettings(): Promise<void> {

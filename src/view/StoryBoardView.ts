@@ -9,7 +9,7 @@ import { compareDates, dateInZone, effectiveZone, formatDateRange, formatStoryDa
 import { reorderInTime, referenceDate } from "../model/storyTime";
 import { Card, Id, Story } from "../model/types";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
-import { addChapter, addPlotLine } from "../model/setup";
+import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree } from "../model/setup";
 import { CardPanel } from "./CardPanel";
 import { SetupPanel } from "./SetupPanel";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
@@ -492,6 +492,7 @@ export class StoryBoardView extends TextFileView {
           this.mutate((s) => void addChapter(s, name)),
         ).open(),
       );
+      this.highlightPicker(actions, story);
       const compact = this.button(actions, "Compact", () => this.toggleCompact());
       compact.toggleClass("is-active", this.compact);
       compact.setAttr("aria-pressed", String(this.compact));
@@ -644,6 +645,7 @@ export class StoryBoardView extends TextFileView {
           el.createDiv({ cls: "story-planner-card-date", text: formatDateRange(story, card.date, card.endDate) });
         }
         if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
+        this.cardExtras(el, card, story);
         el.dataset.cardId = card.id;
         if (card.id === this.panel.selected) el.addClass("is-selected");
         el.addEventListener("click", () => this.select(card.id));
@@ -659,6 +661,7 @@ export class StoryBoardView extends TextFileView {
         const el = grid.createDiv({ cls: "story-planner-echo", text: card.title });
         el.style.setProperty("--lane-color", home?.color ?? "var(--interactive-accent)");
         el.setAttr("aria-label", `Also in ${home?.name ?? "another plot line"}`);
+        if (this.highlighted(card, story) === false) el.addClass("is-dimmed");
         // Clicking an echo selects the real card and brings it into view.
         el.addEventListener("click", () => {
           this.select(card.id);
@@ -673,10 +676,76 @@ export class StoryBoardView extends TextFileView {
   }
 
   // -------------------------------------------------------------------------
+  // Highlight: one character, tag or place stands out and every other card dims.
+  // A viewing aid only; it never changes the story.
+
+  private get highlight(): string {
+    const path = this.file?.path;
+    return (path ? this.plugin.settings.viewState[path]?.highlight : undefined) ?? "";
+  }
+
+  private highlightPicker(parent: HTMLElement, story: Story): void {
+    const select = parent.createEl("select", { cls: "dropdown story-planner-highlight" });
+    select.setAttr("aria-label", "Highlight");
+    select.createEl("option", { text: "No highlight" }).value = "";
+    const group = (label: string, items: [string, string][]) => {
+      if (items.length === 0) return;
+      const el = select.createEl("optgroup");
+      el.label = label;
+      for (const [value, text] of items) el.createEl("option", { text }).value = value;
+    };
+    group("Characters", story.characters.map((c) => [`character:${c.id}`, c.name]));
+    if (story.tagsEnabled) group("Story tags", story.tags.map((t) => [`tag:${t.id}`, t.name]));
+    group("Places", locationTree(story).map(({ location, depth }) => [`location:${location.id}`, `${"\u2003".repeat(depth)}${location.name}`]));
+    select.value = this.highlight;
+    if (select.value !== this.highlight) select.value = "";
+    select.toggleClass("is-active", select.value !== "");
+    select.addEventListener("change", () => this.setViewState({ highlight: select.value }));
+  }
+
+  /** Whether a card matches the highlight; undefined when nothing is highlighted. */
+  private highlighted(card: Card, story: Story): boolean | undefined {
+    const [kind, id] = this.highlight.split(":");
+    if (!kind || !id) return undefined;
+    if (kind === "character") return story.characters.some((c) => c.id === id) ? card.characters.some((c) => c.id === id) : undefined;
+    if (kind === "tag") return story.tags.some((t) => t.id === id) ? card.tags.includes(id) : undefined;
+    if (kind === "location") {
+      if (!story.locations.some((l) => l.id === id)) return undefined;
+      return !!card.location && locationAndInside(story, id).has(card.location);
+    }
+    return undefined;
+  }
+
+  /** What every card shows besides title, date and synopsis: its place, tags, and the highlight. */
+  private cardExtras(el: HTMLElement, card: Card, story: Story): void {
+    if (card.location && story.locations.some((l) => l.id === card.location)) {
+      el.createDiv({ cls: "story-planner-card-place", text: locationPath(story, card.location) });
+    }
+    if (story.tagsEnabled && card.tags.length > 0) {
+      const chips = el.createDiv({ cls: "story-planner-card-tags" });
+      for (const id of card.tags) {
+        const tag = story.tags.find((t) => t.id === id);
+        if (!tag) continue;
+        const chip = chips.createSpan({ cls: "story-planner-tag-chip is-on", text: tag.name });
+        chip.style.setProperty("--tag-color", tag.color);
+      }
+    }
+    if (card.relationshipState) el.createDiv({ cls: "story-planner-card-state", text: card.relationshipState });
+    const match = this.highlighted(card, story);
+    if (match === false) el.addClass("is-dimmed");
+    if (match && this.highlight.startsWith("character:")) {
+      const entry = card.characters.find((c) => `character:${c.id}` === this.highlight)!;
+      const role = entry.role === "pov" ? "Point of view" : entry.role === "present" ? "Present" : "Mentioned";
+      el.createDiv({ cls: "story-planner-card-note", text: entry.note ? `${role}: ${entry.note}` : role });
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Story time: the cards in the order things happen, spans of time along one
   // axis and plot lines along the other, with undated cards in a tray.
 
   private timeActions(actions: HTMLElement, story: Story): void {
+    this.highlightPicker(actions, story);
     const zoom = actions.createEl("select", { cls: "dropdown" });
     zoom.setAttr("aria-label", "Zoom");
     for (const [value, label] of Object.entries(ZOOM_LABELS)) zoom.createEl("option", { text: label }).value = value;
@@ -779,6 +848,7 @@ export class StoryBoardView extends TextFileView {
         const el = grid.createDiv({ cls: "story-planner-echo", text: card.title });
         el.style.setProperty("--lane-color", home?.color ?? "var(--interactive-accent)");
         el.setAttr("aria-label", `Also in ${home?.name ?? "another plot line"}`);
+        if (this.highlighted(card, story) === false) el.addClass("is-dimmed");
         el.addEventListener("click", () => this.select(card.id));
         this.makeDropTarget(el, "card", null, () => this.dropInTime(item.bucketId, item.plotLineId, null, "on"));
         return el;
@@ -801,6 +871,7 @@ export class StoryBoardView extends TextFileView {
       if (when.textContent !== local) when.setAttr("title", `Local: ${local}`);
       if (this.shiftedDay(card, story)) when.addClass("is-shifted");
     }
+    this.cardExtras(el, card, story);
     el.dataset.cardId = card.id;
     if (card.id === this.panel.selected) el.addClass("is-selected");
     el.addEventListener("click", () => this.select(card.id));

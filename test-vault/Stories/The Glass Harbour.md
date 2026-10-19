@@ -12,16 +12,19 @@ storyplanner-version: 1
 
 **Body found at the pier** (Investigation, 4 Frost 1531 AF, Dawn, The pier)
 Characters: Mara, Harbourmaster Oren
+Story tags: clue
 Mara is called out before dawn and finds the harbourmaster's body at the end of the pier.
 
 **Ilse arrives** (Mara and Ilse, 4 Frost 1531 AF, Dusk, Glass Harbour)
 Characters: Ilse, Mara
+Relationship: strangers
 A courier from the east asks for the harbourmaster by name.
 
 ## Chapter 2: Letters
 
 **The office ledger** (Investigation, 5 Frost 1531 AF, 06:25, Harbourmaster's office)
 Characters: Mara
+Story tags: clue, red herring
 A page has been cut from the harbourmaster's ledger.
 
 **A letter is sealed at Vell Manor** (The eastern letters, around 3 Frost 1531 AF, Night (Eastern Provinces), Vell Manor)

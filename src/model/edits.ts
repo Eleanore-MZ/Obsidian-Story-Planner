@@ -141,3 +141,34 @@ export function setCardDate(
   card.modified = now;
   return true;
 }
+
+/** Sets or clears where a card takes place. */
+export function setCardLocation(story: Story, cardId: Id, location: Id | undefined, now = new Date().toISOString()): boolean {
+  const card = story.cards[cardId];
+  if (!card || card.location === location) return false;
+  if (location) card.location = location;
+  else delete card.location;
+  card.modified = now;
+  return true;
+}
+
+/** Puts a story tag on a card or takes it off. */
+export function setCardTag(story: Story, cardId: Id, tag: Id, on: boolean, now = new Date().toISOString()): boolean {
+  const card = story.cards[cardId];
+  if (!card || card.tags.includes(tag) === on) return false;
+  card.tags = on ? [...card.tags, tag] : card.tags.filter((t) => t !== tag);
+  card.modified = now;
+  return true;
+}
+
+/** Sets a card's relationship state, such as "allies"; an empty one is removed. */
+export function setRelationshipState(story: Story, cardId: Id, state: string, now = new Date().toISOString()): boolean {
+  const card = story.cards[cardId];
+  if (!card) return false;
+  const value = state.trim() || undefined;
+  if (card.relationshipState === value) return false;
+  if (value) card.relationshipState = value;
+  else delete card.relationshipState;
+  card.modified = now;
+  return true;
+}

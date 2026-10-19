@@ -722,3 +722,83 @@
 .story-planner-date-modal button[aria-label="Clear this date"] {
   display: none;
 }
+
+/* Places, story tags, relationship states and the highlight. */
+
+.story-planner-card-place,
+.story-planner-card-state {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.story-planner-card-state::before {
+  content: "↔ ";
+}
+
+.story-planner-card-tags,
+.story-planner-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-1);
+  margin-top: var(--size-4-1);
+}
+
+.story-planner-tag-chip {
+  padding: 0 var(--size-4-2);
+  border-radius: var(--radius-s);
+  border: 1px solid var(--tag-color);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.6;
+  color: var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+  height: auto;
+}
+
+.story-planner-tag-chip.is-on {
+  background: color-mix(in srgb, var(--tag-color) 22%, transparent);
+  color: var(--text-normal);
+}
+
+.story-planner-card-note {
+  margin-top: var(--size-4-1);
+  padding-top: var(--size-4-1);
+  border-top: 1px dashed var(--background-modifier-border);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-accent);
+}
+
+.story-planner .is-dimmed {
+  opacity: 0.3;
+}
+
+.story-planner .is-dimmed:hover {
+  opacity: 0.7;
+}
+
+.story-planner-highlight.is-active {
+  border-color: var(--interactive-accent);
+}
+
+.story-planner-setup-relationship {
+  margin-bottom: var(--size-4-2);
+}
+
+.story-planner-setup-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--dot-color);
+}
+
+.story-planner-setup-name {
+  flex: 1;
+}
+
+.story-planner-setup-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--size-4-3);
+  padding-left: var(--size-4-4, 16px);
+}

@@ -16,6 +16,8 @@ export interface StoryViewState {
   timeOrientation?: Orientation;
   zoom?: Zoom;
   timeZoneView?: string;
+  /** A character, tag or place to make stand out, as "character:id", "tag:id" or "location:id". */
+  highlight?: string;
 }
 
 export interface StoryPlannerSettings {

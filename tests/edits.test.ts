@@ -6,6 +6,9 @@ import {
   deleteCard,
   removeCardCharacter,
   setCardDate,
+  setCardLocation,
+  setCardTag,
+  setRelationshipState,
   setEcho,
   updateCard,
   updateCardCharacter,
@@ -127,5 +130,25 @@ describe("dates on cards", () => {
     expect(s.cards[id]!.date).toBeUndefined();
     expect(s.cards[id]!.endDate).toBeUndefined();
     expect(s.cards[id]!.modified).toBe(NOW);
+  });
+});
+
+describe("location, tags and relationship state", () => {
+  it("sets and clears them", () => {
+    const s = story();
+    const id = Object.keys(s.cards)[0]!;
+    expect(setCardLocation(s, id, "l1", NOW)).toBe(true);
+    expect(setCardLocation(s, id, "l1", NOW)).toBe(false);
+    setCardLocation(s, id, undefined, NOW);
+    expect("location" in s.cards[id]!).toBe(false);
+    setCardTag(s, id, "g1", true, NOW);
+    expect(setCardTag(s, id, "g1", true, NOW)).toBe(false);
+    expect(s.cards[id]!.tags).toEqual(["g1"]);
+    setCardTag(s, id, "g1", false, NOW);
+    expect(s.cards[id]!.tags).toEqual([]);
+    setRelationshipState(s, id, " allies ", NOW);
+    expect(s.cards[id]!.relationshipState).toBe("allies");
+    setRelationshipState(s, id, "", NOW);
+    expect("relationshipState" in s.cards[id]!).toBe(false);
   });
 });

@@ -3,8 +3,9 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { serializeStory } from "../src/format/storyFile";
+import { dayFromNumber, dayNumber } from "../src/model/calendar";
 import { createEmptyStory } from "../src/model/defaults";
-import { Calendar, Card, Story } from "../src/model/types";
+import { Calendar, Card, CardCharacter, Story, StoryDate } from "../src/model/types";
 
 const OUT = join("test-vault", "Stories");
 const STAMP = "2026-10-18T00:00:00.000Z";
@@ -17,24 +18,65 @@ function addCards(story: Story, cards: Card[]): void {
   for (const c of cards) story.cards[c.id] = c;
 }
 
-/** A small, plain story: two plot lines, three chapters. */
+/** A small story on the Gregorian-style calendar: two plot lines, three chapters, a few characters. */
 function smallStory(): Story {
   const s = createEmptyStory("A Small Story");
+  s.characters = [
+    { id: "x1", name: "June", color: "#4a90d9", description: "Moving out after ten years in the same flat." },
+    { id: "x2", name: "Tom", color: "#5cb85c", description: "An old friend from school." },
+    { id: "x3", name: "Mrs Alder", color: "#e67e22", description: "June's new neighbour." },
+  ];
+  s.locations = [
+    { id: "l1", name: "The old flat" },
+    { id: "l2", name: "Linden Street" },
+    { id: "l3", name: "Number 14", parent: "l2" },
+    { id: "l4", name: "The corner café", parent: "l2" },
+  ];
   s.plotLines = [
     { id: "p1", name: "The move", color: "#4a90d9" },
-    { id: "p2", name: "Old friends", color: "#5cb85c" },
+    { id: "p2", name: "Old friends", color: "#5cb85c", characters: ["x1", "x2"] },
   ];
   s.chapters = [
     { id: "c1", name: "Chapter 1" },
     { id: "c2", name: "Chapter 2" },
     { id: "c3", name: "Chapter 3" },
   ];
+  const date = (month: number, day: number, extra: object = {}) => ({ calendar: "main", year: 2024, month, day, ...extra });
   addCards(s, [
-    card({ id: "k01", title: "Boxes everywhere", plotLine: "p1", chapter: "c1", order: 1, synopsis: "June packs up the flat she has lived in for ten years." }),
-    card({ id: "k02", title: "A letter from Tom", plotLine: "p2", chapter: "c1", order: 2, synopsis: "An old friend writes for the first time in years." }),
-    card({ id: "k03", title: "The new street", plotLine: "p1", chapter: "c2", order: 1 }),
-    card({ id: "k04", title: "Coffee with Tom", plotLine: "p2", chapter: "c2", order: 2, alsoIn: ["p1"], synopsis: "Tom turns out to live two streets away." }),
-    card({ id: "k05", title: "Unpacked", plotLine: "p1", chapter: "c3", order: 1, status: "idea" }),
+    card({
+      id: "k01", title: "Boxes everywhere", plotLine: "p1", chapter: "c1", order: 1,
+      synopsis: "June packs up the flat she has lived in for ten years.",
+      date: date(3, 2, { dayPart: "morning" }), location: "l1",
+      characters: [{ id: "x1", role: "pov" }],
+    }),
+    card({
+      id: "k02", title: "A letter from Tom", plotLine: "p2", chapter: "c1", order: 2,
+      synopsis: "An old friend writes for the first time in years.",
+      date: date(3, 2, { dayPart: "evening" }), location: "l1", relationshipState: "lost touch",
+      characters: [{ id: "x1", role: "pov", note: "Reads it twice." }, { id: "x2", role: "mentioned" }],
+    }),
+    card({
+      id: "k03", title: "The new street", plotLine: "p1", chapter: "c2", order: 1,
+      date: date(3, 9, { minutes: 10 * 60 + 30 }), location: "l3",
+      characters: [{ id: "x1", role: "pov" }, { id: "x3", role: "present", note: "Brings over a plant." }],
+    }),
+    card({
+      id: "k04", title: "Coffee with Tom", plotLine: "p2", chapter: "c2", order: 2, alsoIn: ["p1"],
+      synopsis: "Tom turns out to live two streets away.",
+      date: date(3, 10, { minutes: 14 * 60 + 30 }), endDate: date(3, 10, { minutes: 16 * 60 }),
+      location: "l4", relationshipState: "friends again",
+      characters: [{ id: "x1", role: "pov" }, { id: "x2", role: "present", note: "Pretends it's a coincidence." }],
+    }),
+    card({
+      id: "k05", title: "Unpacked", plotLine: "p1", chapter: "c3", order: 1, status: "idea",
+      characters: [{ id: "x1", role: "pov" }],
+    }),
+    card({
+      id: "k06", title: "Tom moves to Linden Street", plotLine: "p2", chapter: null, order: 1,
+      synopsis: "Off-page: Tom moves in some time the autumn before.",
+      date: { calendar: "main", year: 2023, month: 9, approximate: true }, location: "l2",
+      characters: [{ id: "x2", role: "present" }],
+    }),
   ]);
   return s;
 }
@@ -133,26 +175,77 @@ function harbourStory(): Story {
       date: date(5, 3, { dayPart: "night" }), location: "l2",
       characters: [{ id: "x3", role: "present", note: "Hands over the ring." }],
     }),
+    card({
+      // Overlaps k03 once Eastern time is converted to Harbour Time (+150 minutes), in a different
+      // place, so the character view flags a clash for Mara.
+      id: "k06", title: "Mara at Vell Manor?", plotLine: "p2", chapter: "c2", order: 3,
+      synopsis: "A servant swears Mara was at the manor the morning the ledger page went missing.",
+      date: date(5, 5, { minutes: 6 * 50 + 25 + 150, zone: "z2" }), location: "l5", relationshipState: "suspicion",
+      characters: [{ id: "x1", role: "present", note: "Seen here, by one account." }, { id: "x2", role: "pov", note: "Starts to doubt Mara." }],
+    }),
+    card({
+      id: "k07", title: "The crossing", plotLine: "p3", chapter: "c2", order: 4,
+      synopsis: "Ilse's three-day crossing from the east, told in her letters.",
+      date: date(5, 1, { dayPart: "dawn", zone: "z2" }), endDate: date(5, 4, { dayPart: "day" }),
+      characters: [{ id: "x2", role: "pov" }],
+    }),
+    card({
+      id: "k08", title: "The ring is stolen", plotLine: "p1", chapter: null, order: 2,
+      synopsis: "Off-page, the year before: the ring disappears from Vell Manor.",
+      date: { calendar: "main", era: "af", year: 1530, month: 6, approximate: true }, location: "l5",
+      characters: [{ id: "x3", role: "mentioned" }],
+    }),
+    card({
+      id: "k09", title: "Festival of the Turning", plotLine: "p2", chapter: "c2", order: 5, status: "idea",
+      synopsis: "Not yet dated: Mara and Ilse meet again at the year's end festival.",
+      characters: [{ id: "x1", role: "pov" }, { id: "x2", role: "present" }],
+    }),
   ]);
   return s;
 }
 
-/** A large generated story for checking performance: 8 plot lines, 40 chapters, 320 cards. */
+/**
+ * A large generated story for checking performance: 8 plot lines, 40 chapters, 320 cards and
+ * 16 characters, with dates over about three years. Mostly chronological, with flashbacks,
+ * same-day clusters and some undated cards, so story-time mode has something to sort.
+ */
 function largeStory(): Story {
   const s = createEmptyStory("Large Story (performance test)");
   const colors = ["#4a90d9", "#d9534f", "#5cb85c", "#f0ad4e", "#9b59b6", "#1abc9c", "#e67e22", "#7f8c8d"];
   s.plotLines = colors.map((color, i) => ({ id: `p${i + 1}`, name: `Plot line ${i + 1}`, color }));
   s.chapters = Array.from({ length: 40 }, (_, i) => ({ id: `c${String(i + 1).padStart(2, "0")}`, name: `Chapter ${i + 1}` }));
+  s.characters = Array.from({ length: 16 }, (_, i) => ({
+    id: `x${String(i + 1).padStart(2, "0")}`, name: `Character ${i + 1}`, color: colors[i % colors.length]!,
+  }));
+  const calendar = s.calendars[0]!;
+  const start = dayNumber(calendar, 2020, 1, 1);
+  const dayParts = calendar.dayParts!.map((p) => p.id);
   let n = 0;
+  let day = 0;
   for (const chapter of s.chapters) {
     for (let scene = 1; scene <= 8; scene++) {
       n++;
       const plotLine = s.plotLines[(n * 3) % s.plotLines.length]!.id;
+      const characters: CardCharacter[] = [{ id: s.characters[n % 16]!.id, role: "pov" }];
+      if (n % 2 === 0) characters.push({ id: s.characters[(n * 5) % 16]!.id, role: "present" });
+      if (n % 3 === 0) characters.push({ id: s.characters[(n * 7 + 3) % 16]!.id, role: "mentioned" });
+      const unique = characters.filter((c, i) => characters.findIndex((o) => o.id === c.id) === i);
+      // Time moves on about three days per scene; every fifth scene shares the previous scene's day.
+      if (n % 5 !== 0) day += 1 + (n % 4);
+      let date: StoryDate | undefined;
+      if (n % 13 !== 0) {
+        // Every eleventh scene is a flashback to about a year earlier.
+        const d = dayFromNumber(calendar, start + (n % 11 === 0 ? Math.max(0, day - 365) : day));
+        date = { calendar: calendar.id, ...d };
+        if (n % 4 === 1) date.minutes = 8 * 60 + ((n * 37) % (12 * 60));
+        else if (n % 4 !== 0) date.dayPart = dayParts[n % dayParts.length];
+      }
       addCards(s, [
         card({
           id: `k${String(n).padStart(4, "0")}`, title: `Scene ${n}`, plotLine, chapter: chapter.id, order: scene,
           synopsis: "A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.",
           alsoIn: n % 7 === 0 ? [s.plotLines[(n * 3 + 1) % s.plotLines.length]!.id] : [],
+          characters: unique, date,
         }),
       ]);
     }

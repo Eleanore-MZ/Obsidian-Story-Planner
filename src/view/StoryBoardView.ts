@@ -168,6 +168,8 @@ export class StoryBoardView extends TextFileView {
       listSnapshots: () => this.listSnapshots(),
       restore: (snapshot) => void this.restoreSnapshot(snapshot),
       notes: this.noteHost(),
+      section: () => this.viewState()?.setupSection,
+      setSection: (section) => this.setViewState({ setupSection: section }),
     });
     this.contentEl.addEventListener(
       "click",

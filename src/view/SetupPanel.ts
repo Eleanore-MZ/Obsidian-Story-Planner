@@ -1,4 +1,4 @@
-import { setIcon } from "obsidian";
+import { Menu, setIcon } from "obsidian";
 import { formatOffset, formatStoryDate, parseOffset } from "../model/calendar";
 import { DATE_TOKENS, defaultFormats, TIME_TOKENS } from "../model/dateFormat";
 import { CALENDAR_PRESETS } from "../model/defaults";
@@ -65,7 +65,23 @@ export interface SetupPanelHost {
   listSnapshots(): Promise<SnapshotInfo[]>;
   restore(snapshot: SnapshotInfo): void;
   notes: NoteHost;
+  /** The section of setup last open for this story, kept with the board's view state. */
+  section(): SetupSection | undefined;
+  setSection(section: SetupSection): void;
 }
+
+/** The parts of story setup, each a page of its own. */
+export type SetupSection = "story" | "cast" | "time" | "safety";
+
+const SECTIONS: [SetupSection, string, string][] = [
+  ["story", "Story", "book-open"],
+  ["cast", "Cast & places", "users"],
+  ["time", "Time", "calendar-clock"],
+  ["safety", "Safety", "shield-check"],
+];
+
+/** Icons for the actions kept in each row's "⋯" menu. */
+const ACTION_ICONS: Record<string, string> = { "×": "trash-2", "⇥": "indent", "⇤": "outdent", "\u{1F517}": "link", "⊘": "unlink" };
 
 const DELETE_CARDS = "\u0000delete";
 
@@ -79,6 +95,14 @@ export class SetupPanel {
   private open = false;
   /** One snapshot covers a whole visit to the calendar settings, not every keystroke. */
   private calendarSnapshotTaken = false;
+  /** The scrolling column the sections are drawn in. */
+  private body: HTMLElement | null = null;
+  /** The "⋯" actions of each row, gathered while the row is drawn. */
+  private rowActions = new WeakMap<HTMLElement, { label: string; icon: string; enabled: boolean; run: () => void }[]>();
+  /** The list whose "+ New …" row is open as a text box, so it stays open after each add. */
+  private adding: string | null = null;
+  /** Folded parts of the calendar that are open, for as long as setup is. */
+  private openFolds = new Set<string>(["calendar:Date format"]);
 
   constructor(parent: HTMLElement, private host: SetupPanelHost) {
     this.el = parent.createDiv({ cls: "story-planner-setup" });
@@ -107,35 +131,68 @@ export class SetupPanel {
 
     const active = document.activeElement;
     const focused = active instanceof HTMLElement && this.el.contains(active) ? active.dataset.field : undefined;
-    const scroll = this.el.scrollTop;
+    const scroll = this.body?.scrollTop ?? 0;
+    const shown = this.body?.dataset.section;
     this.build(story);
-    this.el.scrollTop = scroll;
+    // Stay where you were, unless another section is now showing.
+    if (this.body && this.body.dataset.section === shown) this.body.scrollTop = scroll;
     if (focused) {
       this.el.querySelector<HTMLElement>(`[data-field="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
     }
   }
 
+  /** A list of sections on the left, and the chosen one in a single column on the right. */
   private build(story: Story): void {
     const el = this.el;
     el.empty();
+    const current = this.host.section() ?? "story";
 
-    const titleField = this.section("Story", "The title shown on the board and in the note's outline.");
-    const title = this.textInput(titleField, story.title, "story-title");
-    title.addEventListener("input", () => {
-      if (title.value.trim()) this.host.edit((s) => void (s.title = title.value.trim()), "story-title");
-    });
+    const nav = el.createDiv({ cls: "story-planner-setup-nav" });
+    nav.setAttr("role", "tablist");
+    nav.setAttr("aria-orientation", "vertical");
+    for (const [key, label, icon] of SECTIONS) {
+      const item = nav.createEl("button", { cls: "story-planner-setup-nav-item" });
+      item.setAttr("role", "tab");
+      item.setAttr("aria-selected", String(key === current));
+      item.toggleClass("is-active", key === current);
+      setIcon(item.createSpan({ cls: "story-planner-setup-nav-icon" }), icon);
+      item.createSpan({ text: label });
+      item.addEventListener("click", () => {
+        if (key === current) return;
+        this.adding = null;
+        this.host.setSection(key);
+      });
+    }
 
-    this.buildPlotLines(story);
-    this.buildCategories(story);
-    this.buildChapters(story);
-    this.buildCharacters(story);
-    this.buildRelationships(story);
-    this.buildLocations(story);
-    this.buildTags(story);
-    this.buildCalendar(story);
-    this.buildZones(story);
-    this.buildSnapshots();
+    this.body = el.createDiv({ cls: "story-planner-setup-body" });
+    this.body.dataset.section = current;
+    const column = this.body.createDiv({ cls: "story-planner-setup-column" });
+    this.column = column;
+
+    if (current === "story") {
+      const titleField = this.section("Title", "The title shown on the board and in the note's outline.");
+      const title = this.textInput(titleField, story.title, "story-title");
+      title.addEventListener("input", () => {
+        if (title.value.trim()) this.host.edit((s) => void (s.title = title.value.trim()), "story-title");
+      });
+      this.buildPlotLines(story);
+      this.buildCategories(story);
+      this.buildChapters(story);
+      this.buildTags(story);
+    } else if (current === "cast") {
+      this.buildCharacters(story);
+      this.buildRelationships(story);
+      this.buildLocations(story);
+    } else if (current === "time") {
+      this.buildCalendar(story);
+      this.buildZones(story);
+    } else {
+      this.buildSnapshots();
+    }
   }
+
+  /** Where sections are drawn: the content column. */
+  private column: HTMLElement | null = null;
 
   private buildSnapshots(): void {
     const section = this.section(
@@ -603,6 +660,8 @@ export class SetupPanel {
     this.addRow(section, "New era", "add-era", (n) =>
       this.calendarEdit((_, c) => void (c.eras ??= []).push({ id: `e${Math.random().toString(36).slice(2, 8)}`, name: n })),
     );
+    // Months, leap years, the week and so on fold away below the preset and the name.
+    this.foldSubsections(section, "calendar");
 
     const sample = Object.values(story.cards).find((c) => c.date);
     if (sample?.date) section.createDiv({ cls: "story-planner-panel-hint", text: `For example, "${sample.title}" is dated ${formatStoryDate(story, sample.date)}.` });
@@ -812,7 +871,7 @@ export class SetupPanel {
   }
 
   private section(label: string, hint?: string): HTMLElement {
-    const section = this.el.createDiv({ cls: "story-planner-setup-section" });
+    const section = (this.column ?? this.el).createDiv({ cls: "story-planner-setup-section" });
     section.createEl("h3", { cls: "story-planner-setup-heading", text: label });
     if (hint) section.createDiv({ cls: "story-planner-panel-hint", text: hint });
     return section;
@@ -923,29 +982,108 @@ export class SetupPanel {
     );
   }
 
+  /**
+   * An action for a row, such as delete, merge or nest. Actions go into the
+   * row's "⋯" menu rather than each getting a button, so rows stay quiet.
+   */
   private iconButton(parent: HTMLElement, text: string, label: string, enabled: boolean, onClick: () => void): void {
-    const button = parent.createEl("button", { cls: "clickable-icon story-planner-setup-button", text });
-    button.setAttr("aria-label", label);
-    button.disabled = !enabled;
-    button.addEventListener("click", onClick);
+    let actions = this.rowActions.get(parent);
+    if (!actions) {
+      actions = [];
+      this.rowActions.set(parent, actions);
+      const more = parent.createEl("button", { cls: "clickable-icon story-planner-row-menu" });
+      setIcon(more, "more-horizontal");
+      more.setAttr("aria-label", "More actions");
+      more.setAttr("aria-haspopup", "menu");
+      const list = actions;
+      more.addEventListener("click", (e) => {
+        const menu = new Menu();
+        for (const action of list) {
+          menu.addItem((item) => {
+            item.setTitle(action.label).setIcon(action.icon).onClick(action.run);
+            if (!action.enabled) item.setDisabled(true);
+            if (action.icon === "trash-2") item.setWarning?.(true);
+          });
+        }
+        const rect = more.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.right, y: rect.bottom });
+        e.stopPropagation();
+      });
+    }
+    actions.push({ label, icon: ACTION_ICONS[text] ?? "circle", enabled, run: onClick });
   }
 
+  /**
+   * The quiet "+ New …" row at the end of a list. Clicking it opens a text
+   * box: Enter adds (and the box stays open for the next one), Escape or
+   * leaving it empty closes it.
+   */
   private addRow(parent: HTMLElement, placeholder: string, field: string, onAdd: (name: string) => void, placeholderIsDefault = false): void {
     const row = parent.createDiv({ cls: "story-planner-setup-add" });
+    if (this.adding !== field) {
+      const open = row.createEl("button", { cls: "story-planner-setup-add-button" });
+      setIcon(open.createSpan({ cls: "story-planner-setup-add-icon" }), "plus");
+      open.createSpan({ text: placeholder });
+      open.dataset.field = `${field}:open`;
+      open.addEventListener("click", () => {
+        this.adding = field;
+        row.empty();
+        this.addInput(row, placeholder, field, onAdd, placeholderIsDefault).focus();
+      });
+      return;
+    }
+    this.addInput(row, placeholder, field, onAdd, placeholderIsDefault);
+  }
+
+  private addInput(row: HTMLElement, placeholder: string, field: string, onAdd: (name: string) => void, placeholderIsDefault: boolean): HTMLInputElement {
     const input = row.createEl("input");
     input.type = "text";
-    input.placeholder = placeholder;
+    input.placeholder = `${placeholder}, then Enter`;
     input.dataset.field = field;
-    const submit = () => {
-      const name = input.value.trim() || (placeholderIsDefault ? placeholder : "");
-      if (name) onAdd(name);
+    const close = () => {
+      if (this.adding === field) this.adding = null;
+      this.refresh(this.story);
     };
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        submit();
+        const name = input.value.trim() || (placeholderIsDefault ? placeholder : "");
+        if (name) onAdd(name);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
       }
     });
-    row.createEl("button", { text: "Add" }).addEventListener("click", submit);
+    // Leaving an empty box closes it. (After Enter the panel is redrawn with a
+    // fresh box that has the cursor, and this one is no longer on the page.)
+    input.addEventListener("blur", () =>
+      window.setTimeout(() => {
+        if (input.isConnected && document.activeElement !== input && !input.value.trim()) close();
+      }, 0),
+    );
+    return input;
+  }
+
+  /**
+   * Folds a section's parts: everything after each subheading, up to the
+   * next, goes into a fold that remembers being open while setup is.
+   */
+  private foldSubsections(section: HTMLElement, key: string): void {
+    let fold: HTMLDetailsElement | null = null;
+    for (const child of Array.from(section.children) as HTMLElement[]) {
+      if (child.tagName === "H4") {
+        const name = child.textContent ?? "";
+        const id = `${key}:${name}`;
+        fold = createEl("details", { cls: "story-planner-setup-fold" });
+        fold.open = this.openFolds.has(id);
+        const folded = fold;
+        fold.addEventListener("toggle", () => (folded.open ? this.openFolds.add(id) : this.openFolds.delete(id)));
+        fold.createEl("summary", { cls: "story-planner-setup-subheading", text: name });
+        child.replaceWith(fold);
+        continue;
+      }
+      if (fold) fold.appendChild(child);
+    }
   }
 }

@@ -538,16 +538,12 @@
 
 /* Story setup page */
 
+/* Story setup: a list of sections on the left, one column of content on the right. */
 .story-planner-setup {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  padding: 0 var(--size-4-3) var(--size-4-6);
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
-  gap: var(--size-4-4);
-  align-content: start;
-  align-items: start;
+  display: flex;
+  overflow: hidden;
 }
 
 .story-planner-setup[hidden] {
@@ -555,10 +551,13 @@
 }
 
 .story-planner-setup-section {
-  padding: var(--size-4-3) var(--size-4-4);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 0;
-  background: var(--background-secondary);
+  padding: 0 0 var(--size-4-5);
+  margin-bottom: var(--size-4-5);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-setup-section:last-child {
+  border-bottom: none;
 }
 
 .story-planner-setup-heading {
@@ -1335,17 +1334,20 @@
   grid-row: 1;
   grid-column: 1 / -1;
   top: 0;
+  z-index: 3;
   box-shadow: 0 var(--size-4-2) 0 var(--background-primary);
 }
 
+/* Layers, bottom to top: cards and echoes; the solid backdrops; the "days
+   later" lines; the header column and row; the corner. */
 .story-planner-grid .story-planner-chapter-header,
 .story-planner-grid .story-planner-time-header,
 .story-planner-grid .story-planner-lane-header {
-  z-index: 2;
+  z-index: 3;
 }
 
 .story-planner-grid .story-planner-corner {
-  z-index: 3;
+  z-index: 4;
 }
 
 /* "N days later": a line across the board, with the words in the date column. */
@@ -1528,4 +1530,172 @@ body.story-planner-reordering * {
   font-family: var(--font-monospace);
   font-size: var(--font-ui-smaller);
   color: var(--text-accent);
+}
+
+.story-planner-setup-nav {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 12rem;
+  padding: var(--size-4-2) var(--size-4-2) var(--size-4-2) var(--size-4-3);
+  border-right: 1px solid var(--background-modifier-border);
+  overflow-y: auto;
+}
+
+.story-planner .story-planner-setup-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--size-4-2);
+  height: auto;
+  padding: var(--size-4-2) var(--size-4-2);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.story-planner .story-planner-setup-nav-item:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.story-planner .story-planner-setup-nav-item.is-active {
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+
+.story-planner-setup-nav-icon {
+  display: flex;
+}
+
+.story-planner-setup-nav-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.story-planner-setup-body {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--size-4-3) var(--size-4-6) var(--size-4-8, 48px);
+}
+
+.story-planner-setup-column {
+  max-width: 720px;
+}
+
+/* On a narrow pane the section list goes across the top. */
+@media (max-width: 700px) {
+  .story-planner-setup {
+    flex-direction: column;
+  }
+
+  .story-planner-setup-nav {
+    flex-direction: row;
+    width: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--background-modifier-border);
+  }
+
+  .story-planner .story-planner-setup-nav-item.is-active {
+    box-shadow: inset 0 -2px 0 var(--interactive-accent);
+  }
+}
+
+/* Rows: grip, colour, name, one control, count, and a "⋯" menu. Names look
+   like text until hovered or edited. */
+.story-planner-setup-row {
+  min-height: 32px;
+  margin-bottom: 0;
+  padding: 0 var(--size-4-1);
+}
+
+.story-planner-setup-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.story-planner-setup-section .story-planner-setup-row input[type="text"] {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.story-planner-setup-section .story-planner-setup-row input[type="text"]:hover {
+  border-color: var(--background-modifier-border);
+}
+
+.story-planner-setup-section .story-planner-setup-row input[type="text"]:focus {
+  border-color: var(--interactive-accent);
+  background: var(--background-primary);
+}
+
+.story-planner .story-planner-row-menu {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 0;
+  color: var(--text-faint);
+}
+
+.story-planner .story-planner-row-menu:hover {
+  color: var(--text-normal);
+}
+
+.story-planner .story-planner-row-menu svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* "+ New …": a quiet row that becomes a text box. */
+.story-planner .story-planner-setup-add-button {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  width: 100%;
+  height: auto;
+  padding: var(--size-4-1) var(--size-4-1);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-faint);
+  justify-content: flex-start;
+  cursor: pointer;
+}
+
+.story-planner .story-planner-setup-add-button:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.story-planner-setup-add-icon {
+  display: flex;
+}
+
+.story-planner-setup-add-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Folded parts of a section, such as the calendar's months. */
+.story-planner-setup-fold {
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-setup-fold > summary.story-planner-setup-subheading {
+  margin: 0;
+  padding: var(--size-4-2) 0;
+  cursor: pointer;
+}
+
+.story-planner-setup-fold[open] {
+  padding-bottom: var(--size-4-2);
 }

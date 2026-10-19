@@ -18,6 +18,8 @@ export interface StoryViewState {
   tab?: StoryTab;
   /** The view story setup was opened from, to go back to when it closes. */
   lastView?: StoryTab;
+  /** The section of story setup last open. */
+  setupSection?: "story" | "cast" | "time" | "safety";
   /** Story time: layout, zoom, and which zone times are shown in ("" for each card's own local time). */
   timeOrientation?: Orientation;
   zoom?: Zoom;
@@ -114,6 +116,8 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
       horizontal: "Horizontal (time across, plot lines down)",
     };
 
+    new Setting(containerEl).setName("Board").setHeading();
+
     new Setting(containerEl)
       .setName("Default layout")
       .setDesc("How new boards are laid out in chapter view. Each story remembers its own choice after that.")
@@ -139,6 +143,23 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           }),
       );
+
+    new Setting(containerEl)
+      .setName("Key for dropping an echo")
+      .setDesc(
+        "Hold this key while dropping a card on another plot line to show the card there as an echo, instead of moving it. On Windows, Ctrl is the usual key for copying while dragging.",
+      )
+      .addDropdown((d) =>
+        d
+          .addOptions({ alt: "Alt", ctrl: "Ctrl (Cmd on Mac)", shift: "Shift", off: "Off" })
+          .setValue(this.plugin.settings.echoModifier)
+          .onChange(async (value) => {
+            this.plugin.settings.echoModifier = value as EchoModifier;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl).setName("Dates & times").setHeading();
 
     // Dates and times, with a preview of a sample date as it would show.
     const sample = createEmptyStory("Sample");
@@ -182,20 +203,7 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
           }),
       );
 
-    new Setting(containerEl)
-      .setName("Key for dropping an echo")
-      .setDesc(
-        "Hold this key while dropping a card on another plot line to show the card there as an echo, instead of moving it. On Windows, Ctrl is the usual key for copying while dragging.",
-      )
-      .addDropdown((d) =>
-        d
-          .addOptions({ alt: "Alt", ctrl: "Ctrl (Cmd on Mac)", shift: "Shift", off: "Off" })
-          .setValue(this.plugin.settings.echoModifier)
-          .onChange(async (value) => {
-            this.plugin.settings.echoModifier = value as EchoModifier;
-            await this.plugin.saveSettings();
-          }),
-      );
+    new Setting(containerEl).setName("Files").setHeading();
 
     new Setting(containerEl)
       .setName("Folder for new stories")
@@ -247,6 +255,8 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }),
       );
+
+    new Setting(containerEl).setName("Safety").setHeading();
 
     new Setting(containerEl)
       .setName("Safety snapshots")

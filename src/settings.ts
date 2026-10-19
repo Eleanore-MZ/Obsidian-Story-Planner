@@ -45,7 +45,7 @@ export interface StoryPlannerSettings {
 
 export const DEFAULT_SETTINGS: StoryPlannerSettings = {
   defaultOrientation: "vertical",
-  defaultStoryTimeOrientation: "horizontal",
+  defaultStoryTimeOrientation: "vertical",
   newStoryFolder: "",
   autoOpenStories: true,
   snapshotsEnabled: true,
@@ -66,6 +66,10 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
       vertical: "Vertical (chapters down, plot lines across)",
       horizontal: "Horizontal (chapters across, plot lines down)",
     };
+    const timeOrientationOptions = {
+      vertical: "Vertical (time down, plot lines across)",
+      horizontal: "Horizontal (time across, plot lines down)",
+    };
 
     new Setting(containerEl)
       .setName("Default layout")
@@ -85,7 +89,7 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
       .setDesc("How boards are laid out when switched to story time.")
       .addDropdown((d) =>
         d
-          .addOptions(orientationOptions)
+          .addOptions(timeOrientationOptions)
           .setValue(this.plugin.settings.defaultStoryTimeOrientation)
           .onChange(async (value) => {
             this.plugin.settings.defaultStoryTimeOrientation = value as Orientation;

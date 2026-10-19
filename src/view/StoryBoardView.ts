@@ -5,6 +5,7 @@ import { addCardAt } from "../model/edits";
 import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
+import { formatDateRange } from "../model/calendar";
 import { Card, Id, Story } from "../model/types";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { addChapter, addPlotLine } from "../model/setup";
@@ -608,6 +609,9 @@ export class StoryBoardView extends TextFileView {
         const el = grid.createDiv({ cls: `story-planner-card status-${card.status}` });
         el.style.setProperty("--lane-color", plotLine?.color ?? "var(--interactive-accent)");
         el.createDiv({ cls: "story-planner-card-title", text: card.title });
+        if (card.date) {
+          el.createDiv({ cls: "story-planner-card-date", text: formatDateRange(story, card.date, card.endDate) });
+        }
         if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
         el.dataset.cardId = card.id;
         if (card.id === this.panel.selected) el.addClass("is-selected");

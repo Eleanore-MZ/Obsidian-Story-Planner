@@ -561,3 +561,73 @@
   flex: 1;
   min-width: 0;
 }
+
+/* Story dates: on cards, in the card panel, and the calendar in story setup. */
+
+.story-planner-card-date {
+  margin-top: 2px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.story-planner-date-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-1);
+  margin-bottom: var(--size-4-1);
+}
+
+.story-planner-panel-field .story-planner-date-row input[type="text"] {
+  width: auto;
+  flex: none;
+}
+
+.story-planner-panel-field .story-planner-date-row input.story-planner-date-year {
+  width: 5.5em;
+}
+
+.story-planner-panel-field .story-planner-date-row input.story-planner-date-day {
+  width: 3.5em;
+}
+
+.story-planner-panel-field .story-planner-date-row input.story-planner-date-clock {
+  width: 4.5em;
+}
+
+.story-planner-panel-field .story-planner-date-row select {
+  width: auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.story-planner-date-hint {
+  margin-top: var(--size-4-1);
+}
+
+.story-planner-panel-hint.is-problem {
+  color: var(--text-error);
+}
+
+.story-planner-date-add {
+  margin-top: var(--size-4-1);
+}
+
+.story-planner-setup-subheading {
+  margin: var(--size-4-3) 0 var(--size-4-1);
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+
+.story-planner-setup-sentence {
+  flex-wrap: wrap;
+}
+
+.story-planner-setup-row input.story-planner-setup-number {
+  flex: none;
+  width: 4.5em;
+}
+
+.story-planner-setup input.is-problem {
+  border-color: var(--text-error);
+}

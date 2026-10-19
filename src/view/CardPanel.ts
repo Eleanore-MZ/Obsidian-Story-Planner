@@ -7,7 +7,10 @@ import {
   updateCard,
   updateCardCharacter,
 } from "../model/edits";
+import { compareDates, effectiveZone, ZoneSource } from "../model/calendar";
+import { setCardDate } from "../model/edits";
 import { CardStatus, CharacterRole, Id, Story } from "../model/types";
+import { DateEditor } from "./DateEditor";
 
 export const STATUS_LABELS: Record<CardStatus, string> = {
   idea: "Idea",
@@ -177,6 +180,8 @@ export class CardPanel {
       ),
     );
 
+    this.buildDates();
+
     const others = story.plotLines.filter((p) => p.id !== card.plotLine);
     if (others.length > 0) {
       const echoes = this.field("Also in", "Shows a title-only echo of the card in these plot lines.");
@@ -199,6 +204,44 @@ export class CardPanel {
       this.host.edit((s) => deleteCard(s, id));
       this.host.deleted(name);
     });
+  }
+
+  /** The card's date and, for events that take time, its end date. */
+  private buildDates(): void {
+    const card = this.card!;
+    const story = this.story!;
+    const id = card.id;
+    const fallback = effectiveZone(story, { ...card, date: card.date && { ...card.date, zone: undefined } });
+    const defaultZone = fallback.zone ? `Zone: ${fallback.zone.name} (${ZONE_SOURCES[fallback.source]})` : "Zone: default";
+
+    const when = this.field(card.chapter === null ? "When (off-page event)" : "When");
+    new DateEditor(when, story, card.date, "date", defaultZone, (date) => {
+      const hadDate = !!this.story!.cards[id]?.date;
+      // Typing a date is one undo step, from the first digit of the year on.
+      this.host.edit((s) => setCardDate(s, id, "date", date), date ? `date:${id}` : undefined);
+      // A first date brings the end-date button, so the panel is rebuilt around the cursor.
+      if (!hadDate && date && this.story) this.show(this.story, id);
+    });
+    if (!card.date) return;
+
+    if (card.endDate) {
+      const until = this.field("Until");
+      new DateEditor(
+        until,
+        story,
+        card.endDate,
+        "end",
+        defaultZone,
+        (date) => this.host.edit((s) => setCardDate(s, id, "endDate", date), date ? `end:${id}` : undefined),
+        (date) => {
+          const start = this.story?.cards[id]?.date;
+          return start && compareDates(this.story!, date, start) < 0 ? "The end is before the start." : null;
+        },
+      );
+    } else {
+      const add = when.createEl("button", { cls: "story-planner-date-add", text: "Add an end date" });
+      add.addEventListener("click", () => this.host.edit((s) => setCardDate(s, id, "endDate", { ...s.cards[id]!.date! })));
+    }
   }
 
   private buildCharacters(section: HTMLElement): void {
@@ -275,6 +318,13 @@ export class CardPanel {
     return select;
   }
 }
+
+const ZONE_SOURCES: Record<ZoneSource, string> = {
+  card: "set on the card",
+  location: "from the location",
+  character: "from the point-of-view character",
+  reference: "reference zone",
+};
 
 /** Dropdown value for the off-page group, which has no chapter id. */
 const OFF_PAGE = "";

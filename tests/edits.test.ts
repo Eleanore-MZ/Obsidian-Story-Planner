@@ -5,6 +5,7 @@ import {
   addCharacterByName,
   deleteCard,
   removeCardCharacter,
+  setCardDate,
   setEcho,
   updateCard,
   updateCardCharacter,
@@ -112,5 +113,19 @@ describe("deleteCard", () => {
     expect(s.cards.b).toBeUndefined();
     expect(rows(s)).toBe("a c");
     expect(chapterRows(s, "c1").map((r) => r[0]!.order)).toEqual([1, 2]);
+  });
+});
+
+describe("dates on cards", () => {
+  it("sets and clears dates, and clearing the start clears the end", () => {
+    const s = story();
+    const id = Object.keys(s.cards)[0]!;
+    expect(setCardDate(s, id, "date", { calendar: "main", year: 1531 }, NOW)).toBe(true);
+    expect(setCardDate(s, id, "date", { calendar: "main", year: 1531 }, NOW)).toBe(false);
+    setCardDate(s, id, "endDate", { calendar: "main", year: 1532 }, NOW);
+    setCardDate(s, id, "date", undefined, NOW);
+    expect(s.cards[id]!.date).toBeUndefined();
+    expect(s.cards[id]!.endDate).toBeUndefined();
+    expect(s.cards[id]!.modified).toBe(NOW);
   });
 });

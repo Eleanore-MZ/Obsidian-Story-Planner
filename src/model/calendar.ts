@@ -333,7 +333,7 @@ export function daysBetween(story: Story, a: StoryDate, b: StoryDate): number | 
 // Formatting
 
 /** Formats a date at its own precision, e.g. "1531", "December 1531", "4 December 1531, Dawn". */
-export function formatStoryDate(story: Story, date: StoryDate): string {
+export function formatStoryDate(story: Story, date: StoryDate, options: { zone?: boolean } = {}): string {
   const calendar = findCalendar(story, date.calendar);
   const parts: string[] = [];
 
@@ -354,12 +354,23 @@ export function formatStoryDate(story: Story, date: StoryDate): string {
     text += `, ${clock(calendar, date.minutes)}`;
   }
 
-  if (date.zone) {
+  if (date.zone && options.zone !== false) {
     const zone = story.zones.find((z) => z.id === date.zone);
     if (zone) text += ` (${zone.name})`;
   }
 
   return date.approximate ? `around ${text}` : text;
+}
+
+/**
+ * A date with its end, such as "4 Frost 1531 – 9 Frost 1531". The end leaves
+ * out a zone it shares with the start, and an end equal to the start is not repeated.
+ */
+export function formatDateRange(story: Story, start: StoryDate, end: StoryDate | undefined): string {
+  const from = formatStoryDate(story, start);
+  if (!end) return from;
+  const to = formatStoryDate(story, end, { zone: end.zone !== start.zone });
+  return to === formatStoryDate(story, start, { zone: false }) && end.zone === start.zone ? from : `${from} – ${to}`;
 }
 
 /** A clock time such as "06:05", on a calendar whose hours may not be 60 minutes long. */
@@ -368,6 +379,33 @@ export function clock(calendar: Calendar | undefined, minutes: number): string {
   const width = String(perHour - 1).length;
   const hours = Math.floor(minutes / perHour);
   return `${String(hours).padStart(2, "0")}:${String(minutes % perHour).padStart(Math.max(2, width), "0")}`;
+}
+
+/** Reads a clock time such as "6:05" or "06:05"; null when it is not a time on this calendar. */
+export function parseClock(calendar: Calendar, text: string): number | null {
+  const match = /^\s*(\d{1,3})(?::(\d{1,3}))?\s*$/.exec(text);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2] ?? 0);
+  if (hours >= calendar.hoursPerDay || minutes >= calendar.minutesPerHour) return null;
+  return hours * calendar.minutesPerHour + minutes;
+}
+
+/** A zone offset such as "+2:30" or "-1:00", in the calendar's hours and minutes. */
+export function formatOffset(calendar: Calendar, offsetMinutes: number): string {
+  const sign = offsetMinutes < 0 ? "-" : "+";
+  const abs = Math.abs(offsetMinutes);
+  return `${sign}${Math.floor(abs / calendar.minutesPerHour)}:${String(abs % calendar.minutesPerHour).padStart(2, "0")}`;
+}
+
+/** Reads an offset such as "+2:30", "-1", "3" or "-0:45"; null when it cannot be read. */
+export function parseOffset(calendar: Calendar, text: string): number | null {
+  const match = /^\s*([+-]?)\s*(\d{1,3})(?::(\d{1,3}))?\s*$/.exec(text);
+  if (!match) return null;
+  const minutes = Number(match[3] ?? 0);
+  if (minutes >= calendar.minutesPerHour) return null;
+  const total = Number(match[2]) * calendar.minutesPerHour + minutes;
+  return match[1] === "-" ? -total : total;
 }
 
 function mod(a: number, n: number): number {

@@ -9,8 +9,12 @@ import {
   daysInMonth,
   effectiveZone,
   eraYear,
+  formatDateRange,
+  formatOffset,
   formatStoryDate,
   lineYear,
+  parseClock,
+  parseOffset,
   momentOf,
   weekdayOf,
 } from "../src/model/calendar";
@@ -253,5 +257,39 @@ describe("presets", () => {
     expect(daysInMonth(noLeap, 2000, 2)).toBe(28);
     const thirty = CALENDAR_PRESETS[2]!.create();
     expect(thirty.months.every((m) => m.days === 30)).toBe(true);
+  });
+});
+
+describe("date ranges", () => {
+  it("leaves out what the end shares with the start", () => {
+    const s = harbour();
+    const start = d(1531, 5, 4, { minutes: 300, zone: "z2" });
+    expect(formatDateRange(s, start, { ...start })).toBe("4 Frost 1531, 06:00 (Eastern Provinces)");
+    expect(formatDateRange(s, start, { ...start, day: 9 })).toBe("4 Frost 1531, 06:00 (Eastern Provinces) – 9 Frost 1531, 06:00");
+    expect(formatDateRange(s, start, { ...start, zone: "z1" })).toBe(
+      "4 Frost 1531, 06:00 (Eastern Provinces) – 4 Frost 1531, 06:00 (Harbour Time)",
+    );
+  });
+});
+
+describe("reading times and offsets", () => {
+  const cal = harbour().calendars[0]!;
+
+  it("reads clock times on a calendar of twenty hours of fifty minutes", () => {
+    expect(parseClock(cal, "6:05")).toBe(305);
+    expect(parseClock(cal, " 19:49 ")).toBe(999);
+    expect(parseClock(cal, "7")).toBe(350);
+    expect(parseClock(cal, "20:00")).toBeNull();
+    expect(parseClock(cal, "6:50")).toBeNull();
+    expect(parseClock(cal, "dawn")).toBeNull();
+  });
+
+  it("reads and writes zone offsets", () => {
+    expect(parseOffset(cal, "+3:00")).toBe(150);
+    expect(parseOffset(cal, "-0:45")).toBe(-45);
+    expect(parseOffset(cal, "2")).toBe(100);
+    expect(parseOffset(cal, "1:50")).toBeNull();
+    expect(formatOffset(cal, 150)).toBe("+3:00");
+    expect(formatOffset(cal, -45)).toBe("-0:45");
   });
 });

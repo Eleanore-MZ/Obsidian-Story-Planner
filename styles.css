@@ -1046,20 +1046,15 @@
   white-space: nowrap;
 }
 
-/* Overview minimap. */
-
-.story-planner-body {
-  position: relative;
-}
+/* Overview minimap: a strip down the right edge of the board, like VS Code's. */
 
 .story-planner-minimap {
-  position: absolute;
-  z-index: 5;
-  padding: var(--size-4-1);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-m);
-  background: color-mix(in srgb, var(--background-primary) 88%, transparent);
-  box-shadow: var(--shadow-s);
+  flex: none;
+  width: var(--story-planner-minimap-width, 110px);
+  min-height: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
 }
 
 .story-planner-minimap[hidden] {
@@ -1068,10 +1063,214 @@
 
 .story-planner-minimap canvas {
   display: block;
-  cursor: grab;
+  cursor: pointer;
   touch-action: none;
 }
 
 .story-planner-minimap canvas:active {
   cursor: grabbing;
+}
+
+/* The story title, which opens the story switcher. */
+
+.story-planner-toolbar .story-planner-title {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  height: auto;
+  padding: var(--size-2-2) var(--size-4-2);
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--h2-size, 1.6em);
+  font-weight: var(--h2-weight, 700);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+.story-planner-toolbar .story-planner-title:hover {
+  background: var(--background-modifier-hover);
+}
+
+.story-planner-title-chevron {
+  display: flex;
+  color: var(--text-muted);
+}
+
+.story-planner-title-chevron svg {
+  width: var(--icon-m, 18px);
+  height: var(--icon-m, 18px);
+}
+
+/* Reordering the view tabs by dragging. */
+
+.story-planner-tabs .story-planner-tab.is-dragging {
+  opacity: 0.6;
+  cursor: grabbing;
+}
+
+.story-planner-tabs .story-planner-tab.is-drop-before {
+  box-shadow: inset 3px 0 0 var(--interactive-accent);
+}
+
+.story-planner-tabs .story-planner-tab.is-drop-after {
+  box-shadow: inset -3px 0 0 var(--interactive-accent);
+}
+
+.story-planner-tabs.is-reordering,
+.story-planner-tabs.is-reordering .story-planner-tab {
+  cursor: grabbing;
+  user-select: none;
+}
+
+/* Folding chapters and lanes, and lane widths. */
+
+/* Fold buttons: proper, always-visible icon buttons. */
+.story-planner .story-planner-fold {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.story-planner .story-planner-fold svg {
+  width: 18px;
+  height: 18px;
+}
+
+.story-planner .story-planner-fold:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.story-planner .story-planner-fold.is-fold-all {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.story-planner .story-planner-fold.is-fold-all svg {
+  width: 20px;
+  height: 20px;
+}
+
+.story-planner-corner {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: var(--size-4-1);
+}
+
+.story-planner-lane-header {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+}
+
+.story-planner-lane-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-planner-chapter-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-1);
+}
+
+.story-planner-chapter-name {
+  min-width: 0;
+}
+
+.story-planner-fold-count {
+  margin-left: auto;
+  font-weight: normal;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.story-planner-grid.is-vertical .story-planner-chapter-header.is-folded {
+  flex-wrap: wrap;
+}
+
+.story-planner-folded-cell {
+  align-self: stretch;
+  padding: var(--size-4-1) var(--size-4-2);
+  border-top: 1px solid var(--background-modifier-border);
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+  text-align: center;
+}
+
+/* The width handle on the right edge of a lane header. */
+.story-planner-resize {
+  position: absolute;
+  top: 0;
+  right: calc(-1 * var(--size-4-1) - 3px);
+  bottom: 0;
+  width: 8px;
+  z-index: 2;
+  cursor: col-resize;
+}
+
+.story-planner-resize:hover,
+.story-planner-resize.is-active {
+  background: color-mix(in srgb, var(--interactive-accent) 50%, transparent);
+  border-radius: 4px;
+}
+
+/* A folded lane: a thin strip with its name turned on its side. */
+.story-planner-grid.is-vertical .story-planner-lane-header.is-folded {
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-1) 0;
+}
+
+.story-planner-grid.is-vertical .story-planner-lane-header.is-folded .story-planner-lane-name {
+  writing-mode: vertical-rl;
+  max-height: 14em;
+}
+
+.story-planner-grid.is-horizontal .story-planner-lane-header.is-folded {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.story-planner .is-in-folded-lane.story-planner-card,
+.story-planner .is-in-folded-lane.story-planner-echo {
+  min-height: 6px;
+  min-width: 6px;
+  padding: 0;
+  overflow: hidden;
+  border-width: 0;
+  background: var(--lane-color);
+  opacity: 0.7;
+}
+
+.story-planner .is-in-folded-lane.story-planner-card > *,
+.story-planner .is-in-folded-lane.story-planner-echo {
+  font-size: 0;
+}
+
+.story-planner .is-in-folded-lane.story-planner-card > * {
+  display: none;
+}
+
+.story-planner .is-in-folded-lane.story-planner-add-card,
+.story-planner .is-in-folded-lane.story-planner-folded-cell {
+  font-size: 0;
+  border-color: transparent;
 }

@@ -1,6 +1,11 @@
 import { formatOffset, formatStoryDate, parseOffset } from "../model/calendar";
 import { CALENDAR_PRESETS } from "../model/defaults";
 import {
+  addCategory,
+  deleteCategory,
+  plotLineColor,
+  plotLinesInCategory,
+  setPlotLineCategory,
   addChapter,
   addCharacter,
   addLocation,
@@ -118,6 +123,7 @@ export class SetupPanel {
     });
 
     this.buildPlotLines(story);
+    this.buildCategories(story);
     this.buildChapters(story);
     this.buildCharacters(story);
     this.buildRelationships(story);
@@ -154,19 +160,70 @@ export class SetupPanel {
     const section = this.section("Plot lines", "The columns of the board. The number is how many cards live in each.");
     story.plotLines.forEach((plotLine, i) => {
       const row = section.createDiv({ cls: "story-planner-setup-row" });
-      this.colorInput(row, plotLine.color, (color) =>
-        this.host.edit((s) => void (s.plotLines.find((p) => p.id === plotLine.id)!.color = color)),
+      // While the story colours by category, a plot line in a category shows that colour instead of its own.
+      const byCategory = story.colorByCategory && story.plotLineCategories.some((c) => c.id === plotLine.category);
+      const color = this.colorInput(row, plotLineColor(story, plotLine) ?? plotLine.color, (value) =>
+        this.host.edit((s) => void (s.plotLines.find((p) => p.id === plotLine.id)!.color = value)),
       );
+      if (byCategory) {
+        color.disabled = true;
+        color.setAttr("title", "Coloured by its category. Turn off \"Colour plot lines by category\" to use its own colour.");
+      }
       const name = this.textInput(row, plotLine.name, `plotline:${plotLine.id}`);
       name.addEventListener("input", () => {
         const value = name.value.trim();
         if (value) this.host.edit((s) => void (s.plotLines.find((p) => p.id === plotLine.id)!.name = value), `plotline:${plotLine.id}`);
       });
+      if (story.plotLineCategories.length > 0) {
+        const category = this.dropdown(
+          row,
+          [["", "No category"], ...story.plotLineCategories.map((c): [string, string] => [c.id, c.name])],
+          plotLine.category ?? "",
+          (value) => this.host.edit((s) => setPlotLineCategory(s, plotLine.id, value || undefined)),
+        );
+        category.setAttr("aria-label", `Category of ${plotLine.name}`);
+      }
       this.count(row, cardsInPlotLine(story, plotLine.id).length);
       this.reorderButtons(row, i, story.plotLines.length, (by) => this.host.edit((s) => shiftInList(s.plotLines, plotLine.id, by)));
       this.iconButton(row, "×", `Delete ${plotLine.name}`, story.plotLines.length > 1, () => this.removePlotLine(story, plotLine.id));
     });
     this.addRow(section, "New plot line", "add-plotline", (name) => this.host.edit((s) => void addPlotLine(s, name)));
+  }
+
+  /** Groups of plot lines, such as "Main story lines", which can give their plot lines one colour. */
+  private buildCategories(story: Story): void {
+    const section = this.section(
+      "Plot line categories",
+      "Group plot lines, such as \"Main story lines\" or \"Relationship development\". Choose each plot line's category above. The number is how many plot lines are in each.",
+    );
+    const toggle = section.createDiv({ cls: "story-planner-setup-row" });
+    this.checkbox(toggle, "Colour plot lines by category", story.colorByCategory, (on) =>
+      this.host.edit((s) => void (s.colorByCategory = on)),
+    ).dataset.field = "color-by-category";
+    story.plotLineCategories.forEach((category, i) => {
+      const row = section.createDiv({ cls: "story-planner-setup-row" });
+      this.colorInput(row, category.color, (color) =>
+        this.host.edit((s) => void (s.plotLineCategories.find((c) => c.id === category.id)!.color = color)),
+      );
+      const name = this.textInput(row, category.name, `category:${category.id}`);
+      name.addEventListener("input", () => {
+        const value = name.value.trim();
+        if (value) {
+          this.host.edit((s) => void (s.plotLineCategories.find((c) => c.id === category.id)!.name = value), `category:${category.id}`);
+        }
+      });
+      const n = plotLinesInCategory(story, category.id).length;
+      const count = row.createSpan({ cls: "story-planner-setup-count", text: String(n) });
+      count.setAttr("title", `${n} ${n === 1 ? "plot line" : "plot lines"}`);
+      this.reorderButtons(row, i, story.plotLineCategories.length, (by) =>
+        this.host.edit((s) => shiftInList(s.plotLineCategories, category.id, by)),
+      );
+      this.iconButton(row, "×", `Delete ${category.name} (its plot lines are kept)`, true, () => {
+        this.host.edit((s) => deleteCategory(s, category.id));
+        this.host.notice(`Deleted the category ${category.name}${n ? `; its ${n === 1 ? "plot line keeps" : "plot lines keep"} their own colours` : ""}. Press Ctrl+Z to undo.`);
+      });
+    });
+    this.addRow(section, "New category", "add-category", (name) => this.host.edit((s) => void addCategory(s, name)));
   }
 
   private buildChapters(story: Story): void {
@@ -244,7 +301,7 @@ export class SetupPanel {
     for (const plotLine of story.plotLines) {
       const block = section.createDiv({ cls: "story-planner-setup-relationship" });
       const head = block.createDiv({ cls: "story-planner-setup-row" });
-      head.createSpan({ cls: "story-planner-setup-dot" }).style.setProperty("--dot-color", plotLine.color);
+      head.createSpan({ cls: "story-planner-setup-dot" }).style.setProperty("--dot-color", plotLineColor(story, plotLine) ?? plotLine.color);
       head.createSpan({ cls: "story-planner-setup-name", text: plotLine.name });
       const names = plotLine.characters ?? [];
       if (names.length > 0) {
@@ -726,11 +783,12 @@ export class SetupPanel {
     return input;
   }
 
-  private colorInput(parent: HTMLElement, value: string, onChange: (color: string) => void): void {
+  private colorInput(parent: HTMLElement, value: string, onChange: (color: string) => void): HTMLInputElement {
     const input = parent.createEl("input", { cls: "story-planner-setup-color" });
     input.type = "color";
     input.value = value;
     input.addEventListener("change", () => onChange(input.value));
+    return input;
   }
 
   private count(parent: HTMLElement, n: number): void {

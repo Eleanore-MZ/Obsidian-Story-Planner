@@ -108,4 +108,29 @@ describe("board layout", () => {
     expect(ends.filter((p) => p.column === 2)).toHaveLength(2);
     expect(ends.filter((p) => p.column === 3)).toHaveLength(1);
   });
+
+  it("shows a folded chapter as one row, counting each plot line's cards and echoes", () => {
+    const { story } = storyWithTwoPlotLines();
+    const chapter = story.chapters[0]!.id;
+    const open = computeBoardLayout(story, "vertical");
+    const layout = computeBoardLayout(story, "vertical", false, new Set([chapter]));
+    expect(layout.rows).toBe(2); // the lane headers and the folded chapter, nothing else
+    expect(layout.rows).toBeLessThan(open.rows);
+    expect(layout.items.some((p) => p.item.kind === "card" || p.item.kind === "chapter-end")).toBe(false);
+    const counts = layout.items.flatMap((p) => (p.item.kind === "chapter-folded" ? [[p.column, p.item.count]] : []));
+    // p1 has "First"; p2 has "Second" and the echo of "First".
+    expect(counts).toEqual([
+      [2, 1],
+      [3, 2],
+    ]);
+  });
+
+  it("folds the off-page group on its own", () => {
+    const { story, main } = storyWithTwoPlotLines();
+    const off = createCard({ title: "Before", plotLine: main, chapter: null, order: 1 });
+    story.cards[off.id] = off;
+    const layout = computeBoardLayout(story, "vertical", false, new Set([null]));
+    expect(layout.items.some((p) => p.item.kind === "card" && p.item.cardId === off.id)).toBe(false);
+    expect(layout.items.filter((p) => p.item.kind === "card")).toHaveLength(2);
+  });
 });

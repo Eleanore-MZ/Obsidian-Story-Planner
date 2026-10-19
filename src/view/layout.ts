@@ -20,7 +20,9 @@ export type BoardItem =
   /** Empty space beside a scene in another plot line; a drop lands next to that scene. */
   | { kind: "empty"; cardId: string; plotLineId: string }
   /** Drop zone after a chapter's last scene, so cards can be dropped at the end. */
-  | { kind: "chapter-end"; chapterId: string | null; plotLineId: string };
+  | { kind: "chapter-end"; chapterId: string | null; plotLineId: string }
+  /** A folded chapter's single row: how many cards each plot line has in it. */
+  | { kind: "chapter-folded"; chapterId: string | null; plotLineId: string; count: number };
 
 export interface PlacedItem {
   item: BoardItem;
@@ -41,7 +43,13 @@ export interface BoardLayout {
  * across plot lines but shows at a glance how busy each one is; the space
  * below a short stack is chapter-end space, so a drop there goes last.
  */
-export function computeBoardLayout(story: Story, orientation: Orientation, compact = false): BoardLayout {
+export function computeBoardLayout(
+  story: Story,
+  orientation: Orientation,
+  compact = false,
+  /** Folded chapters, which show as one row; null is the off-page group. */
+  folded: ReadonlySet<string | null> = new Set(),
+): BoardLayout {
   const laneIndex = new Map(story.plotLines.map((p, i) => [p.id, i]));
   const laneCount = story.plotLines.length;
   const items: { item: BoardItem; slot: number; lane: number }[] = [];
@@ -66,6 +74,14 @@ export function computeBoardLayout(story: Story, orientation: Orientation, compa
   let slot = 1;
   for (const group of groups) {
     items.push({ item: { kind: "chapter-header", chapterId: group.chapterId }, slot, lane: 0 });
+    if (folded.has(group.chapterId)) {
+      story.plotLines.forEach((p, i) => {
+        const count = group.cards.filter((c) => c.plotLine === p.id || c.alsoIn.includes(p.id)).length;
+        items.push({ item: { kind: "chapter-folded", chapterId: group.chapterId, plotLineId: p.id, count }, slot, lane: i + 1 });
+      });
+      slot++;
+      continue;
+    }
     // Chapter header slot also carries an "add card" button in every lane.
     story.plotLines.forEach((p, i) => {
       items.push({ item: { kind: "add-card", chapterId: group.chapterId, plotLineId: p.id }, slot, lane: i + 1 });

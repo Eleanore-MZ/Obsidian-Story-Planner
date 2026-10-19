@@ -247,6 +247,9 @@ function readSetup(raw: unknown): StorySetup | string {
     schema: STORY_SCHEMA_VERSION,
     title: typeof raw.title === "string" ? raw.title : "Untitled story",
     plotLines: arrayOf(raw.plotLines),
+    // Stories saved before categories existed have none.
+    plotLineCategories: arrayOf(raw.plotLineCategories),
+    colorByCategory: raw.colorByCategory === true,
     chapters: arrayOf(raw.chapters),
     characters: arrayOf(raw.characters),
     locations: arrayOf(raw.locations),

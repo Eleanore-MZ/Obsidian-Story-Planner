@@ -131,10 +131,15 @@ function harbourStory(): Story {
     { id: "x2", name: "Ilse", color: "#1abc9c", description: "Courier from the east.", zone: "z2" },
     { id: "x3", name: "Harbourmaster Oren", color: "#7f8c8d" },
   ];
+  // Categories exist but are not used for colour here; the large story colours by category.
+  s.plotLineCategories = [
+    { id: "pc1", name: "Mystery", color: "#4a90d9" },
+    { id: "pc2", name: "Relationships", color: "#d9534f" },
+  ];
   s.plotLines = [
-    { id: "p1", name: "Investigation", color: "#4a90d9" },
-    { id: "p2", name: "Mara and Ilse", color: "#d9534f", characters: ["x1", "x2"] },
-    { id: "p3", name: "The eastern letters", color: "#f0ad4e" },
+    { id: "p1", name: "Investigation", color: "#4a90d9", category: "pc1" },
+    { id: "p2", name: "Mara and Ilse", color: "#d9534f", characters: ["x1", "x2"], category: "pc2" },
+    { id: "p3", name: "The eastern letters", color: "#f0ad4e", category: "pc1" },
   ];
   s.chapters = [
     { id: "c1", name: "Chapter 1: The Pier" },
@@ -215,7 +220,15 @@ function harbourStory(): Story {
 function largeStory(): Story {
   const s = createEmptyStory("Large Story (performance test)");
   const colors = ["#4a90d9", "#d9534f", "#5cb85c", "#f0ad4e", "#9b59b6", "#1abc9c", "#e67e22", "#7f8c8d"];
-  s.plotLines = colors.map((color, i) => ({ id: `p${i + 1}`, name: `Plot line ${i + 1}`, color }));
+  // Three categories, and the board coloured by them.
+  s.plotLineCategories = [
+    { id: "pc1", name: "Main story lines", color: "#4a90d9" },
+    { id: "pc2", name: "Relationship development", color: "#d9534f" },
+    { id: "pc3", name: "Background", color: "#7f8c8d" },
+  ];
+  s.colorByCategory = true;
+  const categoryOf = (i: number) => (i < 3 ? "pc1" : i < 6 ? "pc2" : "pc3");
+  s.plotLines = colors.map((color, i) => ({ id: `p${i + 1}`, name: `Plot line ${i + 1}`, color, category: categoryOf(i) }));
   s.chapters = Array.from({ length: 40 }, (_, i) => ({ id: `c${String(i + 1).padStart(2, "0")}`, name: `Chapter ${i + 1}` }));
   s.characters = Array.from({ length: 16 }, (_, i) => ({
     id: `x${String(i + 1).padStart(2, "0")}`, name: `Character ${i + 1}`, color: colors[i % colors.length]!,

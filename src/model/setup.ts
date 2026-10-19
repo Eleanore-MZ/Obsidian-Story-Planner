@@ -13,6 +13,47 @@ export function addPlotLine(story: Story, name: string): Id {
   return id;
 }
 
+export function addCategory(story: Story, name: string): Id {
+  const id = newId("pc");
+  story.plotLineCategories.push({ id, name, color: freeColor(story.plotLineCategories) });
+  return id;
+}
+
+/** Deletes a category. Its plot lines stay, without a category, and keep their own colours. */
+export function deleteCategory(story: Story, id: Id): boolean {
+  if (!story.plotLineCategories.some((c) => c.id === id)) return false;
+  story.plotLineCategories = story.plotLineCategories.filter((c) => c.id !== id);
+  for (const plotLine of story.plotLines) if (plotLine.category === id) delete plotLine.category;
+  return true;
+}
+
+/** Puts a plot line in a category, or takes it out with undefined. */
+export function setPlotLineCategory(story: Story, plotLineId: Id, category: Id | undefined): boolean {
+  const plotLine = story.plotLines.find((p) => p.id === plotLineId);
+  if (!plotLine || plotLine.category === category) return false;
+  if (category && !story.plotLineCategories.some((c) => c.id === category)) return false;
+  if (category) plotLine.category = category;
+  else delete plotLine.category;
+  return true;
+}
+
+export function plotLinesInCategory(story: Story, id: Id): PlotLine[] {
+  return story.plotLines.filter((p) => p.category === id);
+}
+
+/**
+ * The colour a plot line is drawn in: its category's when the story colours
+ * by category and the plot line has one, otherwise its own.
+ */
+export function plotLineColor(story: Story, plotLine: PlotLine | undefined): string | undefined {
+  if (!plotLine) return undefined;
+  if (story.colorByCategory && plotLine.category) {
+    const category = story.plotLineCategories.find((c) => c.id === plotLine.category);
+    if (category) return category.color;
+  }
+  return plotLine.color;
+}
+
 export function addChapter(story: Story, name: string): Id {
   const id = newId("c");
   story.chapters.push({ id, name });

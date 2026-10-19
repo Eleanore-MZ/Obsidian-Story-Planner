@@ -26,11 +26,30 @@ export interface StoryViewState {
   characterOrientation?: Orientation;
   /** With two or more lanes, show only the scenes they share. */
   sharedOnly?: boolean;
-  /** Show the overview minimap in the corner of the board. */
+  /** Show the overview minimap beside the board. */
   minimap?: boolean;
+  /** Folded chapters on the main board, by id ("" is the off-page group). */
+  foldedChapters?: string[];
+  /** Folded lanes: plot lines (main board and story time) and characters (character track). */
+  foldedPlotLines?: string[];
+  foldedCharacters?: string[];
+  /** Lane widths in pixels set by dragging, by plot line or character id. */
+  laneWidths?: Record<string, number>;
+  characterLaneWidths?: Record<string, number>;
+}
+
+/** Every view tab, in the default order. */
+export const ALL_TABS: StoryTab[] = ["board", "time", "characters", "setup"];
+
+/** The tabs in the writer's order: unknown ones dropped, missing ones added at the end. */
+export function orderedTabs(order: StoryTab[] | undefined): StoryTab[] {
+  const known = (order ?? []).filter((t, i, all) => ALL_TABS.includes(t) && all.indexOf(t) === i);
+  return [...known, ...ALL_TABS.filter((t) => !known.includes(t))];
 }
 
 export interface StoryPlannerSettings {
+  /** The order of the view tabs, the same for every story. */
+  tabOrder: StoryTab[];
   defaultOrientation: Orientation;
   defaultStoryTimeOrientation: Orientation;
   /** Folder offered by the "New story" command; empty means the vault root. */
@@ -50,6 +69,7 @@ export interface StoryPlannerSettings {
 }
 
 export const DEFAULT_SETTINGS: StoryPlannerSettings = {
+  tabOrder: [...ALL_TABS],
   defaultOrientation: "vertical",
   defaultStoryTimeOrientation: "vertical",
   newStoryFolder: "",

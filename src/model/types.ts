@@ -15,9 +15,18 @@ export interface PlotLine {
   id: Id;
   name: string;
   color: string;
+  /** The category this plot line belongs to, such as "Main story lines". */
+  category?: Id;
   description?: string;
   /** Characters this plot line is about, e.g. both sides of a relationship. */
   characters?: Id[];
+}
+
+/** A group of plot lines, such as "Main story lines" or "Relationship development". */
+export interface PlotLineCategory {
+  id: Id;
+  name: string;
+  color: string;
 }
 
 export interface Chapter {
@@ -160,6 +169,9 @@ export interface StorySetup {
   schema: number;
   title: string;
   plotLines: PlotLine[];
+  plotLineCategories: PlotLineCategory[];
+  /** Colour each plot line by its category instead of by its own colour. */
+  colorByCategory: boolean;
   chapters: Chapter[];
   characters: Character[];
   locations: Location[];

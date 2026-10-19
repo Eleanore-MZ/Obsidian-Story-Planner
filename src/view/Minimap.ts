@@ -1,12 +1,13 @@
-// The overview minimap: a small zoomed-out picture of the whole board in the
-// corner, with the visible part as a rectangle. Clicking or dragging on it
-// scrolls the board there. It is drawn on a canvas from the board's own
-// layout, read once after each redraw, so scrolling only repaints the
-// rectangle and stays fast on large stories.
+// The overview minimap, like VS Code's: a strip down the right edge of the
+// board with a scaled-down picture of the whole board and the visible part
+// shaded. Clicking or dragging on it scrolls the board there. The picture is
+// scaled to the strip's width; when it is taller than the strip, it scrolls
+// along with the board, as VS Code's does. It is drawn on a canvas from the
+// board's own layout, read once after each redraw, so scrolling only repaints
+// and stays fast on large stories.
 
-const MAX_WIDTH = 220;
-const MAX_HEIGHT = 160;
-const MARGIN = 12;
+/** The most the picture is enlarged, so a small board does not fill the strip with huge blocks. */
+const MAX_SCALE = 0.25;
 
 /** What the minimap draws, in board coordinates. */
 interface Shape {
@@ -32,11 +33,12 @@ export class Minimap {
   private scale = 1;
   private visible = false;
   private frame = 0;
-  private dragging = false;
+  /** Where a drag started: the pointer, and the board's scroll position then. */
+  private drag: { x: number; y: number; left: number; top: number } | null = null;
   private resize: ResizeObserver;
 
   constructor(
-    private container: HTMLElement,
+    container: HTMLElement,
     private board: HTMLElement,
   ) {
     this.el = container.createDiv({ cls: "story-planner-minimap" });
@@ -47,18 +49,28 @@ export class Minimap {
     board.addEventListener("scroll", () => this.schedule(), { passive: true });
     this.resize = new ResizeObserver(() => this.refresh());
     this.resize.observe(board);
+    this.resize.observe(this.el);
 
     this.canvas.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      this.dragging = true;
       this.canvas.setPointerCapture(e.pointerId);
-      this.scrollTo(e);
+      const view = this.viewRect();
+      const { x, y } = this.toBoard(e);
+      // Grabbing the shaded area drags it; anywhere else first centres the view there.
+      const inside = x >= view.x && x <= view.x + view.w && y >= view.y && y <= view.y + view.h;
+      if (!inside) this.board.scrollTo({ left: x - this.board.clientWidth / 2, top: y - this.board.clientHeight / 2 });
+      this.drag = { x: e.clientX, y: e.clientY, left: this.board.scrollLeft, top: this.board.scrollTop };
     });
     this.canvas.addEventListener("pointermove", (e) => {
-      if (this.dragging) this.scrollTo(e);
+      if (!this.drag) return;
+      const b = this.board;
+      b.scrollTo({
+        left: this.drag.left + (e.clientX - this.drag.x) / this.scale,
+        top: this.drag.top + (e.clientY - this.drag.y) * this.verticalFactor(),
+      });
     });
     const stop = (e: PointerEvent) => {
-      this.dragging = false;
+      this.drag = null;
       if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
     };
     this.canvas.addEventListener("pointerup", stop);
@@ -66,9 +78,10 @@ export class Minimap {
   }
 
   setVisible(visible: boolean): void {
+    const changed = visible !== this.visible;
     this.visible = visible;
     this.el.hidden = !visible;
-    if (visible) this.refresh();
+    if (visible && changed) this.refresh();
   }
 
   destroy(): void {
@@ -98,24 +111,12 @@ export class Minimap {
     for (const el of Array.from(board.querySelectorAll<HTMLElement>(CARD_SELECTOR))) {
       const lane = el.style.getPropertyValue("--lane-color").trim();
       const color = !lane || lane.startsWith("var(") ? accent : lane;
-      add(el, color, el.classList.contains("is-dimmed") ? 0.2 : el.classList.contains("story-planner-echo") ? 0.45 : 0.85);
+      add(el, color, el.classList.contains("is-dimmed") ? 0.2 : el.classList.contains("story-planner-echo") ? 0.45 : 0.9);
     }
     this.shapes = shapes;
     this.contentWidth = Math.max(board.scrollWidth, 1);
     this.contentHeight = Math.max(board.scrollHeight, 1);
-    this.scale = Math.min(MAX_WIDTH / this.contentWidth, MAX_HEIGHT / this.contentHeight);
-    this.place();
     this.draw();
-  }
-
-  /** Keeps the map in the board's bottom-right corner, clear of its scrollbars and the card panel. */
-  private place(): void {
-    const board = this.board;
-    const scrollbarRight = board.offsetWidth - board.clientWidth;
-    const scrollbarBottom = board.offsetHeight - board.clientHeight;
-    const right = this.container.clientWidth - (board.offsetLeft + board.offsetWidth) + scrollbarRight + MARGIN;
-    this.el.style.right = `${Math.max(right, MARGIN)}px`;
-    this.el.style.bottom = `${scrollbarBottom + MARGIN}px`;
   }
 
   private schedule(): void {
@@ -126,45 +127,78 @@ export class Minimap {
     });
   }
 
+  /** How far the picture is scrolled within the strip, in strip pixels. */
+  private offset(): number {
+    const stripHeight = this.el.clientHeight;
+    const mapHeight = this.contentHeight * this.scale;
+    if (mapHeight <= stripHeight) return 0;
+    const board = this.board;
+    const range = board.scrollHeight - board.clientHeight;
+    return range > 0 ? ((mapHeight - stripHeight) * board.scrollTop) / range : 0;
+  }
+
+  /**
+   * Board pixels per strip pixel when dragging up and down. When the picture
+   * fits, the shaded area simply follows the pointer. When it is taller than
+   * the strip, the strip works like a scrollbar: dragging from top to bottom
+   * covers the whole board.
+   */
+  private verticalFactor(): number {
+    const stripHeight = this.el.clientHeight;
+    if (this.contentHeight * this.scale <= stripHeight) return 1 / this.scale;
+    const b = this.board;
+    const track = stripHeight - b.clientHeight * this.scale;
+    return track > 0 ? (b.scrollHeight - b.clientHeight) / track : 1 / this.scale;
+  }
+
+  private viewRect() {
+    const b = this.board;
+    return { x: b.scrollLeft, y: b.scrollTop, w: Math.min(b.clientWidth, this.contentWidth), h: Math.min(b.clientHeight, this.contentHeight) };
+  }
+
+  private toBoard(e: PointerEvent): { x: number; y: number } {
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: (e.clientX - rect.left) / this.scale, y: (e.clientY - rect.top + this.offset()) / this.scale };
+  }
+
   private draw(): void {
-    const width = Math.max(Math.round(this.contentWidth * this.scale), 24);
-    const height = Math.max(Math.round(this.contentHeight * this.scale), 24);
+    const width = this.el.clientWidth;
+    const height = this.el.clientHeight;
+    if (width === 0 || height === 0) return;
+    this.scale = Math.min(width / this.contentWidth, MAX_SCALE);
     const ratio = window.devicePixelRatio || 1;
     const canvas = this.canvas;
-    if (canvas.width !== width * ratio || canvas.height !== height * ratio) {
-      canvas.width = width * ratio;
-      canvas.height = height * ratio;
+    if (canvas.width !== Math.round(width * ratio) || canvas.height !== Math.round(height * ratio)) {
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
     }
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.setTransform(ratio * this.scale, 0, 0, ratio * this.scale, 0, 0);
-    ctx.clearRect(0, 0, this.contentWidth, this.contentHeight);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(ratio * this.scale, 0, 0, ratio * this.scale, 0, -ratio * this.offset());
 
     for (const s of this.shapes) {
       ctx.globalAlpha = s.alpha;
       ctx.fillStyle = s.color;
-      ctx.fillRect(s.x, s.y, s.w, s.h);
+      ctx.fillRect(s.x, s.y, Math.max(s.w, 1 / this.scale), Math.max(s.h, 1 / this.scale));
     }
-    ctx.globalAlpha = 1;
 
-    // The visible part of the board.
-    const board = this.board;
+    // The visible part of the board, shaded and outlined.
     const style = getComputedStyle(this.el);
-    const lineWidth = 1.5 / this.scale;
-    ctx.strokeStyle = style.getPropertyValue("--text-normal").trim() || "#000";
-    ctx.lineWidth = lineWidth;
-    ctx.fillStyle = style.getPropertyValue("--text-normal").trim() || "#000";
-    ctx.globalAlpha = 0.08;
-    ctx.fillRect(board.scrollLeft, board.scrollTop, board.clientWidth, board.clientHeight);
+    const text = style.getPropertyValue("--text-normal").trim() || "#000";
+    const view = this.viewRect();
+    const line = 1 / this.scale;
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = text;
+    ctx.fillRect(view.x, view.y, view.w, view.h);
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = text;
+    ctx.lineWidth = line;
+    ctx.strokeRect(view.x + line / 2, view.y + line / 2, view.w - line, view.h - line);
     ctx.globalAlpha = 1;
-    ctx.strokeRect(
-      board.scrollLeft + lineWidth / 2,
-      board.scrollTop + lineWidth / 2,
-      Math.min(board.clientWidth, this.contentWidth) - lineWidth,
-      Math.min(board.clientHeight, this.contentHeight) - lineWidth,
-    );
 
     // The selected card, outlined so it can be found on the map.
     const selected = this.shapes.find((s) => s.selected);
@@ -173,13 +207,5 @@ export class Minimap {
       ctx.lineWidth = 2 / this.scale;
       ctx.strokeRect(selected.x, selected.y, selected.w, selected.h);
     }
-  }
-
-  /** Scrolls the board so the point under the pointer is in the middle of the view. */
-  private scrollTo(e: PointerEvent): void {
-    const rect = this.canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / this.scale;
-    const y = (e.clientY - rect.top) / this.scale;
-    this.board.scrollTo({ left: x - this.board.clientWidth / 2, top: y - this.board.clientHeight / 2 });
   }
 }

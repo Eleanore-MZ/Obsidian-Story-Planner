@@ -70,6 +70,8 @@ export function createEmptyStory(title: string): Story {
     schema: STORY_SCHEMA_VERSION,
     title,
     plotLines: [plotLine],
+    plotLineCategories: [],
+    colorByCategory: false,
     chapters: [chapter],
     characters: [],
     locations: [],

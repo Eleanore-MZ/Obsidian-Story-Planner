@@ -135,6 +135,11 @@ export default class StoryPlannerPlugin extends Plugin {
       .filter((view): view is StoryBoardView => view instanceof StoryBoardView);
   }
 
+  /** Redraws every open board, after a change to settings they all share. */
+  refreshBoards(): void {
+    for (const view of this.boards()) view.refresh();
+  }
+
   private refreshLinks(path: string): void {
     for (const view of this.boards()) view.linksChanged(path);
   }
@@ -324,7 +329,7 @@ export default class StoryPlannerPlugin extends Plugin {
     new SnapshotPickerModal(this, snapshots, (snapshot) => void view.restoreSnapshot(snapshot)).open();
   }
 
-  private promptNewStory(folder: string): void {
+  promptNewStory(folder: string): void {
     new TextPromptModal(this.app, "New story", "", (title) => void this.createStory(folder, title)).open();
   }
 

@@ -89,7 +89,7 @@ export function createCard(fields: Pick<Card, "title" | "plotLine" | "chapter" |
     synopsis: "",
     alsoIn: [],
     characters: [],
-    status: "idea",
+    written: false,
     tags: [],
     notes: [],
     modified: new Date().toISOString(),

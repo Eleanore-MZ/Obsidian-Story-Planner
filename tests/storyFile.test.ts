@@ -143,6 +143,30 @@ describe("scenes that share a row", () => {
   });
 });
 
+describe("written and unwritten scenes", () => {
+  it("keeps whether a card is written", () => {
+    const story = sampleStory();
+    Object.values(story.cards)[0]!.written = true;
+    expect(parseOk(serializeStory(story)).story).toEqual(story);
+  });
+
+  it("reads the statuses of older stories: drafted and revised scenes are written, ideas and outlines are not", () => {
+    const story = sampleStory();
+    const text = serializeStory(story);
+    const statuses = ["idea", "outlined", "drafted", "revised"];
+    let i = 0;
+    // Turn each card line back into the old form, with a status instead of "written".
+    const old = text.replace(/"written":false/g, () => `"status":"${statuses[i++ % statuses.length]}"`);
+    expect(old).not.toContain('"written"');
+    const cards = Object.values(parseOk(old).story.cards).sort((a, b) => a.id.localeCompare(b.id));
+    const expected = Object.keys(story.cards).sort().map((_, n) => ["drafted", "revised"].includes(statuses[n % 4]!));
+    expect(cards.map((c) => c.written)).toEqual(expected);
+    // The old field is dropped on the next save.
+    for (const card of cards) expect("status" in card).toBe(false);
+    expect(serializeStory(parseOk(old).story)).not.toContain('"status"');
+  });
+});
+
 describe("damaged or unusual notes", () => {
   it("refuses notes that are not stories", () => {
     expect(parseStory("# Just a note").ok).toBe(false);

@@ -20,9 +20,8 @@ interface Shape {
   selected: boolean;
 }
 
-/** Board elements shown on the map; headers are drawn faintly, cards in their plot line's colour. */
+/** Board elements shown on the map: only cards and echoes, in their plot line's colour, to keep it quiet. */
 const CARD_SELECTOR = ".story-planner-card, .story-planner-echo";
-const HEADER_SELECTOR = ".story-planner-grid [class*='-header'], .story-planner-matrix-wrap td, .story-planner-matrix-wrap th";
 
 export class Minimap {
   private el: HTMLElement;
@@ -99,7 +98,6 @@ export class Minimap {
     const offsetY = board.scrollTop - base.top - board.clientTop;
     const style = getComputedStyle(board);
     const accent = style.getPropertyValue("--interactive-accent").trim() || "#7f6df2";
-    const faint = style.getPropertyValue("--background-modifier-border").trim() || "#888";
 
     const shapes: Shape[] = [];
     const add = (el: HTMLElement, color: string, alpha: number) => {
@@ -107,11 +105,10 @@ export class Minimap {
       if (r.width === 0 && r.height === 0) return;
       shapes.push({ x: r.left + offsetX, y: r.top + offsetY, w: r.width, h: r.height, color, alpha, selected: el.classList.contains("is-selected") });
     };
-    for (const el of Array.from(board.querySelectorAll<HTMLElement>(HEADER_SELECTOR))) add(el, faint, 1);
     for (const el of Array.from(board.querySelectorAll<HTMLElement>(CARD_SELECTOR))) {
       const lane = el.style.getPropertyValue("--lane-color").trim();
       const color = !lane || lane.startsWith("var(") ? accent : lane;
-      add(el, color, el.classList.contains("is-dimmed") ? 0.2 : el.classList.contains("story-planner-echo") ? 0.45 : 0.9);
+      add(el, color, el.classList.contains("is-dimmed") ? 0.12 : el.classList.contains("story-planner-echo") ? 0.25 : 0.5);
     }
     this.shapes = shapes;
     this.contentWidth = Math.max(board.scrollWidth, 1);
@@ -186,15 +183,15 @@ export class Minimap {
       ctx.fillRect(s.x, s.y, Math.max(s.w, 1 / this.scale), Math.max(s.h, 1 / this.scale));
     }
 
-    // The visible part of the board, shaded and outlined.
+    // The visible part of the board: a very faint fill and a hairline outline.
     const style = getComputedStyle(this.el);
     const text = style.getPropertyValue("--text-normal").trim() || "#000";
     const view = this.viewRect();
     const line = 1 / this.scale;
-    ctx.globalAlpha = 0.12;
+    ctx.globalAlpha = 0.05;
     ctx.fillStyle = text;
     ctx.fillRect(view.x, view.y, view.w, view.h);
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.35;
     ctx.strokeStyle = text;
     ctx.lineWidth = line;
     ctx.strokeRect(view.x + line / 2, view.y + line / 2, view.w - line, view.h - line);
@@ -204,7 +201,7 @@ export class Minimap {
     const selected = this.shapes.find((s) => s.selected);
     if (selected) {
       ctx.strokeStyle = style.getPropertyValue("--interactive-accent").trim() || "#7f6df2";
-      ctx.lineWidth = 2 / this.scale;
+      ctx.lineWidth = 1.5 / this.scale;
       ctx.strokeRect(selected.x, selected.y, selected.w, selected.h);
     }
   }

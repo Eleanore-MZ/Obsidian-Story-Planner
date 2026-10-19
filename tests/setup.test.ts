@@ -4,6 +4,8 @@ import { chapterRows } from "../src/model/moves";
 import { blankCalendar } from "../src/model/defaults";
 import { momentOf } from "../src/model/calendar";
 import {
+  moveIndex,
+  movedIndex,
   addLocation,
   addPlotLine,
   addTag,
@@ -256,5 +258,25 @@ describe("tags and relationships", () => {
     s.cards.b!.relationshipState = "strangers";
     s.cards.d!.relationshipState = "allies";
     expect(finalRelationshipState(s, "p2")).toBe("allies");
+  });
+});
+
+describe("moving an item to a new place in a list", () => {
+  it("moves down and up, and refuses moves that change nothing or go out of range", () => {
+    const list = ["a", "b", "c", "d"];
+    expect(moveIndex(list, 0, 2)).toBe(true);
+    expect(list).toEqual(["b", "c", "a", "d"]);
+    expect(moveIndex(list, 3, 0)).toBe(true);
+    expect(list).toEqual(["d", "b", "c", "a"]);
+    expect(moveIndex(list, 1, 1)).toBe(false);
+    expect(moveIndex(list, 1, 4)).toBe(false);
+    expect(list).toEqual(["d", "b", "c", "a"]);
+  });
+
+  it("follows another item through the move, such as the month with the leap day", () => {
+    // Moving index 0 to 2 in [a, b, c, d] gives [b, c, a, d].
+    expect([0, 1, 2, 3].map((k) => movedIndex(k, 0, 2))).toEqual([2, 0, 1, 3]);
+    // Moving index 3 to 1 in [a, b, c, d] gives [a, d, b, c].
+    expect([0, 1, 2, 3].map((k) => movedIndex(k, 3, 1))).toEqual([0, 2, 3, 1]);
   });
 });

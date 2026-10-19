@@ -7,7 +7,6 @@ export const STORY_SCHEMA_VERSION = 1;
 
 export type Id = string;
 
-export type CardStatus = "idea" | "outlined" | "drafted" | "revised";
 
 export type CharacterRole = "pov" | "present" | "mentioned";
 
@@ -154,7 +153,8 @@ export interface Card {
   timeOrder?: number;
   location?: Id;
   characters: CardCharacter[];
-  status: CardStatus;
+  /** Whether the scene has been written yet. */
+  written: boolean;
   tags: Id[];
   /** Relationship state label, for cards in relationship plot lines. */
   relationshipState?: string;

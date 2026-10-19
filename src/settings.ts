@@ -13,6 +13,8 @@ export interface StoryViewState {
   /** Compact mode: each plot line's cards stack from the top of the chapter. */
   compact?: boolean;
   tab?: StoryTab;
+  /** The view story setup was opened from, to go back to when it closes. */
+  lastView?: StoryTab;
   /** Story time: layout, zoom, and which zone times are shown in ("" for each card's own local time). */
   timeOrientation?: Orientation;
   zoom?: Zoom;
@@ -38,10 +40,10 @@ export interface StoryViewState {
   characterLaneWidths?: Record<string, number>;
 }
 
-/** Every view tab, in the default order. */
-export const ALL_TABS: StoryTab[] = ["board", "time", "characters", "setup"];
+/** The views that are tabs, in the default order. Setup is not one: it opens from the gear button. */
+export const ALL_TABS: StoryTab[] = ["board", "time", "characters"];
 
-/** The tabs in the writer's order: unknown ones dropped, missing ones added at the end. */
+/** The tabs in the writer's order: unknown ones (and setup, from older settings) dropped, missing ones added at the end. */
 export function orderedTabs(order: StoryTab[] | undefined): StoryTab[] {
   const known = (order ?? []).filter((t, i, all) => ALL_TABS.includes(t) && all.indexOf(t) === i);
   return [...known, ...ALL_TABS.filter((t) => !known.includes(t))];
@@ -174,7 +176,7 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Template for notes made from cards")
       .setDesc(
-        "Path of a note to copy into each new note, such as Templates/Scene.md. It can use {{title}}, {{synopsis}}, {{story}}, {{plotLine}}, {{chapter}}, {{date}}, {{location}}, {{characters}} and {{status}}. Leave empty for a short built-in template. The template is used once, when the note is made; after that the note is yours.",
+        "Path of a note to copy into each new note, such as Templates/Scene.md. It can use {{title}}, {{synopsis}}, {{story}}, {{plotLine}}, {{chapter}}, {{date}}, {{location}}, {{characters}} and {{written}}. Leave empty for a short built-in template. The template is used once, when the note is made; after that the note is yours.",
       )
       .addText((t) =>
         t

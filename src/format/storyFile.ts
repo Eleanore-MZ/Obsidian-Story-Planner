@@ -266,8 +266,11 @@ function readCard(raw: unknown): Card | null {
   if (typeof raw.id !== "string" || typeof raw.title !== "string" || typeof raw.plotLine !== "string") {
     return null;
   }
+  // Before cards were simply written or not, they had a status; drafted and
+  // revised scenes count as written. The old field is not kept.
+  const { status, ...rest } = raw as Partial<Card> & { status?: unknown };
   return {
-    ...(raw as Partial<Card>),
+    ...rest,
     id: raw.id,
     title: raw.title,
     plotLine: raw.plotLine,
@@ -276,7 +279,7 @@ function readCard(raw: unknown): Card | null {
     chapter: typeof raw.chapter === "string" ? raw.chapter : null,
     order: typeof raw.order === "number" ? raw.order : 0,
     characters: arrayOf(raw.characters),
-    status: typeof raw.status === "string" ? (raw.status as Card["status"]) : "idea",
+    written: typeof raw.written === "boolean" ? raw.written : status === "drafted" || status === "revised",
     tags: arrayOf(raw.tags),
     notes: arrayOf(raw.notes),
     modified: typeof raw.modified === "string" ? raw.modified : "",

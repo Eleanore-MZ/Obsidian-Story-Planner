@@ -81,6 +81,22 @@ export function shiftInList<T extends { id: Id }>(list: T[], id: Id, by: -1 | 1)
   return true;
 }
 
+/** Moves the item at `from` so it ends up at index `to`, for drag reordering. */
+export function moveIndex<T>(list: T[], from: number, to: number): boolean {
+  if (from === to || from < 0 || from >= list.length || to < 0 || to >= list.length) return false;
+  const [item] = list.splice(from, 1);
+  list.splice(to, 0, item!);
+  return true;
+}
+
+/** Where the item that was at `index` is after moving the item at `from` to `to`. */
+export function movedIndex(index: number, from: number, to: number): number {
+  if (index === from) return to;
+  if (from < to && index > from && index <= to) return index - 1;
+  if (to < from && index >= to && index < from) return index + 1;
+  return index;
+}
+
 /** Cards whose primary plot line is this one; echoes are not counted. */
 export function cardsInPlotLine(story: Story, plotLineId: Id): Card[] {
   return Object.values(story.cards).filter((c) => c.plotLine === plotLineId);

@@ -10,16 +10,9 @@ import {
 import { compareDates, effectiveZone, ZoneSource } from "../model/calendar";
 import { setCardDate, setCardLocation, setCardTag, setRelationshipState } from "../model/edits";
 import { locationTree, relationshipOf } from "../model/setup";
-import { CardStatus, CharacterRole, Id, Story } from "../model/types";
+import { CharacterRole, Id, Story } from "../model/types";
 import { DateEditor } from "./DateEditor";
 import { addCardNote, noteName, removeCardNote } from "../model/links";
-
-export const STATUS_LABELS: Record<CardStatus, string> = {
-  idea: "Idea",
-  outlined: "Outlined",
-  drafted: "Drafted",
-  revised: "Revised",
-};
 
 const ROLE_LABELS: Record<CharacterRole, string> = {
   pov: "Point of view",
@@ -60,6 +53,8 @@ export class CardPanel {
   readonly el: HTMLElement;
   private cardId: Id | null = null;
   private story: Story | null = null;
+  /** Whether "Also in" is unfolded; reset when another card is shown. */
+  private echoesOpen = false;
 
   constructor(parent: HTMLElement, private host: CardPanelHost) {
     this.el = parent.createDiv({ cls: "story-planner-panel" });
@@ -83,6 +78,7 @@ export class CardPanel {
       return;
     }
     const sameCard = cardId === this.cardId;
+    if (!sameCard) this.echoesOpen = false;
     this.cardId = cardId;
     this.el.hidden = false;
     if (sameCard && soft) {
@@ -172,16 +168,22 @@ export class CardPanel {
       this.host.edit((s) => updateCard(s, id, { synopsis: synopsis.value }), `synopsis:${id}`),
     );
 
-    this.select(this.field("Status"), STATUS_LABELS, card.status, (value) =>
-      this.host.edit((s) => updateCard(s, id, { status: value as CardStatus })),
-    );
+    const written = this.field("Written").createEl("label", { cls: "story-planner-panel-check" });
+    const box = written.createEl("input");
+    box.type = "checkbox";
+    box.checked = card.written;
+    box.dataset.field = "written";
+    box.addEventListener("change", () => this.host.edit((s) => updateCard(s, id, { written: box.checked })));
+    written.createSpan({ text: "This scene is written" });
 
     // Where the card sits on the board.
     const plotLines = Object.fromEntries(story.plotLines.map((p) => [p.id, p.name]));
-    this.select(this.field("Plot line"), plotLines, card.plotLine, (value) =>
+    const plotLineField = this.field("Plot line");
+    this.select(plotLineField, plotLines, card.plotLine, (value) =>
       // Beside itself: same row, new plot line.
       this.host.edit((s) => moveCard(s, id, { chapter: s.cards[id]!.chapter, plotLine: value, besideCardId: id })),
     );
+    this.buildEchoes(plotLineField);
 
     const chapterIds = new Set(story.chapters.map((c) => c.id));
     const chapters: Record<string, string> = Object.fromEntries(story.chapters.map((c) => [c.id, c.name]));
@@ -197,19 +199,6 @@ export class CardPanel {
     this.buildDates();
     this.buildPlace();
 
-    const others = story.plotLines.filter((p) => p.id !== card.plotLine);
-    if (others.length > 0) {
-      const echoes = this.field("Also in", "Shows a title-only echo of the card in these plot lines.");
-      for (const plotLine of others) {
-        const label = echoes.createEl("label", { cls: "story-planner-panel-check" });
-        const box = label.createEl("input");
-        box.type = "checkbox";
-        box.checked = card.alsoIn.includes(plotLine.id);
-        box.addEventListener("change", () => this.host.edit((s) => setEcho(s, id, plotLine.id, box.checked)));
-        label.createSpan({ text: plotLine.name });
-      }
-    }
-
     this.buildCharacters(this.field("Characters"));
     this.buildTagsAndState();
     this.buildNotes();
@@ -221,6 +210,31 @@ export class CardPanel {
       this.host.edit((s) => deleteCard(s, id));
       this.host.deleted(name);
     });
+  }
+
+  /**
+   * "Also in": the plot lines that show an echo of the card, folded away under
+   * the plot line by default. It stays open while the panel shows this card.
+   */
+  private buildEchoes(parent: HTMLElement): void {
+    const card = this.card!;
+    const id = card.id;
+    const others = this.story!.plotLines.filter((p) => p.id !== card.plotLine);
+    if (others.length === 0) return;
+    const details = parent.createEl("details", { cls: "story-planner-panel-echoes" });
+    details.open = this.echoesOpen;
+    details.addEventListener("toggle", () => (this.echoesOpen = details.open));
+    const names = others.filter((p) => card.alsoIn.includes(p.id)).map((p) => p.name);
+    details.createEl("summary", { text: names.length > 0 ? `Also in: ${names.join(", ")}` : "Also in other plot lines" });
+    details.createDiv({ cls: "story-planner-panel-hint", text: "Shows a title-only echo of the card in these plot lines." });
+    for (const plotLine of others) {
+      const label = details.createEl("label", { cls: "story-planner-panel-check" });
+      const box = label.createEl("input");
+      box.type = "checkbox";
+      box.checked = card.alsoIn.includes(plotLine.id);
+      box.addEventListener("change", () => this.host.edit((s) => setEcho(s, id, plotLine.id, box.checked)));
+      label.createSpan({ text: plotLine.name });
+    }
   }
 
   /** The card's date and, for events that take time, its end date. */
@@ -368,7 +382,6 @@ export class CardPanel {
     const input = add.createEl("input");
     input.type = "text";
     input.dataset.field = "add-character";
-    input.placeholder = "Add a character";
     const listId = `story-planner-characters-${id}`;
     input.setAttr("list", listId);
     const list = add.createEl("datalist");
@@ -376,6 +389,7 @@ export class CardPanel {
     for (const c of story.characters) {
       if (!card.characters.some((e) => e.id === c.id)) list.createEl("option").value = c.name;
     }
+    input.placeholder = "Add a character: pick one, or type a name and press Enter";
     const submit = () => {
       const value = input.value;
       if (!value.trim()) return;
@@ -388,7 +402,14 @@ export class CardPanel {
         submit();
       }
     });
-    add.createEl("button", { text: "Add" }).addEventListener("click", submit);
+    // Picking a suggestion adds it at once. A suggestion arrives as one
+    // replacement of the whole text, unlike typing, which may only match a
+    // name by chance part way through a longer one.
+    input.addEventListener("input", (e) => {
+      const picked = (e as InputEvent).inputType === "insertReplacementText" || (e as InputEvent).inputType === undefined;
+      const known = story.characters.some((c) => c.name === input.value && !card.characters.some((x) => x.id === c.id));
+      if (picked && known) submit();
+    });
   }
 
   private field(label: string, hint?: string): HTMLElement {

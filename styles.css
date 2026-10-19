@@ -42,7 +42,7 @@
 .story-planner-banner {
   padding: var(--size-4-2) var(--size-4-3);
   margin-bottom: var(--size-4-2);
-  border-radius: var(--radius-m);
+  border-radius: 0;
   background: var(--background-modifier-message);
   color: var(--text-normal);
 }
@@ -137,7 +137,7 @@
   text-align: center;
   color: var(--text-faint);
   border: 1px dashed transparent;
-  border-radius: var(--radius-s);
+  border-radius: 0;
   cursor: pointer;
 }
 
@@ -148,9 +148,9 @@
 
 .story-planner-card {
   padding: var(--size-4-2) var(--size-4-3);
-  border-radius: var(--radius-m);
+  border-radius: 0;
   border: 1px solid var(--background-modifier-border);
-  border-left: 4px solid var(--lane-color);
+  border-left: 3px solid var(--lane-color);
   background: var(--background-secondary);
   cursor: pointer;
 }
@@ -174,15 +174,10 @@
   overflow: hidden;
 }
 
-.story-planner-card.status-idea {
-  border-style: dashed;
-  border-left-style: solid;
-}
-
 /* An echo is a slim, title-only strip in a secondary plot line. */
 .story-planner-echo {
   padding: var(--size-2-1) var(--size-4-2);
-  border-radius: var(--radius-s);
+  border-radius: 0;
   border: 1px dashed var(--lane-color);
   color: var(--text-muted);
   font-size: var(--font-ui-small);
@@ -224,7 +219,7 @@
 
 .story-planner-cell {
   min-height: var(--size-4-6);
-  border-radius: var(--radius-m);
+  border-radius: 0;
 }
 
 .story-planner.is-drag-active .story-planner-cell {
@@ -234,7 +229,7 @@
 
 .story-planner-chapter-end {
   min-height: var(--size-4-2);
-  border-radius: var(--radius-s);
+  border-radius: 0;
 }
 
 .story-planner.is-drag-active .story-planner-chapter-end {
@@ -272,10 +267,9 @@
   z-index: var(--layer-popover, 30);
   pointer-events: none;
   padding: var(--size-4-1) var(--size-4-2);
-  border-radius: var(--radius-s);
+  border-radius: 0;
   background: var(--background-primary);
   border: 1px solid var(--interactive-accent);
-  box-shadow: var(--shadow-s);
   font-size: var(--font-ui-small);
   max-width: 16rem;
   white-space: nowrap;
@@ -391,7 +385,7 @@
   width: 0.6em;
   height: 0.6em;
   margin-right: var(--size-4-1);
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--character-color);
 }
 
@@ -488,7 +482,7 @@
   align-items: center;
   gap: var(--size-4-1);
   padding: var(--size-4-1) var(--size-4-3);
-  border-radius: var(--radius-l, 12px);
+  border-radius: 0;
   background: transparent;
   box-shadow: none;
   color: var(--text-muted);
@@ -501,9 +495,11 @@
   color: var(--text-normal);
 }
 
+/* The active tab is underlined rather than filled. */
 .story-planner-tabs .story-planner-tab.is-active {
-  background: var(--background-modifier-active-hover, var(--background-modifier-hover));
+  background: transparent;
   color: var(--text-normal);
+  box-shadow: inset 0 -2px 0 var(--interactive-accent);
 }
 
 .story-planner-tab-icon {
@@ -540,7 +536,7 @@
 .story-planner-setup-section {
   padding: var(--size-4-3) var(--size-4-4);
   border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-m);
+  border-radius: 0;
   background: var(--background-secondary);
 }
 
@@ -697,7 +693,7 @@
   margin-top: var(--size-4-6);
   padding: var(--size-4-3);
   border: 1px dashed var(--background-modifier-border);
-  border-radius: var(--radius-m);
+  border-radius: 0;
 }
 
 .story-planner-tray.is-drop-target {
@@ -745,7 +741,7 @@
 
 .story-planner-tag-chip {
   padding: 0 var(--size-4-2);
-  border-radius: var(--radius-s);
+  border-radius: 0;
   border: 1px solid var(--tag-color);
   font-size: var(--font-ui-smaller);
   line-height: 1.6;
@@ -788,7 +784,7 @@
   flex: none;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--dot-color);
 }
 
@@ -956,7 +952,7 @@
   margin-top: var(--size-4-6);
   padding: var(--size-4-3);
   border: 1px dashed var(--background-modifier-border);
-  border-radius: var(--radius-m);
+  border-radius: 0;
 }
 
 .story-planner-clashes ul {
@@ -1050,11 +1046,11 @@
 
 .story-planner-minimap {
   flex: none;
-  width: var(--story-planner-minimap-width, 110px);
+  width: var(--story-planner-minimap-width, 72px);
   min-height: 0;
   overflow: hidden;
-  border-left: 1px solid var(--background-modifier-border);
-  background: var(--background-secondary);
+  border-left: 1px solid var(--background-modifier-border-hover, var(--background-modifier-border));
+  background: transparent;
 }
 
 .story-planner-minimap[hidden] {
@@ -1133,7 +1129,7 @@
   width: 26px;
   height: 26px;
   padding: 0;
-  border-radius: var(--radius-s);
+  border-radius: 0;
   color: var(--text-muted);
   background: transparent;
   box-shadow: none;
@@ -1227,7 +1223,7 @@
 .story-planner-resize:hover,
 .story-planner-resize.is-active {
   background: color-mix(in srgb, var(--interactive-accent) 50%, transparent);
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 /* A folded lane: a thin strip with its name turned on its side. */
@@ -1291,4 +1287,193 @@
 .story-planner-drag-ghost.is-echo {
   border-style: dashed;
   color: var(--text-accent);
+}
+
+/* The sticky header column and row: solid backgrounds behind them, so cards
+   scrolling past never show beside or between the headers. */
+
+.story-planner-sticky-column,
+.story-planner-sticky-row {
+  position: sticky;
+  z-index: 1;
+  align-self: stretch;
+  background: var(--background-primary);
+  pointer-events: none;
+}
+
+.story-planner-sticky-column {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  left: 0;
+  /* Also covers the gap to the first lane. */
+  box-shadow: var(--size-4-2) 0 0 var(--background-primary);
+  border-right: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-sticky-row {
+  grid-row: 1;
+  grid-column: 1 / -1;
+  top: 0;
+  box-shadow: 0 var(--size-4-2) 0 var(--background-primary);
+}
+
+.story-planner-grid .story-planner-chapter-header,
+.story-planner-grid .story-planner-time-header,
+.story-planner-grid .story-planner-lane-header {
+  z-index: 2;
+}
+
+.story-planner-grid .story-planner-corner {
+  z-index: 3;
+}
+
+/* "N days later": a line across the board, with the words in the date column. */
+
+.story-planner-grid.is-vertical .story-planner-time-gap {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: var(--size-4-3) 0;
+  font-style: normal;
+  text-align: left;
+  pointer-events: none;
+}
+
+.story-planner-grid.is-vertical .story-planner-time-gap::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed var(--background-modifier-border);
+}
+
+.story-planner-grid.is-vertical .story-planner-time-gap-label {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  box-sizing: border-box;
+  width: var(--story-planner-header-size);
+  padding: 0 var(--size-4-2);
+  background: var(--background-primary);
+  font-style: italic;
+}
+
+/* Story setup opens from a gear at the right of the tab row. */
+
+.story-planner .story-planner-setup-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.story-planner .story-planner-setup-toggle.is-active {
+  color: var(--interactive-accent);
+  box-shadow: inset 0 -2px 0 var(--interactive-accent);
+}
+
+/* Written or not: a small square in the card's top-right corner. */
+
+.story-planner-card {
+  position: relative;
+}
+
+.story-planner .story-planner-written {
+  position: absolute;
+  top: var(--size-4-2);
+  right: var(--size-4-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--text-faint);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-on-accent);
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.story-planner .story-planner-written:hover {
+  opacity: 1;
+  border-color: var(--text-normal);
+}
+
+.story-planner .story-planner-card.is-written .story-planner-written {
+  border-color: var(--lane-color);
+  background: var(--lane-color);
+  opacity: 1;
+}
+
+.story-planner .story-planner-written svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 3px;
+}
+
+/* Keep titles clear of the square. */
+.story-planner-card .story-planner-card-title,
+.story-planner-card .story-planner-card-badge {
+  padding-right: 20px;
+}
+
+.story-planner .is-in-folded-lane .story-planner-written {
+  display: none;
+}
+
+/* "Also in", folded under the plot line. */
+
+.story-planner-panel-echoes {
+  margin-top: var(--size-4-2);
+}
+
+.story-planner-panel-echoes summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+/* Drag handles in story setup. */
+
+.story-planner-drag-handle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  color: var(--text-faint);
+  cursor: grab;
+  touch-action: none;
+}
+
+.story-planner-drag-handle:hover {
+  color: var(--text-normal);
+}
+
+.story-planner-drag-handle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.story-planner-setup-row.is-dragging {
+  opacity: 0.5;
+}
+
+.story-planner-setup-row.is-drop-before {
+  box-shadow: inset 0 2px 0 var(--interactive-accent);
+}
+
+.story-planner-setup-row.is-drop-after {
+  box-shadow: inset 0 -2px 0 var(--interactive-accent);
+}
+
+body.story-planner-reordering,
+body.story-planner-reordering * {
+  cursor: grabbing !important;
+  user-select: none;
 }

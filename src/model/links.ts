@@ -108,7 +108,9 @@ export function noteValues(story: Story, card: Card): Record<string, string> {
     date: card.date ? formatDateRange(story, card.date, card.endDate) : "",
     location: card.location && story.locations.some((l) => l.id === card.location) ? locationPath(story, card.location) : "",
     characters: names.join(", "),
-    status: card.status,
+    written: card.written ? "written" : "not written",
+    // The name templates used before cards were simply written or not.
+    status: card.written ? "written" : "not written",
   };
 }
 

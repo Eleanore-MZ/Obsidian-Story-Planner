@@ -1,3 +1,4 @@
+import { setIcon } from "obsidian";
 import { formatOffset, formatStoryDate, parseOffset } from "../model/calendar";
 import { CALENDAR_PRESETS } from "../model/defaults";
 import {
@@ -33,7 +34,8 @@ import {
   deleteCharacter,
   deletePlotLine,
   mergeCharacters,
-  shiftInList,
+  moveIndex,
+  movedIndex,
 } from "../model/setup";
 import { noteName, setEntityNote } from "../model/links";
 import { SnapshotInfo } from "../model/snapshots";
@@ -184,7 +186,7 @@ export class SetupPanel {
         category.setAttr("aria-label", `Category of ${plotLine.name}`);
       }
       this.count(row, cardsInPlotLine(story, plotLine.id).length);
-      this.reorderButtons(row, i, story.plotLines.length, (by) => this.host.edit((s) => shiftInList(s.plotLines, plotLine.id, by)));
+      this.dragHandle(row, "plotlines", i, (to) => this.host.edit((s) => moveIndex(s.plotLines, i, to)));
       this.iconButton(row, "×", `Delete ${plotLine.name}`, story.plotLines.length > 1, () => this.removePlotLine(story, plotLine.id));
     });
     this.addRow(section, "New plot line", "add-plotline", (name) => this.host.edit((s) => void addPlotLine(s, name)));
@@ -215,9 +217,7 @@ export class SetupPanel {
       const n = plotLinesInCategory(story, category.id).length;
       const count = row.createSpan({ cls: "story-planner-setup-count", text: String(n) });
       count.setAttr("title", `${n} ${n === 1 ? "plot line" : "plot lines"}`);
-      this.reorderButtons(row, i, story.plotLineCategories.length, (by) =>
-        this.host.edit((s) => shiftInList(s.plotLineCategories, category.id, by)),
-      );
+      this.dragHandle(row, "categories", i, (to) => this.host.edit((s) => moveIndex(s.plotLineCategories, i, to)));
       this.iconButton(row, "×", `Delete ${category.name} (its plot lines are kept)`, true, () => {
         this.host.edit((s) => deleteCategory(s, category.id));
         this.host.notice(`Deleted the category ${category.name}${n ? `; its ${n === 1 ? "plot line keeps" : "plot lines keep"} their own colours` : ""}. Press Ctrl+Z to undo.`);
@@ -236,7 +236,7 @@ export class SetupPanel {
         if (value) this.host.edit((s) => void (s.chapters.find((c) => c.id === chapter.id)!.name = value), `chapter:${chapter.id}`);
       });
       this.count(row, cardsInChapter(story, chapter.id).length);
-      this.reorderButtons(row, i, story.chapters.length, (by) => this.host.edit((s) => shiftInList(s.chapters, chapter.id, by)));
+      this.dragHandle(row, "chapters", i, (to) => this.host.edit((s) => moveIndex(s.chapters, i, to)));
       this.iconButton(row, "×", `Delete ${chapter.name}`, story.chapters.length > 1, () => this.removeChapter(story, chapter.id));
     });
     // An empty name takes the suggested one.
@@ -273,7 +273,7 @@ export class SetupPanel {
       }
       this.noteButtons(row, "character", character.id, character.name, character.note);
       this.count(row, cardsWithCharacter(story, character.id).length);
-      this.reorderButtons(row, i, story.characters.length, (by) => this.host.edit((s) => shiftInList(s.characters, character.id, by)));
+      this.dragHandle(row, "characters", i, (to) => this.host.edit((s) => moveIndex(s.characters, i, to)));
       this.iconButton(row, "⇥", `Merge ${character.name} into another character`, story.characters.length > 1, () =>
         this.mergeCharacter(story, character.id),
       );
@@ -350,7 +350,14 @@ export class SetupPanel {
       this.count(row, cardsAtLocation(story, location.id).length);
       const siblings = story.locations.filter((l) => l.parent === location.parent);
       const index = siblings.indexOf(location);
-      this.reorderButtons(row, index, siblings.length, (by) => this.host.edit((s) => shiftLocation(s, location.id, by)));
+      // Places reorder among the places beside them, inside the same place.
+      this.dragHandle(row, `locations:${location.parent ?? ""}`, index, (to) =>
+        this.host.edit((s) => {
+          let moved = false;
+          for (let step = 0; step < Math.abs(to - index); step++) moved = shiftLocation(s, location.id, to > index ? 1 : -1) || moved;
+          return moved;
+        }),
+      );
       this.iconButton(row, "⇤", `Take ${location.name} out of the place it is in`, !!location.parent, () =>
         this.host.edit((s) => nestLocation(s, location.id, false)),
       );
@@ -381,7 +388,7 @@ export class SetupPanel {
         if (value) this.host.edit((s) => void (s.tags.find((t) => t.id === tag.id)!.name = value), `tag:${tag.id}`);
       });
       this.count(row, cardsWithTag(story, tag.id).length);
-      this.reorderButtons(row, i, story.tags.length, (by) => this.host.edit((s) => shiftInList(s.tags, tag.id, by)));
+      this.dragHandle(row, "tags", i, (to) => this.host.edit((s) => moveIndex(s.tags, i, to)));
       this.iconButton(row, "×", `Delete ${tag.name}`, true, () => {
         const used = cardsWithTag(story, tag.id).length;
         this.host.edit((s) => deleteTag(s, tag.id));
@@ -451,12 +458,11 @@ export class SetupPanel {
         if (monthName.value.trim()) this.calendarEdit((_, c) => void (c.months[i]!.name = monthName.value.trim()), `month:${i}`);
       });
       this.numberInput(row, month.days, `month-days:${i}`, 1, 1000, "days", (days) => this.calendarEdit((_, c) => void (c.months[i]!.days = days), `month-days:${i}`));
-      this.reorderButtons(row, i, calendar.months.length, (by) =>
+      this.dragHandle(row, "months", i, (to) =>
         this.calendarEdit((_, c) => {
-          const to = i + by;
-          [c.months[i], c.months[to]] = [c.months[to]!, c.months[i]!];
-          if (c.leap?.monthIndex === i) c.leap.monthIndex = to;
-          else if (c.leap?.monthIndex === to) c.leap.monthIndex = i;
+          if (!moveIndex(c.months, i, to)) return false;
+          // The leap day stays with its month.
+          if (c.leap) c.leap.monthIndex = movedIndex(c.leap.monthIndex, i, to);
         }),
       );
       this.iconButton(row, "×", `Delete ${month.name}`, calendar.months.length > 1, () =>
@@ -511,12 +517,7 @@ export class SetupPanel {
         dayName.addEventListener("input", () => {
           if (dayName.value.trim()) this.calendarEdit((_, c) => void (c.weekdays![i] = dayName.value.trim()), `weekday:${i}`);
         });
-        this.reorderButtons(row, i, weekdays.length, (by) =>
-          this.calendarEdit((_, c) => {
-            const w = c.weekdays!;
-            [w[i], w[i + by]] = [w[i + by]!, w[i]!];
-          }),
-        );
+        this.dragHandle(row, "weekdays", i, (to) => this.calendarEdit((_, c) => moveIndex(c.weekdays!, i, to)));
         this.iconButton(row, "×", `Delete ${day}`, weekdays.length > 1, () =>
           this.calendarEdit((_, c) => {
             c.weekdays!.splice(i, 1);
@@ -593,7 +594,7 @@ export class SetupPanel {
       this.numberInput(row, era.years ?? "", `era-years:${era.id}`, 1, 100000000, "years", (n) =>
         this.calendarEdit((_, c) => void (c.eras![i]!.years = n), `era-years:${era.id}`),
       );
-      this.reorderButtons(row, i, eras.length, (by) => this.calendarEdit((_, c) => shiftInList(c.eras!, era.id, by)));
+      this.dragHandle(row, "eras", i, (to) => this.calendarEdit((_, c) => moveIndex(c.eras!, i, to)));
       this.iconButton(row, "×", `Delete ${era.name}`, true, () => this.calendarEdit((_, c) => void c.eras!.splice(i, 1)));
     });
     this.addRow(section, "New era", "add-era", (n) =>
@@ -796,9 +797,62 @@ export class SetupPanel {
     el.setAttr("title", `${n} ${n === 1 ? "card" : "cards"}`);
   }
 
-  private reorderButtons(parent: HTMLElement, index: number, length: number, shift: (by: -1 | 1) => void): void {
-    this.iconButton(parent, "↑", "Move up", index > 0, () => shift(-1));
-    this.iconButton(parent, "↓", "Move down", index < length - 1, () => shift(1));
+  /**
+   * A grip at the start of a row for dragging it up or down its list. Rows
+   * with the same `group` reorder among themselves; a bar shows where the row
+   * will go, and `moveTo` gets its new index when it is let go (one undo step).
+   */
+  private dragHandle(row: HTMLElement, group: string, index: number, moveTo: (to: number) => void): void {
+    row.dataset.reorderGroup = group;
+    const handle = createSpan({ cls: "story-planner-drag-handle" });
+    setIcon(handle, "grip-vertical");
+    handle.setAttr("aria-label", "Drag to reorder");
+    handle.setAttr("title", "Drag to reorder");
+    row.prepend(handle);
+    handle.addEventListener("pointerdown", (down) => {
+      if (down.button !== 0) return;
+      down.preventDefault();
+      const rows = Array.from(row.parentElement?.querySelectorAll<HTMLElement>(":scope > [data-reorder-group]") ?? []).filter(
+        (r) => r.dataset.reorderGroup === group,
+      );
+      let to = index;
+      const clear = () => rows.forEach((r) => r.removeClass("is-drop-before", "is-drop-after"));
+      row.addClass("is-dragging");
+      document.body.addClass("story-planner-reordering");
+
+      const move = (e: PointerEvent) => {
+        // The row nearest the pointer, and which half of it.
+        let best: { i: number; after: boolean; distance: number } | null = null;
+        rows.forEach((r, i) => {
+          const rect = r.getBoundingClientRect();
+          const middle = rect.top + rect.height / 2;
+          const distance = Math.abs(e.clientY - middle);
+          if (!best || distance < best.distance) best = { i, after: e.clientY > middle, distance };
+        });
+        clear();
+        if (!best) return;
+        const { i, after } = best as { i: number; after: boolean };
+        const slot = i + (after ? 1 : 0);
+        to = slot > index ? slot - 1 : slot;
+        if (to !== index) rows[i]!.addClass(after ? "is-drop-after" : "is-drop-before");
+      };
+      const up = () => {
+        window.removeEventListener("pointermove", move, true);
+        window.removeEventListener("pointerup", up, true);
+        window.removeEventListener("pointercancel", cancel, true);
+        clear();
+        row.removeClass("is-dragging");
+        document.body.removeClass("story-planner-reordering");
+        if (to !== index) moveTo(to);
+      };
+      const cancel = () => {
+        to = index;
+        up();
+      };
+      window.addEventListener("pointermove", move, true);
+      window.addEventListener("pointerup", up, true);
+      window.addEventListener("pointercancel", cancel, true);
+    });
   }
 
   /** Links a character or place to a note of its own, or opens and unlinks the one it has. */

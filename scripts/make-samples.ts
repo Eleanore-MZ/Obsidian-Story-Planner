@@ -11,7 +11,7 @@ const OUT = join("test-vault", "Stories");
 const STAMP = "2026-10-18T00:00:00.000Z";
 
 function card(fields: Partial<Card> & Pick<Card, "id" | "title" | "plotLine" | "chapter" | "order">): Card {
-  return { synopsis: "", alsoIn: [], characters: [], status: "outlined", tags: [], notes: [], modified: STAMP, ...fields };
+  return { synopsis: "", alsoIn: [], characters: [], written: false, tags: [], notes: [], modified: STAMP, ...fields };
 }
 
 function addCards(story: Story, cards: Card[]): void {
@@ -44,7 +44,7 @@ function smallStory(): Story {
   const date = (month: number, day: number, extra: object = {}) => ({ calendar: "main", year: 2024, month, day, ...extra });
   addCards(s, [
     card({
-      id: "k01", title: "Boxes everywhere", plotLine: "p1", chapter: "c1", order: 1,
+      id: "k01", title: "Boxes everywhere", plotLine: "p1", chapter: "c1", order: 1, written: true,
       synopsis: "June packs up the flat she has lived in for ten years.",
       date: date(3, 2, { dayPart: "morning" }), location: "l1",
       characters: [{ id: "x1", role: "pov" }],
@@ -68,7 +68,7 @@ function smallStory(): Story {
       characters: [{ id: "x1", role: "pov" }, { id: "x2", role: "present", note: "Pretends it's a coincidence." }],
     }),
     card({
-      id: "k05", title: "Unpacked", plotLine: "p1", chapter: "c3", order: 1, status: "idea",
+      id: "k05", title: "Unpacked", plotLine: "p1", chapter: "c3", order: 1,
       characters: [{ id: "x1", role: "pov" }],
     }),
     card({
@@ -152,14 +152,14 @@ function harbourStory(): Story {
   const date = (month: number, day: number, extra: object = {}) => ({ calendar: "main", era: "af", year: 1531, month, day, ...extra });
   addCards(s, [
     card({
-      id: "k01", title: "Body found at the pier", plotLine: "p1", chapter: "c1", order: 1,
+      id: "k01", title: "Body found at the pier", plotLine: "p1", chapter: "c1", order: 1, written: true,
       synopsis: "Mara is called out before dawn and finds the harbourmaster's body at the end of the pier.",
       date: date(5, 4, { dayPart: "dawn" }), location: "l2", tags: ["g1"],
       notes: ["Sample notes/Drafts/Body found at the pier.md", "Sample notes/Research/Tides of the harbour.md"],
       characters: [{ id: "x1", role: "pov", note: "Notices the missing ring." }, { id: "x3", role: "mentioned" }],
     }),
     card({
-      id: "k02", title: "Ilse arrives", plotLine: "p2", chapter: "c1", order: 2, alsoIn: ["p3"],
+      id: "k02", title: "Ilse arrives", plotLine: "p2", chapter: "c1", order: 2, alsoIn: ["p3"], written: true,
       synopsis: "A courier from the east asks for the harbourmaster by name.",
       date: date(5, 4, { dayPart: "dusk" }), location: "l1", relationshipState: "strangers",
       characters: [{ id: "x2", role: "pov", note: "Lies about why she came." }, { id: "x1", role: "present" }],
@@ -204,7 +204,7 @@ function harbourStory(): Story {
       characters: [{ id: "x3", role: "mentioned" }],
     }),
     card({
-      id: "k09", title: "Festival of the Turning", plotLine: "p2", chapter: "c2", order: 5, status: "idea",
+      id: "k09", title: "Festival of the Turning", plotLine: "p2", chapter: "c2", order: 5,
       synopsis: "Not yet dated: Mara and Ilse meet again at the year's end festival.",
       characters: [{ id: "x1", role: "pov" }, { id: "x2", role: "present" }],
     }),
@@ -262,6 +262,8 @@ function largeStory(): Story {
           synopsis: "A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.",
           alsoIn: n % 7 === 0 ? [s.plotLines[(n * 3 + 1) % s.plotLines.length]!.id] : [],
           characters: unique, date,
+          // The first chapters are written, as in a story part way through.
+          written: n <= 60 && n % 4 !== 3,
         }),
       ]);
     }

@@ -16,11 +16,11 @@ export function addCardAt(story: Story, target: CardTarget, title = "New card", 
   return card.id;
 }
 
-/** Applies plain field changes (title, synopsis, status, ...) to a card. Returns false if nothing changed. */
+/** Applies plain field changes (title, synopsis, written) to a card. Returns false if nothing changed. */
 export function updateCard(
   story: Story,
   cardId: Id,
-  fields: Partial<Pick<Card, "title" | "synopsis" | "status">>,
+  fields: Partial<Pick<Card, "title" | "synopsis" | "written">>,
   now = new Date().toISOString(),
 ): boolean {
   const card = story.cards[cardId];

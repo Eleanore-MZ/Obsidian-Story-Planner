@@ -67,9 +67,9 @@ describe("card field edits", () => {
     const s = story();
     expect(updateCard(s, "a", { title: "a" }, NOW)).toBe(false);
     expect(s.cards.a!.modified).toBe(OLD);
-    expect(updateCard(s, "a", { title: "Arrival", status: "drafted" }, NOW)).toBe(true);
+    expect(updateCard(s, "a", { title: "Arrival", written: true }, NOW)).toBe(true);
     expect(s.cards.a!.title).toBe("Arrival");
-    expect(s.cards.a!.status).toBe("drafted");
+    expect(s.cards.a!.written).toBe(true);
     expect(s.cards.a!.modified).toBe(NOW);
   });
 

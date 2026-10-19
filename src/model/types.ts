@@ -64,6 +64,12 @@ export interface CalendarEra {
   name: string;
   /** True when years count down towards the end of the era. */
   countsDown?: boolean;
+  /**
+   * How many years the era lasted. Needed only to place the eras on either
+   * side of it on one timeline; the era that counts up from year 1 first
+   * (the anchor) and a counting-down era just before it need none.
+   */
+  years?: number;
 }
 
 /** A named part of the day, covering a span of hours (start inclusive, end exclusive). */

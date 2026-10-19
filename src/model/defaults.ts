@@ -21,7 +21,8 @@ export function gregorianStyleCalendar(): Calendar {
     months: months.map(([name, days]) => ({ name, short: name.slice(0, 3), days })),
     leap: { everyYears: 4, monthIndex: 1, extraDays: 1 },
     weekdays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-    weekAnchor: { year: 1, month: 1, day: 1, weekdayIndex: 0 },
+    // 1 January 2000 was a Saturday, so weekdays match the real calendar for recent centuries.
+    weekAnchor: { year: 2000, month: 1, day: 1, weekdayIndex: 5 },
     hoursPerDay: 24,
     minutesPerHour: 60,
     dayParts: [
@@ -33,6 +34,34 @@ export function gregorianStyleCalendar(): Calendar {
     ],
   };
 }
+
+/** The Gregorian-style calendar without leap years. */
+export function noLeapCalendar(): Calendar {
+  const calendar = gregorianStyleCalendar();
+  delete calendar.leap;
+  return calendar;
+}
+
+/** Twelve numbered months of thirty days, with the usual week and parts of the day. */
+export function thirtyDayCalendar(): Calendar {
+  const calendar = gregorianStyleCalendar();
+  delete calendar.leap;
+  calendar.months = Array.from({ length: 12 }, (_, i) => ({ name: `Month ${i + 1}`, short: `M${i + 1}`, days: 30 }));
+  return calendar;
+}
+
+/** A starting point to build an invented calendar from: one month, no week, no named parts of the day. */
+export function blankCalendar(): Calendar {
+  return { id: "main", name: "Main calendar", months: [{ name: "First month", days: 30 }], hoursPerDay: 24, minutesPerHour: 60 };
+}
+
+/** Presets offered in story setup; each is copied into the story, so stories never share a calendar. */
+export const CALENDAR_PRESETS: { name: string; create: () => Calendar }[] = [
+  { name: "Gregorian-style", create: gregorianStyleCalendar },
+  { name: "Gregorian-style without leap years", create: noLeapCalendar },
+  { name: "Twelve months of thirty days", create: thirtyDayCalendar },
+  { name: "Blank", create: blankCalendar },
+];
 
 export function createEmptyStory(title: string): Story {
   const plotLine = { id: newId("p"), name: "Main plot", color: "#4a90d9" };

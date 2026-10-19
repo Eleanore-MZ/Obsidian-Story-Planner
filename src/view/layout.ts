@@ -35,7 +35,13 @@ export interface BoardLayout {
   items: PlacedItem[];
 }
 
-export function computeBoardLayout(story: Story, orientation: Orientation): BoardLayout {
+/**
+ * Lays out the board. In `compact` mode each plot line's cards (and echoes)
+ * stack from the top of the chapter without gaps, which hides the order
+ * across plot lines but shows at a glance how busy each one is; the space
+ * below a short stack is chapter-end space, so a drop there goes last.
+ */
+export function computeBoardLayout(story: Story, orientation: Orientation, compact = false): BoardLayout {
   const laneIndex = new Map(story.plotLines.map((p, i) => [p.id, i]));
   const laneCount = story.plotLines.length;
   const items: { item: BoardItem; slot: number; lane: number }[] = [];
@@ -65,6 +71,30 @@ export function computeBoardLayout(story: Story, orientation: Orientation): Boar
       items.push({ item: { kind: "add-card", chapterId: group.chapterId, plotLineId: p.id }, slot, lane: i + 1 });
     });
     slot++;
+    if (compact) {
+      const stacks: BoardItem[][] = story.plotLines.map(() => []);
+      for (const row of sceneRows(group.cards, laneIndex)) {
+        for (const card of row) {
+          stacks[laneIndex.get(card.plotLine)!]!.push({ kind: "card", cardId: card.id });
+          for (const other of card.alsoIn) {
+            const echoLane = laneIndex.get(other);
+            if (echoLane !== undefined && other !== card.plotLine) {
+              stacks[echoLane]!.push({ kind: "echo", cardId: card.id, plotLineId: other });
+            }
+          }
+        }
+      }
+      // One more slot than the tallest stack, so every lane ends with a drop zone.
+      const height = Math.max(0, ...stacks.map((s) => s.length)) + 1;
+      stacks.forEach((stack, lane) => {
+        for (let i = 0; i < height; i++) {
+          const item = stack[i] ?? { kind: "chapter-end", chapterId: group.chapterId, plotLineId: story.plotLines[lane]!.id };
+          items.push({ item, slot: slot + i, lane: lane + 1 });
+        }
+      });
+      slot += height;
+      continue;
+    }
     for (const row of sceneRows(group.cards, laneIndex)) {
       const filled = new Set<number>();
       for (const card of row) {

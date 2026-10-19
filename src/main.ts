@@ -1,6 +1,8 @@
 import { FuzzySuggestModal, MarkdownView, normalizePath, Notice, Plugin, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
 import { FRONTMATTER_KEY, FRONTMATTER_VALUE, serializeStory } from "./format/storyFile";
 import { createEmptyStory } from "./model/defaults";
+import { SnapshotInfo } from "./model/snapshots";
+import { SnapshotStore } from "./snapshotStore";
 import { DEFAULT_SETTINGS, StoryPlannerSettings, StoryPlannerSettingTab } from "./settings";
 import { STORY_BOARD_VIEW, StoryBoardView } from "./view/StoryBoardView";
 import { TextPromptModal } from "./view/modals";
@@ -9,9 +11,12 @@ export default class StoryPlannerPlugin extends Plugin {
   settings: StoryPlannerSettings = DEFAULT_SETTINGS;
   /** Story notes the user chose to read as Markdown in this session; auto-open leaves them alone. */
   private markdownOverride = new Set<string>();
+  snapshots!: SnapshotStore;
 
   async onload(): Promise<void> {
     await this.loadSettings();
+    const pluginDir = this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
+    this.snapshots = new SnapshotStore(this.app.vault.adapter, `${pluginDir}/snapshots`, () => this.settings.snapshotsPerStory);
 
     this.registerView(STORY_BOARD_VIEW, (leaf) => new StoryBoardView(leaf, this));
     this.addSettingTab(new StoryPlannerSettingTab(this.app, this));
@@ -28,6 +33,17 @@ export default class StoryPlannerPlugin extends Plugin {
       id: "open-story",
       name: "Open story",
       callback: () => new StoryPickerModal(this).open(),
+    });
+
+    this.addCommand({
+      id: "restore-snapshot",
+      name: "Restore story from a snapshot",
+      checkCallback: (checking) => {
+        const view = this.app.workspace.getActiveViewOfType(StoryBoardView);
+        if (!view?.file) return false;
+        if (!checking) void this.pickSnapshot(view);
+        return true;
+      },
     });
 
     this.addCommand({
@@ -79,6 +95,7 @@ export default class StoryPlannerPlugin extends Plugin {
           void this.saveSettings();
         }
         if (this.markdownOverride.delete(oldPath)) this.markdownOverride.add(file.path);
+        if (file instanceof TFile && file.extension === "md") void this.snapshots.renamed(oldPath, file.path);
       }),
     );
   }
@@ -109,6 +126,16 @@ export default class StoryPlannerPlugin extends Plugin {
   async openAsMarkdown(leaf: WorkspaceLeaf, file: TFile): Promise<void> {
     this.markdownOverride.add(file.path);
     await leaf.setViewState({ type: "markdown", state: { file: file.path }, active: true });
+  }
+
+  /** Lets the writer pick one of a story's snapshots and restores it on the board. */
+  async pickSnapshot(view: StoryBoardView): Promise<void> {
+    const snapshots = view.file ? await this.snapshots.list(view.file.path) : [];
+    if (snapshots.length === 0) {
+      new Notice("This story has no snapshots yet. One is kept before large deletions and merges.");
+      return;
+    }
+    new SnapshotPickerModal(this, snapshots, (snapshot) => void view.restoreSnapshot(snapshot)).open();
   }
 
   private promptNewStory(folder: string): void {
@@ -147,5 +174,28 @@ class StoryPickerModal extends FuzzySuggestModal<TFile> {
 
   onChooseItem(file: TFile): void {
     void this.plugin.openAsBoard(this.app.workspace.getLeaf(false), file);
+  }
+}
+
+class SnapshotPickerModal extends FuzzySuggestModal<SnapshotInfo> {
+  constructor(
+    plugin: StoryPlannerPlugin,
+    private snapshots: SnapshotInfo[],
+    private onPick: (snapshot: SnapshotInfo) => void,
+  ) {
+    super(plugin.app);
+    this.setPlaceholder("Restore the story as it was…");
+  }
+
+  getItems(): SnapshotInfo[] {
+    return this.snapshots;
+  }
+
+  getItemText(snapshot: SnapshotInfo): string {
+    return `${new Date(snapshot.takenAt).toLocaleString()} · ${snapshot.reason}`;
+  }
+
+  onChooseItem(snapshot: SnapshotInfo): void {
+    this.onPick(snapshot);
   }
 }

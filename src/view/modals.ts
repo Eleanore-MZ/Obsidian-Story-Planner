@@ -1,5 +1,4 @@
 import { App, Modal, Setting } from "obsidian";
-import { Card, CardStatus } from "../model/types";
 
 /** Asks for a single line of text, such as a story or chapter name. */
 export class TextPromptModal extends Modal {
@@ -43,74 +42,36 @@ export class TextPromptModal extends Modal {
   }
 }
 
-const STATUS_LABELS: Record<CardStatus, string> = {
-  idea: "Idea",
-  outlined: "Outlined",
-  drafted: "Drafted",
-  revised: "Revised",
-};
-
-export type CardEdit = Pick<Card, "title" | "synopsis" | "status">;
-
-/** Edits a card's basic fields. The side panel editor replaces this in phase one. */
-export class CardEditModal extends Modal {
-  private edit: CardEdit;
+/** Offers a few options in a dropdown, for example where a deleted chapter's scenes should go. */
+export class ChoiceModal extends Modal {
+  private value: string;
 
   constructor(
     app: App,
-    card: CardEdit,
-    private onSave: (edit: CardEdit) => void,
-    private onDelete?: () => void,
+    private choice: { title: string; message: string; options: { value: string; label: string }[]; confirm: string; onChoose: (value: string) => void },
   ) {
     super(app);
-    this.edit = { title: card.title, synopsis: card.synopsis, status: card.status };
+    this.value = choice.options[0]?.value ?? "";
   }
 
   onOpen(): void {
-    this.titleEl.setText(this.onDelete ? "Edit card" : "New card");
-    const { contentEl } = this;
-
-    new Setting(contentEl).setName("Title").addText((t) => {
-      t.setValue(this.edit.title).onChange((v) => (this.edit.title = v));
-      t.inputEl.addClass("story-planner-wide-input");
+    this.titleEl.setText(this.choice.title);
+    this.contentEl.createEl("p", { text: this.choice.message });
+    new Setting(this.contentEl).addDropdown((d) => {
+      for (const option of this.choice.options) d.addOption(option.value, option.label);
+      d.setValue(this.value).onChange((v) => (this.value = v));
     });
-
-    new Setting(contentEl).setName("Synopsis").addTextArea((t) => {
-      t.setValue(this.edit.synopsis).onChange((v) => (this.edit.synopsis = v));
-      t.inputEl.rows = 6;
-      t.inputEl.addClass("story-planner-wide-input");
-    });
-
-    new Setting(contentEl).setName("Status").addDropdown((d) =>
-      d
-        .addOptions(STATUS_LABELS)
-        .setValue(this.edit.status)
-        .onChange((v) => (this.edit.status = v as CardStatus)),
-    );
-
-    const buttons = new Setting(contentEl);
-    if (this.onDelete) {
-      const onDelete = this.onDelete;
-      buttons.addButton((b) =>
+    new Setting(this.contentEl)
+      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((b) =>
         b
-          .setButtonText("Delete")
+          .setButtonText(this.choice.confirm)
           .setWarning()
           .onClick(() => {
             this.close();
-            onDelete();
+            this.choice.onChoose(this.value);
           }),
       );
-    }
-    buttons.addButton((b) =>
-      b
-        .setButtonText("Save")
-        .setCta()
-        .onClick(() => {
-          if (!this.edit.title.trim()) return;
-          this.close();
-          this.onSave({ ...this.edit, title: this.edit.title.trim() });
-        }),
-    );
   }
 
   onClose(): void {

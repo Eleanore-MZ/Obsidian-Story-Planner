@@ -1,5 +1,8 @@
 import { Calendar, Card, STORY_SCHEMA_VERSION, Story } from "./types";
 
+/** Colours given to new plot lines and characters. */
+export const PALETTE = ["#4a90d9", "#d9534f", "#5cb85c", "#f0ad4e", "#9b59b6", "#1abc9c", "#e67e22", "#7f8c8d"];
+
 /** Short random ids; unique enough within one story. */
 export function newId(prefix: string): string {
   return prefix + Math.random().toString(36).slice(2, 10);

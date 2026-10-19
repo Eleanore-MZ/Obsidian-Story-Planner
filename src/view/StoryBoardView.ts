@@ -1,12 +1,17 @@
-import { Notice, Scope, TextFileView, WorkspaceLeaf } from "obsidian";
+import { Notice, Scope, setIcon, TextFileView, WorkspaceLeaf } from "obsidian";
 import type StoryPlannerPlugin from "../main";
-import { createCard, newId } from "../model/defaults";
+import type { StoryTab } from "../settings";
+import { addCardAt } from "../model/edits";
 import { History } from "../model/history";
-import { chapterCards, moveCard, moveInList } from "../model/moves";
-import { Card, Story } from "../model/types";
+import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
+import { SnapshotInfo } from "../model/snapshots";
+import { Card, Id, Story } from "../model/types";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
+import { addChapter, addPlotLine } from "../model/setup";
+import { CardPanel } from "./CardPanel";
+import { SetupPanel } from "./SetupPanel";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
-import { CardEditModal, TextPromptModal } from "./modals";
+import { ChoiceModal, TextPromptModal } from "./modals";
 
 export const STORY_BOARD_VIEW = "story-planner-board";
 
@@ -23,6 +28,15 @@ interface DropTargetSpec {
   middle: boolean;
   onDrop: (place: DropPlace) => void;
 }
+
+/** The view tabs: id, label and Lucide icon name. */
+const TABS: [StoryTab, string, string][] = [
+  ["board", "Board", "layout-dashboard"],
+  ["setup", "Setup", "settings-2"],
+];
+
+/** Board elements that count as empty space: clicking them clears the selection. */
+const EMPTY_SPACE = ".story-planner-grid, .story-planner-corner, .story-planner-cell, .story-planner-chapter-end";
 
 /** Pixels the pointer must move before a press becomes a drag. */
 const DRAG_THRESHOLD = 5;
@@ -45,6 +59,14 @@ export class StoryBoardView extends TextFileView {
   private dragged: Dragged | null = null;
   private dropTargets = new Map<HTMLElement, DropTargetSpec>();
   private suppressClick = false;
+  /** Key of the last coalescing edit, so a run of typing is one undo step. */
+  private lastCoalesce: string | null = null;
+  /** The view's parts: banners and toolbar, then the board beside the card panel. */
+  private headerEl: HTMLElement;
+  private bodyEl: HTMLElement;
+  private boardEl: HTMLElement;
+  private panel: CardPanel;
+  private setup: SetupPanel;
 
   constructor(leaf: WorkspaceLeaf, private plugin: StoryPlannerPlugin) {
     super(leaf);
@@ -60,6 +82,38 @@ export class StoryBoardView extends TextFileView {
     this.scope.register(["Mod"], "y", () => {
       this.redo();
       return false;
+    });
+    this.scope.register([], "Escape", () => {
+      if (!this.panel.selected) return true;
+      this.select(null);
+      return false;
+    });
+
+    this.contentEl.addClass("story-planner");
+    this.headerEl = this.contentEl.createDiv({ cls: "story-planner-header" });
+    this.bodyEl = this.contentEl.createDiv({ cls: "story-planner-body" });
+    this.boardEl = this.bodyEl.createDiv({ cls: "story-planner-board" });
+    // A single click on empty board space closes the side panel. (A double
+    // click on an empty cell then goes on to create a card there.)
+    this.boardEl.addEventListener("click", (e) => {
+      const target = e.target as HTMLElement;
+      if (target === this.boardEl || target.matches(EMPTY_SPACE)) this.select(null);
+    });
+    this.panel = new CardPanel(this.bodyEl, {
+      edit: (change, coalesce) => this.mutate(change, coalesce),
+      close: () => this.select(null),
+      deleted: (title) => {
+        this.select(null);
+        new Notice(`Deleted "${title}". Press Ctrl+Z to undo.`);
+      },
+    });
+    this.setup = new SetupPanel(this.contentEl, {
+      edit: (change, coalesce) => this.mutate(change, coalesce),
+      choose: (choice) => new ChoiceModal(this.app, choice).open(),
+      notice: (message) => new Notice(message),
+      snapshot: (reason) => this.takeSnapshot(reason),
+      listSnapshots: () => this.listSnapshots(),
+      restore: (snapshot) => void this.restoreSnapshot(snapshot),
     });
     this.contentEl.addEventListener(
       "click",
@@ -114,7 +168,11 @@ export class StoryBoardView extends TextFileView {
       this.warnings = [];
       this.outlineEdited = false;
     }
-    if (clear) this.contentEl.scrollTop = 0;
+    if (clear) {
+      this.boardEl.scrollTop = 0;
+      this.boardEl.scrollLeft = 0;
+    }
+    this.lastCoalesce = null;
     this.render();
   }
 
@@ -127,21 +185,30 @@ export class StoryBoardView extends TextFileView {
     this.story = null;
     this.loadError = null;
     this.history.clear();
-    this.contentEl.empty();
+    this.headerEl.empty();
+    this.boardEl.empty();
+    this.panel.show({ cards: {} } as Story, null);
+    this.setup.setOpen(false, null);
   }
 
   // -------------------------------------------------------------------------
   // Editing, undo and redo
 
-  /** Applies a change with undo support. The change returns false when it turned out to change nothing. */
-  private mutate(change: (story: Story) => boolean | void): void {
+  /**
+   * Applies a change with undo support. The change returns false when it
+   * turned out to change nothing. Changes with the same `coalesce` key in a
+   * row (typing in one field) share one undo step and leave the panel's
+   * fields alone.
+   */
+  private mutate(change: (story: Story) => boolean | void, coalesce?: string): void {
     if (!this.story) return;
     const before = JSON.stringify(this.story);
     const draft = JSON.parse(before) as Story;
     if (change(draft) === false || JSON.stringify(draft) === before) return;
-    this.history.record(this.story);
+    if (!coalesce || coalesce !== this.lastCoalesce) this.history.record(this.story);
+    this.lastCoalesce = coalesce ?? null;
     this.story = draft;
-    this.changed();
+    this.changed(coalesce !== undefined);
   }
 
   undo(): void {
@@ -149,6 +216,7 @@ export class StoryBoardView extends TextFileView {
     const previous = this.history.undo(this.story);
     if (!previous) return;
     this.story = previous;
+    this.lastCoalesce = null;
     this.changed();
   }
 
@@ -157,43 +225,138 @@ export class StoryBoardView extends TextFileView {
     const next = this.history.redo(this.story);
     if (!next) return;
     this.story = next;
+    this.lastCoalesce = null;
     this.changed();
   }
 
-  private changed(): void {
+  private changed(typing = false): void {
     this.outlineEdited = false;
     this.requestSave();
+    this.render(typing);
+  }
+
+  /** Creates a card at a board position, selects it and puts the cursor in its title. */
+  private addCard(target: CardTarget): void {
+    let id: Id | null = null;
+    this.mutate((story) => {
+      id = addCardAt(story, target);
+    });
+    if (id) {
+      this.select(id);
+      this.panel.focusTitle();
+    }
+  }
+
+  /** Selects a card and shows it in the side panel; null closes the panel. */
+  private select(cardId: Id | null): void {
+    if (!this.story) return;
+    this.panel.show(this.story, cardId);
+    for (const el of Array.from(this.boardEl.querySelectorAll<HTMLElement>("[data-card-id]"))) {
+      el.classList.toggle("is-selected", el.dataset.cardId === this.panel.selected);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Safety snapshots
+
+  /** Keeps a copy of the story as it is now, before a large destructive edit. */
+  private takeSnapshot(reason: string, text?: string): void {
+    if (!this.plugin.settings.snapshotsEnabled || !this.file) return;
+    const body = text ?? (this.story && !this.loadError ? serializeStory(this.story, this.frontmatter) : null);
+    if (body === null) return;
+    this.plugin.snapshots
+      .take(this.file.path, body, reason)
+      .then(() => this.setup.refresh(this.story))
+      .catch((e) => {
+        console.error("Story Planner: could not save a snapshot", e);
+        new Notice("Story Planner could not save a safety snapshot. See the developer console for details.");
+      });
+  }
+
+  private async listSnapshots(): Promise<SnapshotInfo[]> {
+    return this.file ? this.plugin.snapshots.list(this.file.path) : [];
+  }
+
+  /**
+   * Puts the story back as it was in a snapshot. On a story that opened
+   * normally this is one undoable edit, and the current state is snapshotted
+   * first. On a story that could not be read, the unreadable text is kept as a
+   * snapshot before the note is replaced.
+   */
+  async restoreSnapshot(info: SnapshotInfo): Promise<void> {
+    const snapshot = await this.plugin.snapshots.read(info);
+    const parsed = snapshot ? parseStory(snapshot.text) : null;
+    if (!snapshot || !parsed?.ok) {
+      new Notice("That snapshot could not be read.");
+      return;
+    }
+    const when = new Date(snapshot.takenAt).toLocaleString();
+    if (this.story && !this.loadError) {
+      this.takeSnapshot(`Before restoring the snapshot from ${when}`);
+      this.mutate((story) => {
+        for (const key of Object.keys(story)) delete (story as unknown as Record<string, unknown>)[key];
+        Object.assign(story, parsed.story);
+      });
+      new Notice(`Restored the story as it was on ${when}. Press Ctrl+Z to undo.`);
+    } else {
+      this.takeSnapshot("The note as it was before restoring (it could not be read)", this.data);
+      this.setViewData(snapshot.text, false);
+      this.requestSave();
+      new Notice(`Restored the story as it was on ${when}.`);
+    }
+  }
+
+  /** The view tab this story shows: the board, or the story setup page. */
+  private get tab(): StoryTab {
+    const path = this.file?.path;
+    return (path ? this.plugin.settings.viewState[path]?.tab : undefined) ?? "board";
+  }
+
+  private showTab(tab: StoryTab): void {
+    const path = this.file?.path;
+    if (!path || tab === this.tab) return;
+    this.plugin.settings.viewState[path] = { ...this.plugin.settings.viewState[path], tab };
+    void this.plugin.saveSettings();
+    this.select(null);
     this.render();
   }
 
-  private addCard(chapterId: string | null, plotLineId: string): void {
-    const draft = { title: "", synopsis: "", status: "idea" as const };
-    new CardEditModal(this.app, draft, (edit) => {
-      this.mutate((story) => {
-        const order = chapterCards(story, chapterId).reduce((max, c) => Math.max(max, c.order), 0) + 1;
-        const card = createCard({ ...edit, plotLine: plotLineId, chapter: chapterId, order });
-        story.cards[card.id] = card;
-      });
-    }).open();
-  }
-
-  private editCard(cardId: string): void {
-    const card = this.story?.cards[cardId];
-    if (!card) return;
-    new CardEditModal(
-      this.app,
-      card,
-      (edit) =>
-        this.mutate((story) => {
-          Object.assign(story.cards[cardId]!, edit, { modified: new Date().toISOString() });
-        }),
-      () => {
-        this.mutate((story) => {
-          delete story.cards[cardId];
+  /** Replaces a card's title with a text box, for renaming it in place. */
+  private editTitleInPlace(cardEl: HTMLElement, card: Card): void {
+    const titleEl = cardEl.querySelector<HTMLElement>(".story-planner-card-title");
+    if (!titleEl) return;
+    const input = document.createElement("input");
+    input.className = "story-planner-card-title-input";
+    input.type = "text";
+    input.value = card.title;
+    titleEl.replaceWith(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (save: boolean) => {
+      if (done) return;
+      done = true;
+      const title = input.value.trim();
+      if (save && title && title !== card.title) {
+        this.mutate((s) => {
+          const c = s.cards[card.id];
+          if (!c) return false;
+          c.title = title;
+          c.modified = new Date().toISOString();
         });
-        new Notice(`Deleted "${card.title}". Press Ctrl+Z to undo.`);
-      },
-    ).open();
+      } else {
+        input.replaceWith(titleEl);
+      }
+    };
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") finish(true);
+      else if (e.key === "Escape") finish(false);
+    });
+    input.addEventListener("blur", () => finish(true));
+    // Clicks in the box must not start a drag or reselect the card.
+    input.addEventListener("pointerdown", (e) => e.stopPropagation());
+    input.addEventListener("click", (e) => e.stopPropagation());
   }
 
   // -------------------------------------------------------------------------
@@ -205,6 +368,19 @@ export class StoryBoardView extends TextFileView {
     return saved ?? this.plugin.settings.defaultOrientation;
   }
 
+  private get compact(): boolean {
+    const path = this.file?.path;
+    return (path ? this.plugin.settings.viewState[path]?.compact : undefined) ?? false;
+  }
+
+  private toggleCompact(): void {
+    const path = this.file?.path;
+    if (!path) return;
+    this.plugin.settings.viewState[path] = { ...this.plugin.settings.viewState[path], compact: !this.compact };
+    void this.plugin.saveSettings();
+    this.render();
+  }
+
   private toggleOrientation(): void {
     const path = this.file?.path;
     if (!path) return;
@@ -214,18 +390,28 @@ export class StoryBoardView extends TextFileView {
     this.render();
   }
 
-  private render(): void {
-    const root = this.contentEl;
+  /** Redraws the toolbar and board. `typing` means the change came from typing in the panel. */
+  private render(typing = false): void {
+    const root = this.headerEl;
     this.dropTargets.clear();
     root.empty();
-    root.addClass("story-planner");
 
     if (this.loadError || !this.story) {
+      this.boardEl.empty();
+      this.panel.show({ cards: {} } as Story, null);
+      this.setup.setOpen(false, null);
       const box = root.createDiv({ cls: "story-planner-error" });
       box.createEl("h3", { text: "This story could not be opened" });
       box.createEl("p", { text: this.loadError ?? "Unknown error." });
       box.createEl("p", {
         text: "The note has not been changed. You can open it as Markdown, or restore an earlier version with File recovery.",
+      });
+      void this.listSnapshots().then((snapshots) => {
+        if (snapshots.length === 0 || !box.isConnected) return;
+        box.createEl("p", { text: `This story also has ${snapshots.length} safety ${snapshots.length === 1 ? "snapshot" : "snapshots"}.` });
+        box.createEl("button", { text: "Restore from a snapshot…", cls: "mod-cta" }).addEventListener("click", () => {
+          void this.plugin.pickSnapshot(this);
+        });
       });
       return;
     }
@@ -245,33 +431,78 @@ export class StoryBoardView extends TextFileView {
     toolbar.createEl("h2", { text: story.title, cls: "story-planner-title" });
     this.button(toolbar, "Undo", () => this.undo(), !this.history.canUndo);
     this.button(toolbar, "Redo", () => this.redo(), !this.history.canRedo);
-    this.button(toolbar, "Add plot line", () =>
-      new TextPromptModal(this.app, "New plot line", "", (name) =>
-        this.mutate((s) => {
-          s.plotLines.push({ id: newId("p"), name, color: PALETTE[s.plotLines.length % PALETTE.length]! });
-        }),
-      ).open(),
-    );
-    this.button(toolbar, "Add chapter", () =>
-      new TextPromptModal(this.app, "New chapter", `Chapter ${story.chapters.length + 1}`, (name) =>
-        this.mutate((s) => {
-          s.chapters.push({ id: newId("c"), name });
-        }),
-      ).open(),
-    );
 
+    // View tabs, like the views of a Notion database. More views (story
+    // time, characters) join this row later.
+    const tabsRow = root.createDiv({ cls: "story-planner-tabs-row" });
+    const tabs = tabsRow.createDiv({ cls: "story-planner-tabs" });
+    tabs.setAttr("role", "tablist");
+    const tab = this.tab;
+    for (const [id, label, icon] of TABS) {
+      const el = tabs.createEl("button", { cls: "story-planner-tab" });
+      el.setAttr("role", "tab");
+      el.setAttr("aria-selected", String(id === tab));
+      el.toggleClass("is-active", id === tab);
+      setIcon(el.createSpan({ cls: "story-planner-tab-icon" }), icon);
+      el.createSpan({ text: label });
+      el.addEventListener("click", () => this.showTab(id));
+    }
+
+    const onBoard = tab === "board";
+    this.bodyEl.hidden = !onBoard;
+    this.setup.setOpen(!onBoard, story);
+    if (onBoard) {
+      const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
+      this.button(actions, "Add plot line", () =>
+        new TextPromptModal(this.app, "New plot line", "", (name) => this.mutate((s) => void addPlotLine(s, name))).open(),
+      );
+      this.button(actions, "Add chapter", () =>
+        new TextPromptModal(this.app, "New chapter", `Chapter ${story.chapters.length + 1}`, (name) =>
+          this.mutate((s) => void addChapter(s, name)),
+        ).open(),
+      );
+      const compact = this.button(actions, "Compact", () => this.toggleCompact());
+      compact.toggleClass("is-active", this.compact);
+      compact.setAttr("aria-pressed", String(this.compact));
+      compact.setAttr("title", "Stack each plot line's cards from the top of the chapter");
+    }
+
+    // Keep the panel on the selected card; it closes if the card is gone (after an undo, say).
+    this.panel.show(story, onBoard ? this.panel.selected : null, typing);
+    this.setup.refresh(story, typing);
+    if (onBoard) this.renderBoard(story);
+  }
+
+  /**
+   * Draws the board off-screen and swaps it in, so it is never empty for a
+   * moment, and keeps the scroll position: an edit must not move the view.
+   */
+  private renderBoard(story: Story): void {
+    const { scrollTop, scrollLeft } = this.boardEl;
+    const content = document.createElement("div");
+    this.fillBoard(content, story);
+    this.boardEl.replaceChildren(...Array.from(content.childNodes));
+    this.boardEl.scrollTop = scrollTop;
+    this.boardEl.scrollLeft = scrollLeft;
+  }
+
+  private fillBoard(parent: HTMLElement, story: Story): void {
     if (story.plotLines.length === 0) {
-      root.createDiv({ cls: "story-planner-empty", text: "Add a plot line to start planning." });
+      parent.createDiv({ cls: "story-planner-empty", text: "Add a plot line to start planning." });
       return;
     }
 
-    const layout = computeBoardLayout(story, this.orientation);
-    const grid = root.createDiv({ cls: `story-planner-grid is-${this.orientation}` });
+    const layout = computeBoardLayout(story, this.orientation, this.compact);
+    const grid = parent.createDiv({ cls: `story-planner-grid is-${this.orientation}` });
     grid.style.gridTemplateRows = `repeat(${layout.rows}, auto)`;
     grid.style.gridTemplateColumns =
       this.orientation === "vertical"
         ? `var(--story-planner-header-size) repeat(${layout.columns - 1}, minmax(var(--story-planner-card-width), 1fr))`
         : `var(--story-planner-header-size) repeat(${layout.columns - 1}, var(--story-planner-card-width))`;
+    if (this.orientation === "vertical") {
+      const lanes = layout.columns - 1;
+      grid.style.minWidth = `calc(var(--story-planner-header-size) + ${lanes} * (var(--story-planner-card-width) + var(--size-4-2)))`;
+    }
 
     for (const placed of layout.items) {
       const el = this.renderItem(grid, placed.item, story);
@@ -333,7 +564,8 @@ export class StoryBoardView extends TextFileView {
       case "add-card": {
         const el = grid.createDiv({ cls: "story-planner-add-card", text: "+" });
         el.setAttr("aria-label", "Add card");
-        el.addEventListener("click", () => this.addCard(item.chapterId, item.plotLineId));
+        el.setAttr("title", "Add a card at the end of this chapter");
+        el.addEventListener("click", () => this.addCard({ chapter: item.chapterId, plotLine: item.plotLineId }));
         // Dropping here puts the card first in the chapter.
         this.makeDropTarget(el, "card", null, () =>
           this.mutate((s) =>
@@ -354,11 +586,16 @@ export class StoryBoardView extends TextFileView {
         const el = grid.createDiv({ cls: "story-planner-cell" });
         const card = story.cards[item.cardId]!;
         this.makeCardDropTarget(el, card, item.plotLineId, true);
+        // Double-click creates a card here, in this row.
+        el.addEventListener("dblclick", () =>
+          this.addCard({ chapter: card.chapter, plotLine: item.plotLineId, besideCardId: card.id }),
+        );
         return el;
       }
 
       case "chapter-end": {
         const el = grid.createDiv({ cls: "story-planner-chapter-end" });
+        el.addEventListener("dblclick", () => this.addCard({ chapter: item.chapterId, plotLine: item.plotLineId }));
         this.makeDropTarget(el, "card", null, () =>
           this.mutate((s) => moveCard(s, this.dragged!.id, { chapter: item.chapterId, plotLine: item.plotLineId })),
         );
@@ -372,7 +609,10 @@ export class StoryBoardView extends TextFileView {
         el.style.setProperty("--lane-color", plotLine?.color ?? "var(--interactive-accent)");
         el.createDiv({ cls: "story-planner-card-title", text: card.title });
         if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
-        el.addEventListener("click", () => this.editCard(card.id));
+        el.dataset.cardId = card.id;
+        if (card.id === this.panel.selected) el.addClass("is-selected");
+        el.addEventListener("click", () => this.select(card.id));
+        el.addEventListener("dblclick", () => this.editTitleInPlace(el, card));
         this.makeDraggable(el, { kind: "card", id: card.id });
         this.makeCardDropTarget(el, card, card.plotLine);
         return el;
@@ -384,17 +624,24 @@ export class StoryBoardView extends TextFileView {
         const el = grid.createDiv({ cls: "story-planner-echo", text: card.title });
         el.style.setProperty("--lane-color", home?.color ?? "var(--interactive-accent)");
         el.setAttr("aria-label", `Also in ${home?.name ?? "another plot line"}`);
-        el.addEventListener("click", () => this.editCard(card.id));
+        // Clicking an echo selects the real card and brings it into view.
+        el.addEventListener("click", () => {
+          this.select(card.id);
+          this.boardEl
+            .querySelector(`.story-planner-card[data-card-id="${CSS.escape(card.id)}"]`)
+            ?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+        });
         this.makeCardDropTarget(el, card, item.plotLineId);
         return el;
       }
     }
   }
 
-  private button(parent: HTMLElement, text: string, onClick: () => void, disabled = false): void {
+  private button(parent: HTMLElement, text: string, onClick: () => void, disabled = false): HTMLButtonElement {
     const el = parent.createEl("button", { text });
     el.disabled = disabled;
     el.addEventListener("click", onClick);
+    return el;
   }
 
   // -------------------------------------------------------------------------
@@ -549,4 +796,3 @@ const GAP_PROBES: [number, number][] = [
   [6, 0],
 ];
 
-const PALETTE = ["#4a90d9", "#d9534f", "#5cb85c", "#f0ad4e", "#9b59b6", "#1abc9c", "#e67e22", "#7f8c8d"];

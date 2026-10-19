@@ -3,7 +3,29 @@
 .story-planner {
   --story-planner-header-size: 9rem;
   --story-planner-card-width: 14rem;
-  padding: var(--size-4-3);
+  --story-planner-panel-width: 20rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.story-planner-header {
+  flex: none;
+  padding: var(--size-4-3) var(--size-4-3) 0;
+}
+
+/* The board scrolls on its own, beside the card panel. */
+.story-planner-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.story-planner-board {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
 }
 
 .story-planner-toolbar {
@@ -37,11 +59,42 @@
   text-align: center;
 }
 
+/* A board with more plot lines than fit scrolls sideways (Shift + mouse
+   wheel, or the scrollbar at the bottom); the view sets the grid's minimum
+   width so its box covers every column. */
 .story-planner-grid {
   display: grid;
   gap: var(--size-4-2);
   align-items: start;
-  overflow: auto;
+  /* Margin rather than padding on the board, so the sticky headers meet the
+     board's edge and nothing scrolls past beside them. */
+  margin: 0 var(--size-4-3) var(--size-4-3);
+}
+
+/* The header row and column stay in view while the board scrolls. */
+.story-planner-corner {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  align-self: stretch;
+  background: var(--background-primary);
+}
+
+.story-planner-grid.is-vertical .story-planner-chapter-header {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--background-primary);
+  /* Also covers the gap to the first plot line, so cards never show through. */
+  box-shadow: var(--size-4-2) 0 0 var(--background-primary);
+}
+
+.story-planner-grid.is-horizontal .story-planner-chapter-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--background-primary);
 }
 
 .story-planner-lane-header {
@@ -228,4 +281,283 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Selection and in-place title editing */
+
+.story-planner-card.is-selected {
+  border-color: var(--interactive-accent);
+  border-left-color: var(--lane-color);
+  box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+.story-planner-card-title-input {
+  width: 100%;
+  font-weight: var(--font-semibold);
+}
+
+/* Card panel */
+
+.story-planner-panel {
+  flex: none;
+  width: var(--story-planner-panel-width);
+  overflow-y: auto;
+  padding: var(--size-4-3);
+  border-left: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+}
+
+.story-planner-panel[hidden] {
+  display: none;
+}
+
+.story-planner-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--size-4-2);
+}
+
+.story-planner-panel-heading {
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+}
+
+.story-planner-panel-field {
+  margin-bottom: var(--size-4-4);
+}
+
+.story-planner-panel-label {
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  margin-bottom: var(--size-4-1);
+}
+
+.story-planner-panel-hint {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  margin-bottom: var(--size-4-1);
+}
+
+.story-planner-panel-field input[type="text"],
+.story-planner-panel-field textarea,
+.story-planner-panel-field select {
+  width: 100%;
+}
+
+.story-planner-panel-title {
+  font-weight: var(--font-semibold);
+}
+
+.story-planner-panel-synopsis {
+  resize: vertical;
+}
+
+.story-planner-panel-check {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-2-1) 0;
+}
+
+.story-planner-panel-character {
+  margin-bottom: var(--size-4-2);
+}
+
+.story-planner-panel-character-top {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  margin-bottom: var(--size-2-1);
+}
+
+.story-planner-panel-character-top select {
+  width: auto;
+  flex: none;
+}
+
+.story-planner-panel-character-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-planner-panel-character-name::before {
+  content: "";
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  margin-right: var(--size-4-1);
+  border-radius: 50%;
+  background: var(--character-color);
+}
+
+.story-planner-panel-add-character {
+  display: flex;
+  gap: var(--size-4-1);
+}
+
+.story-planner-panel-add-character input {
+  flex: 1;
+  min-width: 0;
+}
+
+.story-planner-panel-footer {
+  margin-top: var(--size-4-6);
+}
+
+/* Toolbar toggles */
+
+.story-planner-toolbar button.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+/* Story setup panel */
+
+.story-planner-setup-row,
+.story-planner-setup-add {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  margin-bottom: var(--size-4-1);
+}
+
+.story-planner-setup-row input[type="text"],
+.story-planner-setup-add input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+.story-planner-setup-color {
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.story-planner-setup-count {
+  flex: none;
+  min-width: 1.5rem;
+  text-align: right;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+.story-planner-setup-button {
+  flex: none;
+  padding: var(--size-2-1) var(--size-4-1);
+}
+
+.story-planner-setup-button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* View tabs */
+
+.story-planner-tabs-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-bottom: var(--size-4-3);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding-bottom: var(--size-4-2);
+}
+
+.story-planner-tabs {
+  display: flex;
+  gap: var(--size-4-1);
+  margin-right: auto;
+}
+
+.story-planner-tab-actions {
+  display: flex;
+  gap: var(--size-4-2);
+}
+
+.story-planner-tabs .story-planner-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-4-1) var(--size-4-3);
+  border-radius: var(--radius-l, 12px);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+}
+
+.story-planner-tabs .story-planner-tab:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.story-planner-tabs .story-planner-tab.is-active {
+  background: var(--background-modifier-active-hover, var(--background-modifier-hover));
+  color: var(--text-normal);
+}
+
+.story-planner-tab-icon {
+  display: flex;
+}
+
+.story-planner-tab-icon svg {
+  width: var(--icon-s, 16px);
+  height: var(--icon-s, 16px);
+}
+
+.story-planner-body[hidden] {
+  display: none;
+}
+
+/* Story setup page */
+
+.story-planner-setup {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--size-4-3) var(--size-4-6);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
+  gap: var(--size-4-4);
+  align-content: start;
+  align-items: start;
+}
+
+.story-planner-setup[hidden] {
+  display: none;
+}
+
+.story-planner-setup-section {
+  padding: var(--size-4-3) var(--size-4-4);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-secondary);
+}
+
+.story-planner-setup-heading {
+  margin: 0 0 var(--size-4-1);
+  font-size: var(--font-ui-medium);
+}
+
+.story-planner-setup-section .story-planner-panel-hint {
+  margin-bottom: var(--size-4-3);
+}
+
+.story-planner-setup-section > input[type="text"] {
+  width: 100%;
+}
+
+.story-planner-snapshot-text {
+  flex: 1;
+  min-width: 0;
 }

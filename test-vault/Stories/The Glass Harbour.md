@@ -30,11 +30,28 @@ A page has been cut from the harbourmaster's ledger.
 **A letter is sealed at Vell Manor** (The eastern letters, around 3 Frost 1531 AF, Night (Eastern Provinces), Vell Manor)
 Characters: Ilse
 
+**Mara at Vell Manor?** (Mara and Ilse, 5 Frost 1531 AF, 09:25 (Eastern Provinces), Vell Manor)
+Characters: Mara, Ilse
+Relationship: suspicion
+A servant swears Mara was at the manor the morning the ledger page went missing.
+
+**The crossing** (The eastern letters, 1 Frost 1531 AF, Dawn (Eastern Provinces))
+Characters: Ilse
+Ilse's three-day crossing from the east, told in her letters.
+
+**Festival of the Turning** (Mara and Ilse)
+Characters: Mara, Ilse
+Not yet dated: Mara and Ilse meet again at the year's end festival.
+
 ## Off-page
 
 **The harbourmaster's last meeting** (Investigation, 3 Frost 1531 AF, Night, The pier)
 Characters: Harbourmaster Oren
 Off-page: Oren meets someone on the pier the night before he dies.
+
+**The ring is stolen** (Investigation, around Deepdark 1530 AF, Vell Manor)
+Characters: Harbourmaster Oren
+Off-page, the year before: the ring disappears from Vell Manor.
 
 %%
 storyplanner-data
@@ -44,4 +61,8 @@ storyplanner-data
 {"id":"k03","title":"The office ledger","synopsis":"A page has been cut from the harbourmaster's ledger.","alsoIn":[],"characters":[{"id":"x1","role":"pov","note":"Finds the cut page."}],"status":"outlined","tags":["g1","g2"],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":"c2","order":1,"date":{"calendar":"main","era":"af","year":1531,"month":5,"day":5,"minutes":325},"location":"l3"}
 {"id":"k04","title":"A letter is sealed at Vell Manor","synopsis":"","alsoIn":[],"characters":[{"id":"x2","role":"present","note":"Receives the letter."}],"status":"outlined","tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c2","order":2,"date":{"calendar":"main","era":"af","year":1531,"month":5,"day":3,"dayPart":"night","zone":"z2","approximate":true},"location":"l5"}
 {"id":"k05","title":"The harbourmaster's last meeting","synopsis":"Off-page: Oren meets someone on the pier the night before he dies.","alsoIn":[],"characters":[{"id":"x3","role":"present","note":"Hands over the ring."}],"status":"outlined","tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":null,"order":1,"date":{"calendar":"main","era":"af","year":1531,"month":5,"day":3,"dayPart":"night"},"location":"l2"}
+{"id":"k06","title":"Mara at Vell Manor?","synopsis":"A servant swears Mara was at the manor the morning the ledger page went missing.","alsoIn":[],"characters":[{"id":"x1","role":"present","note":"Seen here, by one account."},{"id":"x2","role":"pov","note":"Starts to doubt Mara."}],"status":"outlined","tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c2","order":3,"date":{"calendar":"main","era":"af","year":1531,"month":5,"day":5,"minutes":475,"zone":"z2"},"location":"l5","relationshipState":"suspicion"}
+{"id":"k07","title":"The crossing","synopsis":"Ilse's three-day crossing from the east, told in her letters.","alsoIn":[],"characters":[{"id":"x2","role":"pov"}],"status":"outlined","tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c2","order":4,"date":{"calendar":"main","era":"af","year":1531,"month":5,"day":1,"dayPart":"dawn","zone":"z2"},"endDate":{"calendar":"main","era":"af","year":1531,"month":5,"day":4,"dayPart":"day"}}
+{"id":"k08","title":"The ring is stolen","synopsis":"Off-page, the year before: the ring disappears from Vell Manor.","alsoIn":[],"characters":[{"id":"x3","role":"mentioned"}],"status":"outlined","tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":null,"order":2,"date":{"calendar":"main","era":"af","year":1530,"month":6,"approximate":true},"location":"l5"}
+{"id":"k09","title":"Festival of the Turning","synopsis":"Not yet dated: Mara and Ilse meet again at the year's end festival.","alsoIn":[],"characters":[{"id":"x1","role":"pov"},{"id":"x2","role":"present"}],"status":"idea","tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c2","order":5}
 %%

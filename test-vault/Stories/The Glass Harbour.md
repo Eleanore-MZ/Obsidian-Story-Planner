@@ -10,34 +10,34 @@ storyplanner-version: 1
 
 ## Chapter 1: The Pier
 
-**Body found at the pier** (Investigation, 4 Frost 1531 AF, Dawn, The pier)
+**Body found at the pier** (Investigation, 1531/05/04 AF Dawn, The pier)
 Characters: [[Sample notes/People/Mara]], Harbourmaster Oren
 Story tags: clue
 Mara is called out before dawn and finds the harbourmaster's body at the end of the pier.
 Notes: [[Sample notes/Drafts/Body found at the pier]], [[Sample notes/Research/Tides of the harbour]]
 
-**Ilse arrives** (Mara and Ilse, 4 Frost 1531 AF, Dusk, [[Sample notes/Places/Glass Harbour]])
+**Ilse arrives** (Mara and Ilse, 1531/05/04 AF Dusk, [[Sample notes/Places/Glass Harbour]])
 Characters: Ilse, [[Sample notes/People/Mara]]
 Relationship: strangers
 A courier from the east asks for the harbourmaster by name.
 
 ## Chapter 2: Letters
 
-**The office ledger** (Investigation, 5 Frost 1531 AF, 06:25, Harbourmaster's office)
+**The office ledger** (Investigation, 1531/05/05 AF 06:25, Harbourmaster's office)
 Characters: [[Sample notes/People/Mara]]
 Story tags: clue, red herring
 A page has been cut from the harbourmaster's ledger.
 Notes: [[Sample notes/Drafts/The office ledger]]
 
-**A letter is sealed at Vell Manor** (The eastern letters, around 3 Frost 1531 AF, Night (Eastern Provinces), Vell Manor)
+**A letter is sealed at Vell Manor** (The eastern letters, around 1531/05/03 AF Night (Eastern Provinces), Vell Manor)
 Characters: Ilse
 
-**Mara at Vell Manor?** (Mara and Ilse, 5 Frost 1531 AF, 09:25 (Eastern Provinces), Vell Manor)
+**Mara at Vell Manor?** (Mara and Ilse, 1531/05/05 AF 09:25 (Eastern Provinces), Vell Manor)
 Characters: [[Sample notes/People/Mara]], Ilse
 Relationship: suspicion
 A servant swears Mara was at the manor the morning the ledger page went missing.
 
-**The crossing** (The eastern letters, 1 Frost 1531 AF, Dawn (Eastern Provinces))
+**The crossing** (The eastern letters, 1531/05/01 AF Dawn (Eastern Provinces))
 Characters: Ilse
 Ilse's three-day crossing from the east, told in her letters.
 
@@ -47,11 +47,11 @@ Not yet dated: Mara and Ilse meet again at the year's end festival.
 
 ## Off-page
 
-**The harbourmaster's last meeting** (Investigation, 3 Frost 1531 AF, Night, The pier)
+**The harbourmaster's last meeting** (Investigation, 1531/05/03 AF Night, The pier)
 Characters: Harbourmaster Oren
 Off-page: Oren meets someone on the pier the night before he dies.
 
-**The ring is stolen** (Investigation, around Deepdark 1530 AF, Vell Manor)
+**The ring is stolen** (Investigation, around 1530/06 AF, Vell Manor)
 Characters: Harbourmaster Oren
 Off-page, the year before: the ring disappears from Vell Manor.
 

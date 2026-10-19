@@ -10,21 +10,21 @@ storyplanner-version: 1
 
 ## Chapter 1
 
-**Boxes everywhere** (The move, 2 March 2024, Morning, The old flat)
+**Boxes everywhere** (The move, 2024/03/02 Morning, The old flat)
 Characters: June
 June packs up the flat she has lived in for ten years.
 
-**A letter from Tom** (Old friends, 2 March 2024, Evening, The old flat)
+**A letter from Tom** (Old friends, 2024/03/02 Evening, The old flat)
 Characters: June, Tom
 Relationship: lost touch
 An old friend writes for the first time in years.
 
 ## Chapter 2
 
-**The new street** (The move, 9 March 2024, 10:30, Number 14)
+**The new street** (The move, 2024/03/09 10:30, Number 14)
 Characters: June, Mrs Alder
 
-**Coffee with Tom** (Old friends, 10 March 2024, 14:30, The corner café)
+**Coffee with Tom** (Old friends, 2024/03/10 14:30, The corner café)
 Characters: June, Tom
 Relationship: friends again
 Tom turns out to live two streets away.
@@ -36,7 +36,7 @@ Characters: June
 
 ## Off-page
 
-**Tom moves to Linden Street** (Old friends, around September 2023, Linden Street)
+**Tom moves to Linden Street** (Old friends, around 2023/09, Linden Street)
 Characters: Tom
 Off-page: Tom moves in some time the autumn before.
 

@@ -1,5 +1,6 @@
 import { setIcon } from "obsidian";
 import { formatOffset, formatStoryDate, parseOffset } from "../model/calendar";
+import { DATE_TOKENS, defaultFormats, TIME_TOKENS } from "../model/dateFormat";
 import { CALENDAR_PRESETS } from "../model/defaults";
 import {
   addCategory,
@@ -450,6 +451,8 @@ export class SetupPanel {
       if (nameInput.value.trim()) this.calendarEdit((_, c) => void (c.name = nameInput.value.trim()), "calendar-name");
     });
 
+    this.buildFormats(section, story);
+
     this.subheading(section, "Months");
     calendar.months.forEach((month, i) => {
       const row = section.createDiv({ cls: "story-planner-setup-row" });
@@ -711,6 +714,49 @@ export class SetupPanel {
 
   // -------------------------------------------------------------------------
   // Small builders
+
+  /** This story's own date and time formats, overriding the plugin's, with a preview. */
+  private buildFormats(section: HTMLElement, story: Story): void {
+    this.subheading(section, "Date format");
+    const fallback = defaultFormats();
+    section.createDiv({
+      cls: "story-planner-panel-hint",
+      text: `Leave empty to use the format from the plugin settings (${fallback.date}, ${fallback.time}). ${DATE_TOKENS.map(([t]) => t).join(" ")} for dates; ${TIME_TOKENS.map(([t]) => t).join(" ")} for times.`,
+    });
+    // A date from the story, or the first day of the calendar, to show the format on.
+    const calendar = story.calendars[0]!;
+    const sample = cardsWithDates(story)[0]?.date ?? {
+      calendar: calendar.id,
+      year: 1,
+      month: 1,
+      day: 1,
+      minutes: 9 * calendar.minutesPerHour + 30,
+    };
+    const preview = section.createDiv({ cls: "story-planner-format-preview" });
+    const showPreview = (s: Story) => {
+      const shown = { ...sample, approximate: false, zone: undefined };
+      if (shown.minutes === undefined && shown.dayPart === undefined) shown.minutes = 9 * calendar.minutesPerHour + 30;
+      preview.setText(`For example: ${formatStoryDate(s, shown)}`);
+    };
+    showPreview(story);
+    for (const [label, key, placeholder] of [
+      ["Date", "dateFormat", fallback.date],
+      ["Time", "timeFormat", fallback.time],
+    ] as const) {
+      const row = this.labelled(section, label);
+      const input = this.textInput(row, story[key] ?? "", `format:${key}`);
+      input.placeholder = placeholder;
+      input.addEventListener("input", () => {
+        const value = input.value.trim();
+        this.host.edit((s) => {
+          if ((s[key] ?? "") === value) return false;
+          if (value) s[key] = value;
+          else delete s[key];
+          showPreview(s);
+        }, `format:${key}`);
+      });
+    }
+  }
 
   private subheading(parent: HTMLElement, text: string): void {
     parent.createEl("h4", { cls: "story-planner-setup-subheading", text });

@@ -1,4 +1,5 @@
 import { Calendar, CalendarEra, Card, Id, Story, StoryDate, TimeZone } from "./types";
+import { DateFormats, defaultFormats, formatPattern, pad, usesToken } from "./dateFormat";
 
 // Story dates on the story's own calendar: formatting, checking, and the
 // arithmetic behind story time. Nothing here uses real-world dates; a day is
@@ -351,25 +352,43 @@ export function dateSpan(calendar: Calendar, date: StoryDate): [number, number] 
 // Formatting
 
 /** Formats a date at its own precision, e.g. "1531", "December 1531", "4 December 1531, Dawn". */
-export function formatStoryDate(story: Story, date: StoryDate, options: { zone?: boolean } = {}): string {
+/** The date and time formats a story uses: its own, or the plugin's. */
+export function storyFormats(story: Story): DateFormats {
+  const fallback = defaultFormats();
+  return { date: story.dateFormat?.trim() || fallback.date, time: story.timeFormat?.trim() || fallback.time };
+}
+
+/**
+ * A story date as text, in the story's date and time formats. Parts the date
+ * does not have are left out; a named part of the day follows the date.
+ */
+export function formatStoryDate(story: Story, date: StoryDate, options: { zone?: boolean; formats?: DateFormats } = {}): string {
   const calendar = findCalendar(story, date.calendar);
-  const parts: string[] = [];
-
-  if (date.month !== undefined) {
-    const monthName = calendar?.months[date.month - 1]?.name ?? `Month ${date.month}`;
-    parts.push(date.day !== undefined ? `${date.day} ${monthName}` : monthName);
-  }
-  parts.push(String(date.year));
-
+  const formats = options.formats ?? storyFormats(story);
+  const month = date.month !== undefined ? calendar?.months[date.month - 1] : undefined;
+  const monthWidth = Math.max(2, String(calendar?.months.length ?? 12).length);
   const era = date.era ? calendar?.eras?.find((e) => e.id === date.era)?.name : undefined;
-  let text = parts.join(" ");
-  if (era) text += ` ${era}`;
+  const weekday = date.day !== undefined && calendar ? weekdayOf(calendar, date) : undefined;
+  let text = formatPattern(formats.date, {
+    YYYY: pad(date.year, 4),
+    Y: String(date.year),
+    MM: date.month !== undefined ? pad(date.month, monthWidth) : undefined,
+    M: date.month !== undefined ? String(date.month) : undefined,
+    MMMM: date.month !== undefined ? (month?.name ?? `Month ${date.month}`) : undefined,
+    MMM: date.month !== undefined ? (month?.short ?? (month?.name ?? `Month ${date.month}`).slice(0, 3)) : undefined,
+    DD: date.day !== undefined ? pad(date.day, 2) : undefined,
+    D: date.day !== undefined ? String(date.day) : undefined,
+    dddd: weekday !== undefined ? calendar?.weekdays?.[weekday] : undefined,
+    E: era,
+  });
+  // A format without an era still shows one when the date has it, so dates in different eras never look alike.
+  if (era && !usesToken(formats.date, "E")) text += ` ${era}`;
 
   if (date.dayPart !== undefined) {
     const part = calendar?.dayParts?.find((p) => p.id === date.dayPart);
-    text += `, ${part?.name ?? date.dayPart}`;
+    text += ` ${part?.name ?? date.dayPart}`;
   } else if (date.minutes !== undefined) {
-    text += `, ${clock(calendar, date.minutes)}`;
+    text += ` ${formatTime(calendar, date.minutes, formats.time)}`;
   }
 
   if (date.zone && options.zone !== false) {
@@ -392,6 +411,18 @@ export function formatDateRange(story: Story, start: StoryDate, end: StoryDate |
 }
 
 /** A clock time such as "06:05", on a calendar whose hours may not be 60 minutes long. */
+/** A time of day in a time format such as "hh:mm". */
+export function formatTime(calendar: Calendar | undefined, minutes: number, format: string): string {
+  const perHour = calendar?.minutesPerHour ?? 60;
+  const hours = Math.floor(minutes / perHour);
+  const rest = minutes % perHour;
+  return formatPattern(format, {
+    hh: pad(hours, 2),
+    h: String(hours),
+    mm: pad(rest, Math.max(2, String(perHour - 1).length)),
+  });
+}
+
 export function clock(calendar: Calendar | undefined, minutes: number): string {
   const perHour = calendar?.minutesPerHour ?? 60;
   const width = String(perHour - 1).length;

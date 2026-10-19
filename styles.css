@@ -1521,3 +1521,11 @@ body.story-planner-reordering * {
   cursor: grabbing !important;
   user-select: none;
 }
+
+/* Date format previews, in settings and story setup. */
+.story-planner-format-preview {
+  margin-top: var(--size-4-1);
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-accent);
+}

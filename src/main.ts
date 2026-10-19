@@ -3,6 +3,7 @@ import { FRONTMATTER_KEY, FRONTMATTER_VALUE, parseStory, serializeStory } from "
 import { createEmptyStory } from "./model/defaults";
 import { DEFAULT_NOTE_TEMPLATE, fillTemplate, noteFileName, noteValues, renameLinkedPath } from "./model/links";
 import { cardsInReadingOrder } from "./model/search";
+import { setDefaultFormats } from "./model/dateFormat";
 import { EXPORT_EXTENSIONS, exportStory } from "./format/export";
 import { Card, Story } from "./model/types";
 import { SnapshotInfo } from "./model/snapshots";
@@ -293,6 +294,7 @@ export default class StoryPlannerPlugin extends Plugin {
 
   async loadSettings(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, { viewState: {} }, await this.loadData());
+    setDefaultFormats({ date: this.settings.dateFormat, time: this.settings.timeFormat });
   }
 
   async saveSettings(): Promise<void> {

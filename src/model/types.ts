@@ -181,6 +181,9 @@ export interface StorySetup {
   zones: TimeZone[];
   /** The zone every other zone's offset is measured from; undefined means an implicit single zone. */
   referenceZone?: Id;
+  /** This story's own date and time formats, such as "D MMMM YYYY"; unset uses the plugin's. */
+  dateFormat?: string;
+  timeFormat?: string;
 }
 
 export interface Story extends StorySetup {

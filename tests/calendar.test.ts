@@ -165,12 +165,12 @@ describe("sorting", () => {
     ];
     const sorted = [...dates].sort((a, b) => compareDates(s, a, b));
     expect(sorted.map((x) => formatStoryDate(s, x))).toEqual([
-      "6 Turning 1530",
+      "1530/07/06",
       "1531",
-      "Deepdark 1531",
-      "4 Deepdark 1531",
-      "4 Deepdark 1531, Dawn",
-      "4 Deepdark 1531, 06:00",
+      "1531/06",
+      "1531/06/04",
+      "1531/06/04 Dawn",
+      "1531/06/04 06:00",
     ]);
   });
 
@@ -264,10 +264,10 @@ describe("date ranges", () => {
   it("leaves out what the end shares with the start", () => {
     const s = harbour();
     const start = d(1531, 5, 4, { minutes: 300, zone: "z2" });
-    expect(formatDateRange(s, start, { ...start })).toBe("4 Frost 1531, 06:00 (Eastern Provinces)");
-    expect(formatDateRange(s, start, { ...start, day: 9 })).toBe("4 Frost 1531, 06:00 (Eastern Provinces) – 9 Frost 1531, 06:00");
+    expect(formatDateRange(s, start, { ...start })).toBe("1531/05/04 06:00 (Eastern Provinces)");
+    expect(formatDateRange(s, start, { ...start, day: 9 })).toBe("1531/05/04 06:00 (Eastern Provinces) – 1531/05/09 06:00");
     expect(formatDateRange(s, start, { ...start, zone: "z1" })).toBe(
-      "4 Frost 1531, 06:00 (Eastern Provinces) – 4 Frost 1531, 06:00 (Harbour Time)",
+      "1531/05/04 06:00 (Eastern Provinces) – 1531/05/04 06:00 (Harbour Time)",
     );
   });
 });

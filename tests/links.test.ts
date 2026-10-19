@@ -108,7 +108,7 @@ describe("notes made from cards", () => {
     card.location = "l1";
     card.date = { calendar: "main", year: 1531, month: 12, day: 4 };
     const text = fillTemplate("# {{title}}\n{{ characters }} at {{location}}, {{date}}\n{{chapter}} · {{plotLine}}\n{{other}}", noteValues(s, card));
-    expect(text).toBe("# Body found at the pier\nMara at The pier, 4 December 1531\nChapter 1 · Main plot\n{{other}}");
+    expect(text).toBe("# Body found at the pier\nMara at The pier, 1531/12/04\nChapter 1 · Main plot\n{{other}}");
   });
 
   it("calls a card with no chapter off-page", () => {

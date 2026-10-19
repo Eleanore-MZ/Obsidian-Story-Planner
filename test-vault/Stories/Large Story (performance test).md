@@ -10,53 +10,53 @@ storyplanner-version: 1
 
 ## Chapter 1
 
-**Scene 1** (Plot line 4, 3 January 2020, 08:37)
+**Scene 1** (Plot line 4, 2020/01/03 08:37)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 2** (Plot line 7, 6 January 2020, Afternoon)
+**Scene 2** (Plot line 7, 2020/01/06 Afternoon)
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 3** (Plot line 2, 10 January 2020, Evening)
+**Scene 3** (Plot line 2, 2020/01/10 Evening)
 Characters: Character 4, Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 4** (Plot line 5, 11 January 2020)
+**Scene 4** (Plot line 5, 2020/01/11)
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 5** (Plot line 8, 11 January 2020, 11:05)
+**Scene 5** (Plot line 8, 2020/01/11 11:05)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 6** (Plot line 3, 14 January 2020, Morning)
+**Scene 6** (Plot line 3, 2020/01/14 Morning)
 Characters: Character 7, Character 15, Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 7** (Plot line 6, 18 January 2020, Afternoon)
+**Scene 7** (Plot line 6, 2020/01/18 Afternoon)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 8** (Plot line 1, 19 January 2020)
+**Scene 8** (Plot line 1, 2020/01/19)
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 2
 
-**Scene 9** (Plot line 4, 21 January 2020, 13:33)
+**Scene 9** (Plot line 4, 2020/01/21 13:33)
 Characters: Character 10, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 10** (Plot line 7, 21 January 2020, Dawn)
+**Scene 10** (Plot line 7, 2020/01/21 Dawn)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 11** (Plot line 2, 1 January 2020, Morning)
+**Scene 11** (Plot line 2, 2020/01/01 Morning)
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 12** (Plot line 5, 26 January 2020)
+**Scene 12** (Plot line 5, 2020/01/26)
 Characters: Character 13, Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -64,55 +64,55 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 14** (Plot line 3, 31 January 2020, Night)
+**Scene 14** (Plot line 3, 2020/01/31 Night)
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 15** (Plot line 6, 31 January 2020, Dawn)
+**Scene 15** (Plot line 6, 2020/01/31 Dawn)
 Characters: Character 16, Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 16** (Plot line 1, 1 February 2020)
+**Scene 16** (Plot line 1, 2020/02/01)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 3
 
-**Scene 17** (Plot line 4, 3 February 2020, 18:29)
+**Scene 17** (Plot line 4, 2020/02/03 18:29)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 18** (Plot line 7, 6 February 2020, Evening)
+**Scene 18** (Plot line 7, 2020/02/06 Evening)
 Characters: Character 3, Character 11, Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 19** (Plot line 2, 10 February 2020, Night)
+**Scene 19** (Plot line 2, 2020/02/10 Night)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 20** (Plot line 5, 10 February 2020)
+**Scene 20** (Plot line 5, 2020/02/10)
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 21** (Plot line 8, 12 February 2020, 08:57)
+**Scene 21** (Plot line 8, 2020/02/12 08:57)
 Characters: Character 6, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 22** (Plot line 3, 1 January 2020, Afternoon)
+**Scene 22** (Plot line 3, 2020/01/01 Afternoon)
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 23** (Plot line 6, 19 February 2020, Evening)
+**Scene 23** (Plot line 6, 2020/02/19 Evening)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 24** (Plot line 1, 20 February 2020)
+**Scene 24** (Plot line 1, 2020/02/20)
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 4
 
-**Scene 25** (Plot line 4, 20 February 2020, 11:25)
+**Scene 25** (Plot line 4, 2020/02/20 11:25)
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -120,53 +120,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 27** (Plot line 2, 27 February 2020, Afternoon)
+**Scene 27** (Plot line 2, 2020/02/27 Afternoon)
 Characters: Character 12, Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 28** (Plot line 5, 28 February 2020)
+**Scene 28** (Plot line 5, 2020/02/28)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 29** (Plot line 8, 1 March 2020, 13:53)
+**Scene 29** (Plot line 8, 2020/03/01 13:53)
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 30** (Plot line 3, 1 March 2020, Dawn)
+**Scene 30** (Plot line 3, 2020/03/01 Dawn)
 Characters: Character 15, Character 7, Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 31** (Plot line 6, 5 March 2020, Morning)
+**Scene 31** (Plot line 6, 2020/03/05 Morning)
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 32** (Plot line 1, 6 March 2020)
+**Scene 32** (Plot line 1, 2020/03/06)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 5
 
-**Scene 33** (Plot line 4, 1 January 2020, 16:21)
+**Scene 33** (Plot line 4, 2020/01/01 16:21)
 Characters: Character 2, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 34** (Plot line 7, 11 March 2020, Night)
+**Scene 34** (Plot line 7, 2020/03/11 Night)
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 35** (Plot line 2, 11 March 2020, Dawn)
+**Scene 35** (Plot line 2, 2020/03/11 Dawn)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 36** (Plot line 5, 12 March 2020)
+**Scene 36** (Plot line 5, 2020/03/12)
 Characters: Character 5, Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 37** (Plot line 8, 14 March 2020, 18:49)
+**Scene 37** (Plot line 8, 2020/03/14 18:49)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 38** (Plot line 3, 17 March 2020, Evening)
+**Scene 38** (Plot line 3, 2020/03/17 Evening)
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -174,55 +174,55 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 8, Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 40** (Plot line 1, 21 March 2020)
+**Scene 40** (Plot line 1, 2020/03/21)
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 6
 
-**Scene 41** (Plot line 4, 23 March 2020, 09:17)
+**Scene 41** (Plot line 4, 2020/03/23 09:17)
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 42** (Plot line 7, 26 March 2020, Afternoon)
+**Scene 42** (Plot line 7, 2020/03/26 Afternoon)
 Characters: Character 11, Character 3, Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 43** (Plot line 2, 30 March 2020, Evening)
+**Scene 43** (Plot line 2, 2020/03/30 Evening)
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 44** (Plot line 5, 1 January 2020)
+**Scene 44** (Plot line 5, 2020/01/01)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 45** (Plot line 8, 31 March 2020, 11:45)
+**Scene 45** (Plot line 8, 2020/03/31 11:45)
 Characters: Character 14, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 46** (Plot line 3, 3 April 2020, Morning)
+**Scene 46** (Plot line 3, 2020/04/03 Morning)
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 47** (Plot line 6, 7 April 2020, Afternoon)
+**Scene 47** (Plot line 6, 2020/04/07 Afternoon)
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 48** (Plot line 1, 8 April 2020)
+**Scene 48** (Plot line 1, 2020/04/08)
 Characters: Character 1, Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 7
 
-**Scene 49** (Plot line 4, 10 April 2020, 14:13)
+**Scene 49** (Plot line 4, 2020/04/10 14:13)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 50** (Plot line 7, 10 April 2020, Dawn)
+**Scene 50** (Plot line 7, 2020/04/10 Dawn)
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 51** (Plot line 2, 14 April 2020, Morning)
+**Scene 51** (Plot line 2, 2020/04/14 Morning)
 Characters: Character 4, Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -230,53 +230,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 53** (Plot line 8, 17 April 2020, 16:41)
+**Scene 53** (Plot line 8, 2020/04/17 16:41)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 54** (Plot line 3, 20 April 2020, Night)
+**Scene 54** (Plot line 3, 2020/04/20 Night)
 Characters: Character 7, Character 15, Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 55** (Plot line 6, 1 January 2020, Dawn)
+**Scene 55** (Plot line 6, 2020/01/01 Dawn)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 56** (Plot line 1, 21 April 2020)
+**Scene 56** (Plot line 1, 2020/04/21)
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 8
 
-**Scene 57** (Plot line 4, 23 April 2020, 19:09)
+**Scene 57** (Plot line 4, 2020/04/23 19:09)
 Characters: Character 10, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 58** (Plot line 7, 26 April 2020, Evening)
+**Scene 58** (Plot line 7, 2020/04/26 Evening)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 59** (Plot line 2, 30 April 2020, Night)
+**Scene 59** (Plot line 2, 2020/04/30 Night)
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 60** (Plot line 5, 30 April 2020)
+**Scene 60** (Plot line 5, 2020/04/30)
 Characters: Character 13, Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 61** (Plot line 8, 2 May 2020, 09:37)
+**Scene 61** (Plot line 8, 2020/05/02 09:37)
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 62** (Plot line 3, 5 May 2020, Afternoon)
+**Scene 62** (Plot line 3, 2020/05/05 Afternoon)
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 63** (Plot line 6, 9 May 2020, Evening)
+**Scene 63** (Plot line 6, 2020/05/09 Evening)
 Characters: Character 16, Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 64** (Plot line 1, 10 May 2020)
+**Scene 64** (Plot line 1, 2020/05/10)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -286,53 +286,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 66** (Plot line 7, 1 January 2020, Morning)
+**Scene 66** (Plot line 7, 2020/01/01 Morning)
 Characters: Character 3, Character 11, Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 67** (Plot line 2, 17 May 2020, Afternoon)
+**Scene 67** (Plot line 2, 2020/05/17 Afternoon)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 68** (Plot line 5, 18 May 2020)
+**Scene 68** (Plot line 5, 2020/05/18)
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 69** (Plot line 8, 20 May 2020, 14:33)
+**Scene 69** (Plot line 8, 2020/05/20 14:33)
 Characters: Character 6, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 70** (Plot line 3, 20 May 2020, Dawn)
+**Scene 70** (Plot line 3, 2020/05/20 Dawn)
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 71** (Plot line 6, 24 May 2020, Morning)
+**Scene 71** (Plot line 6, 2020/05/24 Morning)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 72** (Plot line 1, 25 May 2020)
+**Scene 72** (Plot line 1, 2020/05/25)
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 10
 
-**Scene 73** (Plot line 4, 27 May 2020, 17:01)
+**Scene 73** (Plot line 4, 2020/05/27 17:01)
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 74** (Plot line 7, 30 May 2020, Night)
+**Scene 74** (Plot line 7, 2020/05/30 Night)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 75** (Plot line 2, 30 May 2020, Dawn)
+**Scene 75** (Plot line 2, 2020/05/30 Dawn)
 Characters: Character 12, Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 76** (Plot line 5, 31 May 2020)
+**Scene 76** (Plot line 5, 2020/05/31)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 77** (Plot line 8, 1 January 2020, 19:29)
+**Scene 77** (Plot line 8, 2020/01/01 19:29)
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -340,55 +340,55 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 15, Character 7, Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 79** (Plot line 6, 9 June 2020, Night)
+**Scene 79** (Plot line 6, 2020/06/09 Night)
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 80** (Plot line 1, 9 June 2020)
+**Scene 80** (Plot line 1, 2020/06/09)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 11
 
-**Scene 81** (Plot line 4, 11 June 2020, 09:57)
+**Scene 81** (Plot line 4, 2020/06/11 09:57)
 Characters: Character 2, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 82** (Plot line 7, 14 June 2020, Afternoon)
+**Scene 82** (Plot line 7, 2020/06/14 Afternoon)
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 83** (Plot line 2, 18 June 2020, Evening)
+**Scene 83** (Plot line 2, 2020/06/18 Evening)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 84** (Plot line 5, 19 June 2020)
+**Scene 84** (Plot line 5, 2020/06/19)
 Characters: Character 5, Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 85** (Plot line 8, 19 June 2020, 12:25)
+**Scene 85** (Plot line 8, 2020/06/19 12:25)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 86** (Plot line 3, 22 June 2020, Morning)
+**Scene 86** (Plot line 3, 2020/06/22 Morning)
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 87** (Plot line 6, 26 June 2020, Afternoon)
+**Scene 87** (Plot line 6, 2020/06/26 Afternoon)
 Characters: Character 8, Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 88** (Plot line 1, 1 January 2020)
+**Scene 88** (Plot line 1, 2020/01/01)
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 12
 
-**Scene 89** (Plot line 4, 29 June 2020, 14:53)
+**Scene 89** (Plot line 4, 2020/06/29 14:53)
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 90** (Plot line 7, 29 June 2020, Dawn)
+**Scene 90** (Plot line 7, 2020/06/29 Dawn)
 Characters: Character 11, Character 3, Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -396,53 +396,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 92** (Plot line 5, 4 July 2020)
+**Scene 92** (Plot line 5, 2020/07/04)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 93** (Plot line 8, 6 July 2020, 17:21)
+**Scene 93** (Plot line 8, 2020/07/06 17:21)
 Characters: Character 14, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 94** (Plot line 3, 9 July 2020, Night)
+**Scene 94** (Plot line 3, 2020/07/09 Night)
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 95** (Plot line 6, 9 July 2020, Dawn)
+**Scene 95** (Plot line 6, 2020/07/09 Dawn)
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 96** (Plot line 1, 10 July 2020)
+**Scene 96** (Plot line 1, 2020/07/10)
 Characters: Character 1, Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 13
 
-**Scene 97** (Plot line 4, 12 July 2020, 19:49)
+**Scene 97** (Plot line 4, 2020/07/12 19:49)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 98** (Plot line 7, 15 July 2020, Evening)
+**Scene 98** (Plot line 7, 2020/07/15 Evening)
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 99** (Plot line 2, 1 January 2020, Night)
+**Scene 99** (Plot line 2, 2020/01/01 Night)
 Characters: Character 4, Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 100** (Plot line 5, 19 July 2020)
+**Scene 100** (Plot line 5, 2020/07/19)
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 101** (Plot line 8, 21 July 2020, 10:17)
+**Scene 101** (Plot line 8, 2020/07/21 10:17)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 102** (Plot line 3, 24 July 2020, Afternoon)
+**Scene 102** (Plot line 3, 2020/07/24 Afternoon)
 Characters: Character 7, Character 15, Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 103** (Plot line 6, 28 July 2020, Evening)
+**Scene 103** (Plot line 6, 2020/07/28 Evening)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -452,53 +452,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 
 ## Chapter 14
 
-**Scene 105** (Plot line 4, 29 July 2020, 12:45)
+**Scene 105** (Plot line 4, 2020/07/29 12:45)
 Characters: Character 10, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 106** (Plot line 7, 1 August 2020, Morning)
+**Scene 106** (Plot line 7, 2020/08/01 Morning)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 107** (Plot line 2, 5 August 2020, Afternoon)
+**Scene 107** (Plot line 2, 2020/08/05 Afternoon)
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 108** (Plot line 5, 6 August 2020)
+**Scene 108** (Plot line 5, 2020/08/06)
 Characters: Character 13, Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 109** (Plot line 8, 8 August 2020, 15:13)
+**Scene 109** (Plot line 8, 2020/08/08 15:13)
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 110** (Plot line 3, 1 January 2020, Dawn)
+**Scene 110** (Plot line 3, 2020/01/01 Dawn)
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 111** (Plot line 6, 12 August 2020, Morning)
+**Scene 111** (Plot line 6, 2020/08/12 Morning)
 Characters: Character 16, Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 112** (Plot line 1, 13 August 2020)
+**Scene 112** (Plot line 1, 2020/08/13)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 15
 
-**Scene 113** (Plot line 4, 15 August 2020, 17:41)
+**Scene 113** (Plot line 4, 2020/08/15 17:41)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 114** (Plot line 7, 18 August 2020, Night)
+**Scene 114** (Plot line 7, 2020/08/18 Night)
 Characters: Character 3, Character 11, Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 115** (Plot line 2, 18 August 2020, Dawn)
+**Scene 115** (Plot line 2, 2020/08/18 Dawn)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 116** (Plot line 5, 19 August 2020)
+**Scene 116** (Plot line 5, 2020/08/19)
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -506,55 +506,55 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 6, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 118** (Plot line 3, 24 August 2020, Evening)
+**Scene 118** (Plot line 3, 2020/08/24 Evening)
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 119** (Plot line 6, 28 August 2020, Night)
+**Scene 119** (Plot line 6, 2020/08/28 Night)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 120** (Plot line 1, 28 August 2020)
+**Scene 120** (Plot line 1, 2020/08/28)
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 16
 
-**Scene 121** (Plot line 4, 1 January 2020, 10:37)
+**Scene 121** (Plot line 4, 2020/01/01 10:37)
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 122** (Plot line 7, 2 September 2020, Afternoon)
+**Scene 122** (Plot line 7, 2020/09/02 Afternoon)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 123** (Plot line 2, 6 September 2020, Evening)
+**Scene 123** (Plot line 2, 2020/09/06 Evening)
 Characters: Character 12, Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 124** (Plot line 5, 7 September 2020)
+**Scene 124** (Plot line 5, 2020/09/07)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 125** (Plot line 8, 7 September 2020, 13:05)
+**Scene 125** (Plot line 8, 2020/09/07 13:05)
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 126** (Plot line 3, 10 September 2020, Morning)
+**Scene 126** (Plot line 3, 2020/09/10 Morning)
 Characters: Character 15, Character 7, Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 127** (Plot line 6, 14 September 2020, Afternoon)
+**Scene 127** (Plot line 6, 2020/09/14 Afternoon)
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 128** (Plot line 1, 15 September 2020)
+**Scene 128** (Plot line 1, 2020/09/15)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 17
 
-**Scene 129** (Plot line 4, 17 September 2020, 15:33)
+**Scene 129** (Plot line 4, 2020/09/17 15:33)
 Characters: Character 2, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -562,53 +562,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 131** (Plot line 2, 21 September 2020, Morning)
+**Scene 131** (Plot line 2, 2020/09/21 Morning)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 132** (Plot line 5, 1 January 2020)
+**Scene 132** (Plot line 5, 2020/01/01)
 Characters: Character 5, Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 133** (Plot line 8, 24 September 2020, 18:01)
+**Scene 133** (Plot line 8, 2020/09/24 18:01)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 134** (Plot line 3, 27 September 2020, Night)
+**Scene 134** (Plot line 3, 2020/09/27 Night)
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 135** (Plot line 6, 27 September 2020, Dawn)
+**Scene 135** (Plot line 6, 2020/09/27 Dawn)
 Characters: Character 8, Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 136** (Plot line 1, 28 September 2020)
+**Scene 136** (Plot line 1, 2020/09/28)
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 18
 
-**Scene 137** (Plot line 4, 30 September 2020, 08:29)
+**Scene 137** (Plot line 4, 2020/09/30 08:29)
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 138** (Plot line 7, 3 October 2020, Evening)
+**Scene 138** (Plot line 7, 2020/10/03 Evening)
 Characters: Character 11, Character 3, Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 139** (Plot line 2, 7 October 2020, Night)
+**Scene 139** (Plot line 2, 2020/10/07 Night)
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 140** (Plot line 5, 7 October 2020)
+**Scene 140** (Plot line 5, 2020/10/07)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 141** (Plot line 8, 9 October 2020, 10:57)
+**Scene 141** (Plot line 8, 2020/10/09 10:57)
 Characters: Character 14, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 142** (Plot line 3, 12 October 2020, Afternoon)
+**Scene 142** (Plot line 3, 2020/10/12 Afternoon)
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -616,55 +616,55 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 144** (Plot line 1, 17 October 2020)
+**Scene 144** (Plot line 1, 2020/10/17)
 Characters: Character 1, Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 19
 
-**Scene 145** (Plot line 4, 17 October 2020, 13:25)
+**Scene 145** (Plot line 4, 2020/10/17 13:25)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 146** (Plot line 7, 20 October 2020, Morning)
+**Scene 146** (Plot line 7, 2020/10/20 Morning)
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 147** (Plot line 2, 24 October 2020, Afternoon)
+**Scene 147** (Plot line 2, 2020/10/24 Afternoon)
 Characters: Character 4, Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 148** (Plot line 5, 25 October 2020)
+**Scene 148** (Plot line 5, 2020/10/25)
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 149** (Plot line 8, 27 October 2020, 15:53)
+**Scene 149** (Plot line 8, 2020/10/27 15:53)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 150** (Plot line 3, 27 October 2020, Dawn)
+**Scene 150** (Plot line 3, 2020/10/27 Dawn)
 Characters: Character 7, Character 15, Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 151** (Plot line 6, 31 October 2020, Morning)
+**Scene 151** (Plot line 6, 2020/10/31 Morning)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 152** (Plot line 1, 1 November 2020)
+**Scene 152** (Plot line 1, 2020/11/01)
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 20
 
-**Scene 153** (Plot line 4, 3 November 2020, 18:21)
+**Scene 153** (Plot line 4, 2020/11/03 18:21)
 Characters: Character 10, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 154** (Plot line 7, 1 January 2020, Night)
+**Scene 154** (Plot line 7, 2020/01/01 Night)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 155** (Plot line 2, 6 November 2020, Dawn)
+**Scene 155** (Plot line 2, 2020/11/06 Dawn)
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -672,53 +672,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 13, Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 157** (Plot line 8, 9 November 2020, 08:49)
+**Scene 157** (Plot line 8, 2020/11/09 08:49)
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 158** (Plot line 3, 12 November 2020, Evening)
+**Scene 158** (Plot line 3, 2020/11/12 Evening)
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 159** (Plot line 6, 16 November 2020, Night)
+**Scene 159** (Plot line 6, 2020/11/16 Night)
 Characters: Character 16, Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 160** (Plot line 1, 16 November 2020)
+**Scene 160** (Plot line 1, 2020/11/16)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 21
 
-**Scene 161** (Plot line 4, 18 November 2020, 11:17)
+**Scene 161** (Plot line 4, 2020/11/18 11:17)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 162** (Plot line 7, 21 November 2020, Afternoon)
+**Scene 162** (Plot line 7, 2020/11/21 Afternoon)
 Characters: Character 3, Character 11, Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 163** (Plot line 2, 25 November 2020, Evening)
+**Scene 163** (Plot line 2, 2020/11/25 Evening)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 164** (Plot line 5, 26 November 2020)
+**Scene 164** (Plot line 5, 2020/11/26)
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 165** (Plot line 8, 1 January 2020, 13:45)
+**Scene 165** (Plot line 8, 2020/01/01 13:45)
 Characters: Character 6, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 166** (Plot line 3, 29 November 2020, Morning)
+**Scene 166** (Plot line 3, 2020/11/29 Morning)
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 167** (Plot line 6, 3 December 2020, Afternoon)
+**Scene 167** (Plot line 6, 2020/12/03 Afternoon)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 168** (Plot line 1, 4 December 2020)
+**Scene 168** (Plot line 1, 2020/12/04)
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -728,53 +728,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 170** (Plot line 7, 6 December 2020, Dawn)
+**Scene 170** (Plot line 7, 2020/12/06 Dawn)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 171** (Plot line 2, 10 December 2020, Morning)
+**Scene 171** (Plot line 2, 2020/12/10 Morning)
 Characters: Character 12, Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 172** (Plot line 5, 11 December 2020)
+**Scene 172** (Plot line 5, 2020/12/11)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 173** (Plot line 8, 13 December 2020, 18:41)
+**Scene 173** (Plot line 8, 2020/12/13 18:41)
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 174** (Plot line 3, 16 December 2020, Night)
+**Scene 174** (Plot line 3, 2020/12/16 Night)
 Characters: Character 15, Character 7, Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 175** (Plot line 6, 16 December 2020, Dawn)
+**Scene 175** (Plot line 6, 2020/12/16 Dawn)
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 176** (Plot line 1, 1 January 2020)
+**Scene 176** (Plot line 1, 2020/01/01)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 23
 
-**Scene 177** (Plot line 4, 19 December 2020, 09:09)
+**Scene 177** (Plot line 4, 2020/12/19 09:09)
 Characters: Character 2, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 178** (Plot line 7, 22 December 2020, Evening)
+**Scene 178** (Plot line 7, 2020/12/22 Evening)
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 179** (Plot line 2, 26 December 2020, Night)
+**Scene 179** (Plot line 2, 2020/12/26 Night)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 180** (Plot line 5, 26 December 2020)
+**Scene 180** (Plot line 5, 2020/12/26)
 Characters: Character 5, Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 181** (Plot line 8, 28 December 2020, 11:37)
+**Scene 181** (Plot line 8, 2020/12/28 11:37)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -782,55 +782,55 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 183** (Plot line 6, 4 January 2021, Evening)
+**Scene 183** (Plot line 6, 2021/01/04 Evening)
 Characters: Character 8, Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 184** (Plot line 1, 5 January 2021)
+**Scene 184** (Plot line 1, 2021/01/05)
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 24
 
-**Scene 185** (Plot line 4, 5 January 2021, 14:05)
+**Scene 185** (Plot line 4, 2021/01/05 14:05)
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 186** (Plot line 7, 8 January 2021, Morning)
+**Scene 186** (Plot line 7, 2021/01/08 Morning)
 Characters: Character 11, Character 3, Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 187** (Plot line 2, 13 January 2020, Afternoon)
+**Scene 187** (Plot line 2, 2020/01/13 Afternoon)
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 188** (Plot line 5, 13 January 2021)
+**Scene 188** (Plot line 5, 2021/01/13)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 189** (Plot line 8, 15 January 2021, 16:33)
+**Scene 189** (Plot line 8, 2021/01/15 16:33)
 Characters: Character 14, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 190** (Plot line 3, 15 January 2021, Dawn)
+**Scene 190** (Plot line 3, 2021/01/15 Dawn)
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 191** (Plot line 6, 19 January 2021, Morning)
+**Scene 191** (Plot line 6, 2021/01/19 Morning)
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 192** (Plot line 1, 20 January 2021)
+**Scene 192** (Plot line 1, 2021/01/20)
 Characters: Character 1, Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 25
 
-**Scene 193** (Plot line 4, 22 January 2021, 19:01)
+**Scene 193** (Plot line 4, 2021/01/22 19:01)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 194** (Plot line 7, 25 January 2021, Night)
+**Scene 194** (Plot line 7, 2021/01/25 Night)
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -838,53 +838,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 4, Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 196** (Plot line 5, 26 January 2021)
+**Scene 196** (Plot line 5, 2021/01/26)
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 197** (Plot line 8, 28 January 2021, 09:29)
+**Scene 197** (Plot line 8, 2021/01/28 09:29)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 198** (Plot line 3, 1 February 2020, Evening)
+**Scene 198** (Plot line 3, 2020/02/01 Evening)
 Characters: Character 7, Character 15, Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 199** (Plot line 6, 4 February 2021, Night)
+**Scene 199** (Plot line 6, 2021/02/04 Night)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 200** (Plot line 1, 4 February 2021)
+**Scene 200** (Plot line 1, 2021/02/04)
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 26
 
-**Scene 201** (Plot line 4, 6 February 2021, 11:57)
+**Scene 201** (Plot line 4, 2021/02/06 11:57)
 Characters: Character 10, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 202** (Plot line 7, 9 February 2021, Afternoon)
+**Scene 202** (Plot line 7, 2021/02/09 Afternoon)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 203** (Plot line 2, 13 February 2021, Evening)
+**Scene 203** (Plot line 2, 2021/02/13 Evening)
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 204** (Plot line 5, 14 February 2021)
+**Scene 204** (Plot line 5, 2021/02/14)
 Characters: Character 13, Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 205** (Plot line 8, 14 February 2021, 14:25)
+**Scene 205** (Plot line 8, 2021/02/14 14:25)
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 206** (Plot line 3, 17 February 2021, Morning)
+**Scene 206** (Plot line 3, 2021/02/17 Morning)
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 207** (Plot line 6, 21 February 2021, Afternoon)
+**Scene 207** (Plot line 6, 2021/02/21 Afternoon)
 Characters: Character 16, Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -894,53 +894,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 
 ## Chapter 27
 
-**Scene 209** (Plot line 4, 25 February 2020, 16:53)
+**Scene 209** (Plot line 4, 2020/02/25 16:53)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 210** (Plot line 7, 24 February 2021, Dawn)
+**Scene 210** (Plot line 7, 2021/02/24 Dawn)
 Characters: Character 3, Character 11, Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 211** (Plot line 2, 28 February 2021, Morning)
+**Scene 211** (Plot line 2, 2021/02/28 Morning)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 212** (Plot line 5, 1 March 2021)
+**Scene 212** (Plot line 5, 2021/03/01)
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 213** (Plot line 8, 3 March 2021, 19:21)
+**Scene 213** (Plot line 8, 2021/03/03 19:21)
 Characters: Character 6, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 214** (Plot line 3, 6 March 2021, Night)
+**Scene 214** (Plot line 3, 2021/03/06 Night)
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 215** (Plot line 6, 6 March 2021, Dawn)
+**Scene 215** (Plot line 6, 2021/03/06 Dawn)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 216** (Plot line 1, 7 March 2021)
+**Scene 216** (Plot line 1, 2021/03/07)
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 28
 
-**Scene 217** (Plot line 4, 9 March 2021, 09:49)
+**Scene 217** (Plot line 4, 2021/03/09 09:49)
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 218** (Plot line 7, 12 March 2021, Evening)
+**Scene 218** (Plot line 7, 2021/03/12 Evening)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 219** (Plot line 2, 16 March 2021, Night)
+**Scene 219** (Plot line 2, 2021/03/16 Night)
 Characters: Character 12, Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 220** (Plot line 5, 16 March 2020)
+**Scene 220** (Plot line 5, 2020/03/16)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -948,55 +948,55 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 222** (Plot line 3, 21 March 2021, Afternoon)
+**Scene 222** (Plot line 3, 2021/03/21 Afternoon)
 Characters: Character 15, Character 7, Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 223** (Plot line 6, 25 March 2021, Evening)
+**Scene 223** (Plot line 6, 2021/03/25 Evening)
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 224** (Plot line 1, 26 March 2021)
+**Scene 224** (Plot line 1, 2021/03/26)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 29
 
-**Scene 225** (Plot line 4, 26 March 2021, 14:45)
+**Scene 225** (Plot line 4, 2021/03/26 14:45)
 Characters: Character 2, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 226** (Plot line 7, 29 March 2021, Morning)
+**Scene 226** (Plot line 7, 2021/03/29 Morning)
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 227** (Plot line 2, 2 April 2021, Afternoon)
+**Scene 227** (Plot line 2, 2021/04/02 Afternoon)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 228** (Plot line 5, 3 April 2021)
+**Scene 228** (Plot line 5, 2021/04/03)
 Characters: Character 5, Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 229** (Plot line 8, 5 April 2021, 17:13)
+**Scene 229** (Plot line 8, 2021/04/05 17:13)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 230** (Plot line 3, 5 April 2021, Dawn)
+**Scene 230** (Plot line 3, 2021/04/05 Dawn)
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 231** (Plot line 6, 9 April 2020, Morning)
+**Scene 231** (Plot line 6, 2020/04/09 Morning)
 Characters: Character 8, Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 232** (Plot line 1, 10 April 2021)
+**Scene 232** (Plot line 1, 2021/04/10)
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 30
 
-**Scene 233** (Plot line 4, 12 April 2021, 19:41)
+**Scene 233** (Plot line 4, 2021/04/12 19:41)
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -1004,53 +1004,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 11, Character 3, Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 235** (Plot line 2, 15 April 2021, Dawn)
+**Scene 235** (Plot line 2, 2021/04/15 Dawn)
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 236** (Plot line 5, 16 April 2021)
+**Scene 236** (Plot line 5, 2021/04/16)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 237** (Plot line 8, 18 April 2021, 10:09)
+**Scene 237** (Plot line 8, 2021/04/18 10:09)
 Characters: Character 14, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 238** (Plot line 3, 21 April 2021, Evening)
+**Scene 238** (Plot line 3, 2021/04/21 Evening)
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 239** (Plot line 6, 25 April 2021, Night)
+**Scene 239** (Plot line 6, 2021/04/25 Night)
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 240** (Plot line 1, 25 April 2021)
+**Scene 240** (Plot line 1, 2021/04/25)
 Characters: Character 1, Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 31
 
-**Scene 241** (Plot line 4, 27 April 2021, 12:37)
+**Scene 241** (Plot line 4, 2021/04/27 12:37)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 242** (Plot line 7, 30 April 2020, Afternoon)
+**Scene 242** (Plot line 7, 2020/04/30 Afternoon)
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 243** (Plot line 2, 4 May 2021, Evening)
+**Scene 243** (Plot line 2, 2021/05/04 Evening)
 Characters: Character 4, Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 244** (Plot line 5, 5 May 2021)
+**Scene 244** (Plot line 5, 2021/05/05)
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 245** (Plot line 8, 5 May 2021, 15:05)
+**Scene 245** (Plot line 8, 2021/05/05 15:05)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 246** (Plot line 3, 8 May 2021, Morning)
+**Scene 246** (Plot line 3, 2021/05/08 Morning)
 Characters: Character 7, Character 15, Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -1058,55 +1058,55 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 248** (Plot line 1, 13 May 2021)
+**Scene 248** (Plot line 1, 2021/05/13)
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 32
 
-**Scene 249** (Plot line 4, 15 May 2021, 17:33)
+**Scene 249** (Plot line 4, 2021/05/15 17:33)
 Characters: Character 10, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 250** (Plot line 7, 15 May 2021, Dawn)
+**Scene 250** (Plot line 7, 2021/05/15 Dawn)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 251** (Plot line 2, 19 May 2021, Morning)
+**Scene 251** (Plot line 2, 2021/05/19 Morning)
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 252** (Plot line 5, 20 May 2021)
+**Scene 252** (Plot line 5, 2021/05/20)
 Characters: Character 13, Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 253** (Plot line 8, 22 May 2020, 08:01)
+**Scene 253** (Plot line 8, 2020/05/22 08:01)
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 254** (Plot line 3, 25 May 2021, Night)
+**Scene 254** (Plot line 3, 2021/05/25 Night)
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 255** (Plot line 6, 25 May 2021, Dawn)
+**Scene 255** (Plot line 6, 2021/05/25 Dawn)
 Characters: Character 16, Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 256** (Plot line 1, 26 May 2021)
+**Scene 256** (Plot line 1, 2021/05/26)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 33
 
-**Scene 257** (Plot line 4, 28 May 2021, 10:29)
+**Scene 257** (Plot line 4, 2021/05/28 10:29)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 258** (Plot line 7, 31 May 2021, Evening)
+**Scene 258** (Plot line 7, 2021/05/31 Evening)
 Characters: Character 3, Character 11, Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 259** (Plot line 2, 4 June 2021, Night)
+**Scene 259** (Plot line 2, 2021/06/04 Night)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -1114,53 +1114,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 261** (Plot line 8, 6 June 2021, 12:57)
+**Scene 261** (Plot line 8, 2021/06/06 12:57)
 Characters: Character 6, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 262** (Plot line 3, 9 June 2021, Afternoon)
+**Scene 262** (Plot line 3, 2021/06/09 Afternoon)
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 263** (Plot line 6, 13 June 2021, Evening)
+**Scene 263** (Plot line 6, 2021/06/13 Evening)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 264** (Plot line 1, 14 June 2020)
+**Scene 264** (Plot line 1, 2020/06/14)
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 34
 
-**Scene 265** (Plot line 4, 14 June 2021, 15:25)
+**Scene 265** (Plot line 4, 2021/06/14 15:25)
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 266** (Plot line 7, 17 June 2021, Morning)
+**Scene 266** (Plot line 7, 2021/06/17 Morning)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 267** (Plot line 2, 21 June 2021, Afternoon)
+**Scene 267** (Plot line 2, 2021/06/21 Afternoon)
 Characters: Character 12, Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 268** (Plot line 5, 22 June 2021)
+**Scene 268** (Plot line 5, 2021/06/22)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 269** (Plot line 8, 24 June 2021, 17:53)
+**Scene 269** (Plot line 8, 2021/06/24 17:53)
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 270** (Plot line 3, 24 June 2021, Dawn)
+**Scene 270** (Plot line 3, 2021/06/24 Dawn)
 Characters: Character 15, Character 7, Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 271** (Plot line 6, 28 June 2021, Morning)
+**Scene 271** (Plot line 6, 2021/06/28 Morning)
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 272** (Plot line 1, 29 June 2021)
+**Scene 272** (Plot line 1, 2021/06/29)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -1170,53 +1170,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 2, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 274** (Plot line 7, 4 July 2021, Night)
+**Scene 274** (Plot line 7, 2021/07/04 Night)
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 275** (Plot line 2, 4 July 2020, Dawn)
+**Scene 275** (Plot line 2, 2020/07/04 Dawn)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 276** (Plot line 5, 5 July 2021)
+**Scene 276** (Plot line 5, 2021/07/05)
 Characters: Character 5, Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 277** (Plot line 8, 7 July 2021, 10:49)
+**Scene 277** (Plot line 8, 2021/07/07 10:49)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 278** (Plot line 3, 10 July 2021, Evening)
+**Scene 278** (Plot line 3, 2021/07/10 Evening)
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 279** (Plot line 6, 14 July 2021, Night)
+**Scene 279** (Plot line 6, 2021/07/14 Night)
 Characters: Character 8, Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 280** (Plot line 1, 14 July 2021)
+**Scene 280** (Plot line 1, 2021/07/14)
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 36
 
-**Scene 281** (Plot line 4, 16 July 2021, 13:17)
+**Scene 281** (Plot line 4, 2021/07/16 13:17)
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 282** (Plot line 7, 19 July 2021, Afternoon)
+**Scene 282** (Plot line 7, 2021/07/19 Afternoon)
 Characters: Character 11, Character 3, Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 283** (Plot line 2, 23 July 2021, Evening)
+**Scene 283** (Plot line 2, 2021/07/23 Evening)
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 284** (Plot line 5, 24 July 2021)
+**Scene 284** (Plot line 5, 2021/07/24)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 285** (Plot line 8, 24 July 2021, 15:45)
+**Scene 285** (Plot line 8, 2021/07/24 15:45)
 Characters: Character 14, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -1224,55 +1224,55 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 287** (Plot line 6, 31 July 2021, Afternoon)
+**Scene 287** (Plot line 6, 2021/07/31 Afternoon)
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 288** (Plot line 1, 1 August 2021)
+**Scene 288** (Plot line 1, 2021/08/01)
 Characters: Character 1, Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 37
 
-**Scene 289** (Plot line 4, 3 August 2021, 18:13)
+**Scene 289** (Plot line 4, 2021/08/03 18:13)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 290** (Plot line 7, 3 August 2021, Dawn)
+**Scene 290** (Plot line 7, 2021/08/03 Dawn)
 Characters: Character 3, Character 11
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 291** (Plot line 2, 7 August 2021, Morning)
+**Scene 291** (Plot line 2, 2021/08/07 Morning)
 Characters: Character 4, Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 292** (Plot line 5, 8 August 2021)
+**Scene 292** (Plot line 5, 2021/08/08)
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 293** (Plot line 8, 10 August 2021, 08:41)
+**Scene 293** (Plot line 8, 2021/08/10 08:41)
 Characters: Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 294** (Plot line 3, 13 August 2021, Night)
+**Scene 294** (Plot line 3, 2021/08/13 Night)
 Characters: Character 7, Character 15, Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 295** (Plot line 6, 13 August 2021, Dawn)
+**Scene 295** (Plot line 6, 2021/08/13 Dawn)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 296** (Plot line 1, 14 August 2021)
+**Scene 296** (Plot line 1, 2021/08/14)
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 38
 
-**Scene 297** (Plot line 4, 16 August 2020, 11:09)
+**Scene 297** (Plot line 4, 2020/08/16 11:09)
 Characters: Character 10, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 298** (Plot line 7, 19 August 2021, Evening)
+**Scene 298** (Plot line 7, 2021/08/19 Evening)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -1280,53 +1280,53 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 300** (Plot line 5, 23 August 2021)
+**Scene 300** (Plot line 5, 2021/08/23)
 Characters: Character 13, Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 301** (Plot line 8, 25 August 2021, 13:37)
+**Scene 301** (Plot line 8, 2021/08/25 13:37)
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 302** (Plot line 3, 28 August 2021, Afternoon)
+**Scene 302** (Plot line 3, 2021/08/28 Afternoon)
 Characters: Character 15, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 303** (Plot line 6, 1 September 2021, Evening)
+**Scene 303** (Plot line 6, 2021/09/01 Evening)
 Characters: Character 16, Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 304** (Plot line 1, 2 September 2021)
+**Scene 304** (Plot line 1, 2021/09/02)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
 ## Chapter 39
 
-**Scene 305** (Plot line 4, 2 September 2021, 16:05)
+**Scene 305** (Plot line 4, 2021/09/02 16:05)
 Characters: Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 306** (Plot line 7, 5 September 2021, Morning)
+**Scene 306** (Plot line 7, 2021/09/05 Morning)
 Characters: Character 3, Character 11, Character 2
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 307** (Plot line 2, 9 September 2021, Afternoon)
+**Scene 307** (Plot line 2, 2021/09/09 Afternoon)
 Characters: Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 308** (Plot line 5, 10 September 2020)
+**Scene 308** (Plot line 5, 2020/09/10)
 Characters: Character 5
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 309** (Plot line 8, 12 September 2021, 18:33)
+**Scene 309** (Plot line 8, 2021/09/12 18:33)
 Characters: Character 6, Character 7
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 310** (Plot line 3, 12 September 2021, Dawn)
+**Scene 310** (Plot line 3, 2021/09/12 Dawn)
 Characters: Character 7, Character 15
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 311** (Plot line 6, 16 September 2021, Morning)
+**Scene 311** (Plot line 6, 2021/09/16 Morning)
 Characters: Character 8
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
@@ -1336,35 +1336,35 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 
 ## Chapter 40
 
-**Scene 313** (Plot line 4, 19 September 2021, 09:01)
+**Scene 313** (Plot line 4, 2021/09/19 09:01)
 Characters: Character 10
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 314** (Plot line 7, 22 September 2021, Night)
+**Scene 314** (Plot line 7, 2021/09/22 Night)
 Characters: Character 11, Character 3
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 315** (Plot line 2, 22 September 2021, Dawn)
+**Scene 315** (Plot line 2, 2021/09/22 Dawn)
 Characters: Character 12, Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 316** (Plot line 5, 23 September 2021)
+**Scene 316** (Plot line 5, 2021/09/23)
 Characters: Character 13
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 317** (Plot line 8, 25 September 2021, 11:29)
+**Scene 317** (Plot line 8, 2021/09/25 11:29)
 Characters: Character 14
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 318** (Plot line 3, 28 September 2021, Evening)
+**Scene 318** (Plot line 3, 2021/09/28 Evening)
 Characters: Character 15, Character 7, Character 6
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 319** (Plot line 6, 2 October 2020, Night)
+**Scene 319** (Plot line 6, 2020/10/02 Night)
 Characters: Character 16
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-**Scene 320** (Plot line 1, 2 October 2021)
+**Scene 320** (Plot line 1, 2021/10/02)
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 

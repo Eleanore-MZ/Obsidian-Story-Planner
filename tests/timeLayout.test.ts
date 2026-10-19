@@ -50,7 +50,7 @@ describe("story-time layout", () => {
     add(s, "early", d(1528, 3, 1), { chapter: "c2" });
     add(s, "same-day", d(1531, 12, 4), { chapter: "c2", plotLine: "p2" });
     add(s, "next-day", d(1531, 12, 5));
-    expect(rowsOf(s, "day")).toEqual(["[1 March 1528] early", "(3 years later)", "[4 December 1531] late same-day", "[5 December 1531] next-day"]);
+    expect(rowsOf(s, "day")).toEqual(["[1528/03/01] early", "(3 years later)", "[1531/12/04] late same-day", "[1531/12/05] next-day"]);
   });
 
   it("groups by the zoom, and stacks cards that share a span in the same plot line", () => {
@@ -58,7 +58,7 @@ describe("story-time layout", () => {
     add(s, "a", d(1531, 12, 4));
     add(s, "b", d(1531, 12, 20));
     add(s, "c", d(1532, 2, 1));
-    expect(rowsOf(s, "month")).toEqual(["[December 1531] a", "b", "(2 months later)", "[February 1532] c"]);
+    expect(rowsOf(s, "month")).toEqual(["[1531/12] a", "b", "(2 months later)", "[1532/02] c"]);
     expect(rowsOf(s, "year")).toEqual(["[1531] a", "b", "[1532] c"]);
   });
 
@@ -66,7 +66,7 @@ describe("story-time layout", () => {
     const s = story();
     add(s, "dated", d(1531, 1, 2));
     add(s, "only-year", d(1531));
-    expect(rowsOf(s, "day")).toEqual(["[1531] only-year", "[2 January 1531] dated"]);
+    expect(rowsOf(s, "day")).toEqual(["[1531] only-year", "[1531/01/02] dated"]);
   });
 
   it("shows echoes in their other plot lines", () => {
@@ -108,7 +108,7 @@ describe("story-time layout", () => {
     // 01:00 on 2 January in the east is 22:00 on 1 January at home.
     add(s, "east", d(1531, 1, 2, { minutes: 60, zone: "z2" }));
     add(s, "home", d(1531, 1, 1, { minutes: 23 * 60 }), { plotLine: "p2" });
-    expect(rowsOf(s, "day")).toEqual(["[1 January 1531] east home"]);
+    expect(rowsOf(s, "day")).toEqual(["[1531/01/01] east home"]);
   });
 
   it("describes gaps in words", () => {

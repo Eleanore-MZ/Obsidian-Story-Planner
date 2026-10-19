@@ -100,9 +100,9 @@ describe("character track", () => {
     add(s, "undated", { characters: who(["ann", "present"]) });
     expect(track(s, ["ann", "bo"], "time")).toEqual([
       "# ann bo",
-      "[1 March 1528] . a",
+      "[1528/03/01] . a",
       "(3 years later)",
-      "[4 December 1531] b b",
+      "[1531/12/04] b b",
       "c .",
     ]);
   });

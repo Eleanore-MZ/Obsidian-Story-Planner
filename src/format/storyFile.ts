@@ -258,6 +258,8 @@ function readSetup(raw: unknown): StorySetup | string {
     calendars: arrayOf(raw.calendars),
     zones: arrayOf(raw.zones),
     referenceZone: typeof raw.referenceZone === "string" ? raw.referenceZone : undefined,
+    ...(typeof raw.dateFormat === "string" && raw.dateFormat.trim() ? { dateFormat: raw.dateFormat } : {}),
+    ...(typeof raw.timeFormat === "string" && raw.timeFormat.trim() ? { timeFormat: raw.timeFormat } : {}),
   };
 }
 

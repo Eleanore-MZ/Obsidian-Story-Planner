@@ -1,6 +1,9 @@
 import type { Zoom } from "./view/timeLayout";
 import type { TrackAxis } from "./view/trackLayout";
 import { App, PluginSettingTab, Setting } from "obsidian";
+import { formatStoryDate } from "./model/calendar";
+import { DATE_TOKENS, DEFAULT_DATE_FORMAT, DEFAULT_TIME_FORMAT, setDefaultFormats, TIME_TOKENS } from "./model/dateFormat";
+import { createEmptyStory } from "./model/defaults";
 import type StoryPlannerPlugin from "./main";
 import { Orientation } from "./view/layout";
 
@@ -53,6 +56,9 @@ export function orderedTabs(order: StoryTab[] | undefined): StoryTab[] {
 export type EchoModifier = "alt" | "ctrl" | "shift" | "off";
 
 export interface StoryPlannerSettings {
+  /** How story dates and times are shown, unless a story sets its own; see model/dateFormat.ts. */
+  dateFormat: string;
+  timeFormat: string;
   echoModifier: EchoModifier;
   /** The order of the view tabs, the same for every story. */
   tabOrder: StoryTab[];
@@ -75,6 +81,8 @@ export interface StoryPlannerSettings {
 }
 
 export const DEFAULT_SETTINGS: StoryPlannerSettings = {
+  dateFormat: DEFAULT_DATE_FORMAT,
+  timeFormat: DEFAULT_TIME_FORMAT,
   echoModifier: "alt",
   tabOrder: [...ALL_TABS],
   defaultOrientation: "vertical",
@@ -129,6 +137,48 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.defaultStoryTimeOrientation = value as Orientation;
             await this.plugin.saveSettings();
+          }),
+      );
+
+    // Dates and times, with a preview of a sample date as it would show.
+    const sample = createEmptyStory("Sample");
+    const preview = () => {
+      const formats = { date: this.plugin.settings.dateFormat || DEFAULT_DATE_FORMAT, time: this.plugin.settings.timeFormat || DEFAULT_TIME_FORMAT };
+      const full = formatStoryDate(sample, { calendar: "main", year: 2024, month: 3, day: 2, minutes: 9 * 60 + 30 }, { formats });
+      const month = formatStoryDate(sample, { calendar: "main", year: 2024, month: 3 }, { formats });
+      return `For example: ${full}, or ${month} for a date with only a month.`;
+    };
+    const tokenHelp = (tokens: [string, string][]) => tokens.map(([t, what]) => `${t} ${what}`).join(" · ");
+    const saveFormats = async () => {
+      setDefaultFormats({ date: this.plugin.settings.dateFormat, time: this.plugin.settings.timeFormat });
+      await this.plugin.saveSettings();
+      this.plugin.refreshBoards();
+    };
+    const dateSetting = new Setting(containerEl)
+      .setName("Date format")
+      .setDesc(`How story dates are shown. ${tokenHelp(DATE_TOKENS)}. Parts a date does not have are left out. Text in [brackets] is kept as it is. A story can set its own in Setup.`)
+      .addText((t) =>
+        t
+          .setPlaceholder(DEFAULT_DATE_FORMAT)
+          .setValue(this.plugin.settings.dateFormat)
+          .onChange(async (value) => {
+            this.plugin.settings.dateFormat = value.trim() || DEFAULT_DATE_FORMAT;
+            datePreview.setText(preview());
+            await saveFormats();
+          }),
+      );
+    const datePreview = dateSetting.descEl.createDiv({ cls: "story-planner-format-preview", text: preview() });
+    new Setting(containerEl)
+      .setName("Time format")
+      .setDesc(`How clock times are shown after the date. ${tokenHelp(TIME_TOKENS)}. Named parts of the day, such as Morning, are shown by name.`)
+      .addText((t) =>
+        t
+          .setPlaceholder(DEFAULT_TIME_FORMAT)
+          .setValue(this.plugin.settings.timeFormat)
+          .onChange(async (value) => {
+            this.plugin.settings.timeFormat = value.trim() || DEFAULT_TIME_FORMAT;
+            datePreview.setText(preview());
+            await saveFormats();
           }),
       );
 

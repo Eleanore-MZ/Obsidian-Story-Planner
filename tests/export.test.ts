@@ -44,7 +44,7 @@ describe("Markdown export", () => {
     expect(text.indexOf("### Boxes everywhere")).toBeLessThan(text.indexOf("## Chapter 2"));
     expect(text.indexOf("### Unpacked")).toBeLessThan(text.indexOf("## Off-page"));
     expect(text).toContain("June leaves.");
-    expect(text).toContain("*Old friends · 1 March 2024 · Linden Street › The café*");
+    expect(text).toContain("*Old friends · 2024/03/01 · Linden Street › The café*");
     expect(text).toContain("**Characters:** June (point of view: Tired)");
     expect(text).toContain("**Story tags:** turning point");
     expect(text).toContain("**Relationship:** friends again");
@@ -57,7 +57,7 @@ describe("Markdown export", () => {
     const text = exportMarkdown(story(), "time");
     const order = ["Tom moves", "Coffee, with Tom", "Boxes everywhere", "## Undated", "Unpacked"].map((t) => text.indexOf(t));
     expect(order).toEqual([...order].sort((a, b) => a - b));
-    expect(text).toContain("## around September 2023");
+    expect(text).toContain("## around 2023/09");
     expect(text).toContain("*Old friends · Chapter 2 · Linden Street › The café*");
   });
 });

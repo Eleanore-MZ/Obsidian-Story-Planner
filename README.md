@@ -1,24 +1,61 @@
 # Story Planner for Obsidian
 
-A lightweight plot-planning plugin for Obsidian. Plan a story as cards on a board organized by plot lines and chapters, switch to an in-world "story time" view with custom calendars and time zones, and follow what each character does across the timeline. Each story is stored as a single note in your vault, so your notes, backups, file recovery and sync all cover it, and the plugin never spreads data across the vault.
+Plan a story on a board: plot lines across, chapters and scenes down, a card for every scene. Switch to story time to see the scenes in the order they happen, on your story's own calendar, or to the characters view to follow each person through the book. Every story is a single note in your vault, so your backups, sync and file recovery cover it.
 
-This project is in early development. The full design is in [docs/design.md](docs/design.md).
+Desktop only.
 
-## What works so far
+## Features
 
-The foundation is in place. You can create a story with the "Create new story" command or by right-clicking a folder and choosing "New story here". You can open any story from the ribbon icon or the "Open story" command. Story notes open as a board automatically, with plot lines as columns and chapters as rows, and scenes run down in scene order, with parallel scenes in different plot lines able to share a row. Off-page events appear in their own group at the end. You can add plot lines and chapters, and rename them by double-clicking their headers. Tabs above the board switch between views, like the views of a Notion database: Board, and Setup, a page for the story's title, plot lines (name, colour, order), chapters and characters; deleting a plot line or chapter that has cards asks where they should go, and duplicate characters can be merged. Each story remembers which tab it was on. Before deleting a plot line, chapter or character that cards use, or merging characters, the plugin keeps a safety snapshot of the whole story in its own folder (`.obsidian/plugins/story-planner/snapshots`, never as a note); the Setup tab lists them with a Restore button, the "Restore story from a snapshot" command does the same, and a story that cannot be read offers them too. The plugin settings turn snapshots off or change how many are kept per story (10 by default). The Compact button stacks each plot line's cards from the top of the chapter, for a quick look at how busy each plot line is. Clicking a card opens it in a side panel, where you edit its title, synopsis, status, plot line, chapter, echoes and characters, or delete it; the panel saves as you type. Double-click a card to rename it in place, double-click an empty spot to create a card there, or click a chapter's "+" to add one at its end. Drag a card to reorder scenes, move it to another chapter or the off-page group, or change its plot line; drag a plot line or chapter header to reorder it. Every change can be undone and redone with the toolbar buttons or Ctrl+Z and Ctrl+Shift+Z (or Ctrl+Y). A card that touches more than one plot line shows a title-only echo in its secondary plot lines. The transpose button in the view header flips the board between vertical and horizontal layouts, and each story remembers its choice. The "Open as Markdown" button shows the note's readable outline.
+**Main board**
+- Cards in plot line columns, chapter by chapter, in scene order; scenes in different plot lines can share a row.
+- Drag cards, plot lines and chapters; hold Alt (configurable) while dropping to show a card as an echo in another plot line. The board scrolls when you drag to its edge.
+- Chapters are numbered automatically and can have a title, a label such as "Prologue" and a synopsis. Acts group chapters, in a column of their own, and can be switched off per story.
+- Fold chapters, acts and plot lines; resize columns; colour plot lines by category; mark scenes written with one click.
+- Compact and cozy layouts, a transpose button, search (Ctrl+F), "Jump to card", a highlight for one character, tag or place, and a minimap.
+- Undo and redo for every change (Ctrl+Z, Ctrl+Shift+Z); Delete removes the selected card.
 
-Story time has begun. Each story has its own calendar, edited on the Setup tab: months with their own lengths, a simple leap rule, eras (including one that counts down, like BC), a week of any length anchored to a known date, any number of hours per day and minutes per hour, and named parts of the day such as dawn. Presets give a Gregorian-style calendar, the same without leap years, twelve months of thirty days, or a blank one to build from. Time zones have a name and an offset from a reference zone; characters can have a default zone. In the card panel, "When" dates a card as precisely as you know it (a year, a month, a day, a clock time or a part of the day), with an optional zone, an "approximate" flag and an end date, and the panel names the weekday and says why a date the calendar cannot have is not saved. Dates show on the cards.
+**Card panel**
+- Title, synopsis, scene tags, plot line and echoes, chapter, date and end date, place, characters with their roles, and linked notes, which open beside the board. "Create note from card" makes a note from a template.
 
-The Story time tab shows the cards in the order things happen rather than the order they are read: spans of time along one axis and plot lines along the other, with a zoom for years, months, days or times of day. Only spans that have cards get a row, and a marker such as "— 3 years later —" stands in for the time between. Each card shows a badge with its chapter, and off-page events have a dashed outline. When the story has time zones, the toolbar shows times in each card's own zone or converted into one zone, with a small mark where that moves an event to another day. Undated cards wait in a tray below; drag one onto a span to give it that date. Dragging a dated card within its span changes its plot line or its order among cards at the same moment, while dragging it to another span asks you to confirm its new date first. Dropping a card on the tray takes its date off, and double-clicking empty space creates an off-page event at that time. Story time has its own transpose setting, horizontal by default.
+**Story time**
+- Scenes in the order they happen, at a zoom of years, months, days or times of day, with "3 days later" between distant dates. Cards with an end date run down to it.
+- Each story has its own calendar: months, leap years, eras, weeks, hours per day and named times of day, plus time zones for places and characters.
+- Dates are typed as you would write them: "2020/07/12 19:49", "20200712", "12 Jul 2020", "~2023/09", or "+3d" for an end date. The date and time format is yours to set.
 
-The Setup tab also manages places, as a nested list (a room inside a house inside a city) where each place can carry a time zone that everything inside it inherits; story tags, with colours and a switch to turn them off for a story; and relationships, where ticking characters on a plot line makes it a relationship whose cards can carry a state such as "allies" or "trust broken", with an overview of how each relationship ends. The card panel picks a card's place, toggles its tags and, in a relationship plot line, sets its state; cards show all three. The Highlight menu on the board and in story time makes one character, tag or place stand out and dims every other card, and a highlighted character's role and note show on their cards. Story tags are written into the outline as plain words, never as Obsidian #tags.
+**Characters**
+- A track per character, by chapter or by story time, and a presence matrix of characters against chapters, with warnings when someone seems to be in two places at once.
 
-The Characters tab follows people rather than plot lines. Its Track mode is the board with characters as lanes, by chapter or by story time (with the same zoom), and a scene shows in the lane of every character in it, with that character's role, their note on what they do there, the date and the place, so reading down a lane tells you what that person does and where, off-page events included. The Characters button chooses which characters get a lane and in what order (the first eight until you choose), and lane headers can be dragged to reorder them. With two or more lanes, Shared scenes shows only the scenes they are all in, which with relationship states reads as how they stand at each point. Dragging a scene along a lane moves it as on the board or in story time, while dropping it in the lane of a character who is not in it asks how they take part and adds them; double-clicking empty space in a lane makes a new scene with that character. Matrix mode is a compact grid of characters against chapters or spans of time, with ◉ for point of view, ● for present and ○ for mentioned, a count where a character has several scenes in one column, and a total per character, so someone who vanishes for half the book stands out. Below it, a list of possible clashes names every character who is in two scenes whose times overlap in places that are not one inside the other, after converting time zones; the track marks those scenes too. Only scenes with a place and either a time of day or an end date are checked, since a scene known only to the day leaves room for a journey, and a mentioned character is not there at all. The warning never blocks anything.
+**Story setup**
+- Plot lines and categories, scene tags, acts and chapters, characters, places nested inside each other, the calendar and time zones, and safety snapshots taken before large deletions.
+
+**Export**
+- The story as a readable Markdown outline, a CSV with one row per card, or JSON.
+
+## Installing
+
+Story Planner is not in Obsidian's community plugin list. Install it with the BRAT plugin, which also keeps it up to date:
+
+1. In Obsidian, open Settings, Community plugins, Browse, and install and enable **BRAT** ("Obsidian42 - BRAT").
+2. In BRAT's settings, choose **Add beta plugin** and enter `Eleanore-MZ/Obsidian-Story-Planner`.
+3. Enable **Story Planner** under Settings, Community plugins.
+
+BRAT checks for new releases when Obsidian starts (or with its "Check for updates" command) and installs them.
+
+To install by hand instead, download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/Eleanore-MZ/Obsidian-Story-Planner/releases/latest) into `.obsidian/plugins/story-planner/` in your vault, then enable the plugin.
+
+## Getting started
+
+Create a story with the "Create new story" command, or right-click a folder and choose "New story here". Story notes open as a board; the ribbon icon and "Open story" list every story in the vault, and the story title on the board switches between them.
 
 ## How a story is stored
 
-A story note has frontmatter with `storyplanner: story`, a readable outline that the plugin regenerates on every save, and a data block at the end inside an Obsidian `%%` comment, with one line for the story setup and one line per card. Edit in the board and read anywhere: text edits to the outline are replaced on the next save. The format lives in `src/format/storyFile.ts`.
+A story note has frontmatter with `storyplanner: story`, a readable outline that the plugin writes on every save, and the story's data at the end inside an Obsidian `%%` comment, one line for the setup and one per card. Edit on the board and read anywhere: changes typed into the outline are replaced on the next save. The plugin writes only to story notes and to notes you ask it to create.
+
+## Releasing a new version
+
+1. `npm run version-bump -- 0.2.0` (sets the version in `manifest.json`, `package.json` and `versions.json`).
+2. Commit and push, then tag the commit with the same number and push the tag: `git tag 0.2.0` and `git push origin 0.2.0`.
+3. The Release workflow builds the plugin and publishes a GitHub release with `main.js`, `manifest.json` and `styles.css`. BRAT picks it up from there.
 
 ## Development
 
@@ -39,6 +76,6 @@ The `test-vault` folder is a ready-made Obsidian vault for development. Its samp
 1. Run `npm run dev` and leave it running.
 2. In Obsidian, choose "Open folder as vault" and pick the `test-vault` folder.
 3. Turn on community plugins when Obsidian asks, then enable Story Planner under Settings, Community plugins.
-4. Optionally, install the community plugin "Hot Reload". It reloads Story Planner whenever the build changes, so you don't have to restart Obsidian.
+4. Reload Obsidian after a build (Ctrl+P, "Reload app without saving"), or install the community plugin "Hot Reload", which reloads Story Planner whenever the build changes.
 
 The build output and Obsidian's per-device files in the test vault are not committed. To build into another vault instead, set `OBSIDIAN_PLUGIN_DIR` to that vault's plugin folder, for example in PowerShell: `$env:OBSIDIAN_PLUGIN_DIR = "E:\Vaults\Writing\.obsidian\plugins\story-planner"; npm run dev`.

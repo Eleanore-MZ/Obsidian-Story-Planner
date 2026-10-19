@@ -5,5 +5,6 @@
   "minAppVersion": "1.5.7",
   "description": "Plan plots on a board of plot lines and chapters, with story time, custom calendars and characters. Each story is one note.",
   "author": "Eleanore-MZ",
-  "isDesktopOnly": true
+  "isDesktopOnly": true,
+  "authorUrl": "https://github.com/Eleanore-MZ"
 }

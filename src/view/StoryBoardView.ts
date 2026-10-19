@@ -13,6 +13,7 @@ import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree 
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
 import { cardMatches, queryTerms, searchCards } from "../model/search";
 import { CardPanel, NoteHost } from "./CardPanel";
+import { Minimap } from "./Minimap";
 import { SetupPanel } from "./SetupPanel";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
 import { ChoiceModal, DateModal, LaneModal, TextPromptModal } from "./modals";
@@ -79,6 +80,7 @@ export class StoryBoardView extends TextFileView {
   private bodyEl: HTMLElement;
   private boardEl: HTMLElement;
   private panel: CardPanel;
+  private minimap: Minimap;
   private setup: SetupPanel;
   /** The spans of the story-time view as last drawn, by id, for drops. */
   private buckets = new Map<string, Bucket>();
@@ -129,6 +131,7 @@ export class StoryBoardView extends TextFileView {
       const target = e.target as HTMLElement;
       if (target === this.boardEl || target.matches(EMPTY_SPACE)) this.select(null);
     });
+    this.minimap = new Minimap(this.bodyEl, this.boardEl);
     this.panel = new CardPanel(this.bodyEl, {
       edit: (change, coalesce) => this.mutate(change, coalesce),
       close: () => this.select(null),
@@ -218,6 +221,7 @@ export class StoryBoardView extends TextFileView {
 
   async onClose(): Promise<void> {
     this.cancelDrag();
+    this.minimap.destroy();
   }
 
   clear(): void {
@@ -294,6 +298,7 @@ export class StoryBoardView extends TextFileView {
     for (const el of Array.from(this.boardEl.querySelectorAll<HTMLElement>("[data-card-id]"))) {
       el.classList.toggle("is-selected", el.dataset.cardId === this.panel.selected);
     }
+    this.minimap.refresh();
   }
 
   // -------------------------------------------------------------------------
@@ -676,10 +681,20 @@ export class StoryBoardView extends TextFileView {
       compact.setAttr("title", "Stack each plot line's cards from the top of the chapter");
     }
 
+    if (withPanel) {
+      const actions = tabsRow.querySelector<HTMLElement>(".story-planner-tab-actions") ?? tabsRow.createDiv({ cls: "story-planner-tab-actions" });
+      const map = this.button(actions, "Map", () => this.setViewState({ minimap: !this.viewState()?.minimap }));
+      const on = !!this.viewState()?.minimap;
+      map.toggleClass("is-active", on);
+      map.setAttr("aria-pressed", String(on));
+      map.setAttr("title", "Show an overview of the whole board in the corner");
+    }
+
     // Keep the panel on the selected card; it closes if the card is gone (after an undo, say).
     this.panel.show(story, withPanel ? this.panel.selected : null, typing);
     this.setup.refresh(story, typing);
     if (withPanel) this.renderBoard(story);
+    this.minimap.setVisible(withPanel && !!this.viewState()?.minimap);
   }
 
   /**
@@ -695,6 +710,7 @@ export class StoryBoardView extends TextFileView {
     this.boardEl.replaceChildren(...Array.from(content.childNodes));
     this.boardEl.scrollTop = scrollTop;
     this.boardEl.scrollLeft = scrollLeft;
+    this.minimap.refresh();
   }
 
   private fillBoard(parent: HTMLElement, story: Story): void {

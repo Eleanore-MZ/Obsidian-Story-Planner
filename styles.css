@@ -1045,3 +1045,33 @@
   color: var(--text-muted);
   white-space: nowrap;
 }
+
+/* Overview minimap. */
+
+.story-planner-body {
+  position: relative;
+}
+
+.story-planner-minimap {
+  position: absolute;
+  z-index: 5;
+  padding: var(--size-4-1);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--background-primary) 88%, transparent);
+  box-shadow: var(--shadow-s);
+}
+
+.story-planner-minimap[hidden] {
+  display: none;
+}
+
+.story-planner-minimap canvas {
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+.story-planner-minimap canvas:active {
+  cursor: grabbing;
+}

@@ -26,6 +26,8 @@ export interface StoryViewState {
   characterOrientation?: Orientation;
   /** With two or more lanes, show only the scenes they share. */
   sharedOnly?: boolean;
+  /** Show the overview minimap in the corner of the board. */
+  minimap?: boolean;
 }
 
 export interface StoryPlannerSettings {

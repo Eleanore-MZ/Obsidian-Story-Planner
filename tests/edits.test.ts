@@ -10,6 +10,7 @@ import {
   setCardTag,
   setRelationshipState,
   setEcho,
+  echoByDrop,
   updateCard,
   updateCardCharacter,
 } from "../src/model/edits";
@@ -150,5 +151,37 @@ describe("location, tags and relationship state", () => {
     expect(s.cards[id]!.relationshipState).toBe("allies");
     setRelationshipState(s, id, "", NOW);
     expect("relationshipState" in s.cards[id]!).toBe(false);
+  });
+});
+
+describe("dropping a card as an echo", () => {
+  function story() {
+    const s = createEmptyStory("Echoes");
+    s.plotLines = [
+      { id: "p1", name: "One", color: "#000" },
+      { id: "p2", name: "Two", color: "#000" },
+      { id: "p3", name: "Three", color: "#000" },
+    ];
+    s.cards.a = { ...createCard({ title: "A", plotLine: "p2", chapter: s.chapters[0]!.id, order: 1 }), id: "a" };
+    return s;
+  }
+
+  it("adds an echo in another plot line, in plot line order, and leaves the card where it is", () => {
+    const s = story();
+    expect(echoByDrop(s, "a", "p3", "2026-10-19T00:00:00.000Z")).toBe("added");
+    expect(echoByDrop(s, "a", "p1")).toBe("added");
+    expect(s.cards.a!.alsoIn).toEqual(["p1", "p3"]);
+    expect(s.cards.a!.plotLine).toBe("p2");
+  });
+
+  it("says why nothing changed on the card's own plot line or an existing echo", () => {
+    const s = story();
+    expect(echoByDrop(s, "a", "p2")).toBe("own");
+    echoByDrop(s, "a", "p3");
+    const before = JSON.stringify(s);
+    expect(echoByDrop(s, "a", "p3")).toBe("already");
+    expect(echoByDrop(s, "a", "nowhere")).toBe("missing");
+    expect(echoByDrop(s, "nobody", "p1")).toBe("missing");
+    expect(JSON.stringify(s)).toBe(before);
   });
 });

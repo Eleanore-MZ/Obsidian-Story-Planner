@@ -1,7 +1,7 @@
 import { Menu, Notice, Scope, setIcon, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import type StoryPlannerPlugin from "../main";
 import { orderedTabs, type StoryTab } from "../settings";
-import { addCardAt, addCharacterByName, setCardDate } from "../model/edits";
+import { addCardAt, addCharacterByName, deleteCard, echoByDrop, setCardDate } from "../model/edits";
 import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
@@ -30,6 +30,8 @@ type DropPlace = "before" | "after" | "on";
 
 interface DropTargetSpec {
   accepts: Dragged["kind"];
+  /** The plot line a card target is in, so a card dropped there with the echo key held becomes an echo. */
+  plotLine?: Id;
   axis: "slot" | "lane" | null;
   /** With an axis, the middle half of the target means "on" rather than before or after. */
   middle: boolean;
@@ -57,6 +59,10 @@ const DRAG_THRESHOLD = 5;
 
 /** Lanes are plot lines (main board, story time) or characters (character track). */
 type LaneKind = "plotLine" | "character";
+
+/** How close to the board's edge a dragged card starts scrolling it, and the fastest it scrolls (pixels per frame). */
+const EDGE_ZONE = 56;
+const EDGE_SPEED = 24;
 
 /** How wide a folded lane is, and the narrowest a lane can be dragged. */
 const FOLDED_LANE = "34px";
@@ -124,6 +130,13 @@ export class StoryBoardView extends TextFileView {
       input.select();
       return false;
     });
+    // Delete removes the selected card, the same undoable way as the panel's button,
+    // but never while typing or with a dialog open.
+    this.scope.register([], "Delete", () => {
+      if (!this.panel.selected || this.tab === "setup" || isTyping() || document.querySelector(".modal-container")) return true;
+      this.deleteCard(this.panel.selected);
+      return false;
+    });
     this.scope.register([], "Escape", () => {
       if (!this.panel.selected) return true;
       this.select(null);
@@ -144,10 +157,7 @@ export class StoryBoardView extends TextFileView {
     this.panel = new CardPanel(this.bodyEl, {
       edit: (change, coalesce) => this.mutate(change, coalesce),
       close: () => this.select(null),
-      deleted: (title) => {
-        this.select(null);
-        new Notice(`Deleted "${title}". Press Ctrl+Z to undo.`);
-      },
+      deleted: (title) => this.cardDeleted(title),
       notes: this.noteHost(),
     });
     this.setup = new SetupPanel(this.contentEl, {
@@ -286,6 +296,18 @@ export class StoryBoardView extends TextFileView {
     this.outlineEdited = false;
     this.requestSave();
     this.render(typing);
+  }
+
+  private deleteCard(cardId: Id): void {
+    const title = this.story?.cards[cardId]?.title;
+    if (title === undefined) return;
+    this.mutate((s) => deleteCard(s, cardId));
+    this.cardDeleted(title);
+  }
+
+  private cardDeleted(title: string): void {
+    this.select(null);
+    new Notice(`Deleted "${title}". Press Ctrl+Z to undo.`);
   }
 
   /** Creates a card at a board position, selects it and puts the cursor in its title. */
@@ -947,6 +969,7 @@ export class StoryBoardView extends TextFileView {
             }),
           ),
         );
+        this.echoLane(el, item.plotLineId);
         return el;
       }
 
@@ -974,6 +997,7 @@ export class StoryBoardView extends TextFileView {
         this.makeDropTarget(el, "card", null, () =>
           this.mutate((s) => moveCard(s, this.dragged!.id, { chapter: item.chapterId, plotLine: item.plotLineId })),
         );
+        this.echoLane(el, item.plotLineId);
         return el;
       }
 
@@ -983,6 +1007,7 @@ export class StoryBoardView extends TextFileView {
         this.makeDropTarget(el, "card", null, () =>
           this.mutate((s) => moveCard(s, this.dragged!.id, { chapter: item.chapterId, plotLine: item.plotLineId })),
         );
+        this.echoLane(el, item.plotLineId);
         return el;
       }
 
@@ -1343,6 +1368,7 @@ export class StoryBoardView extends TextFileView {
       case "time-cell": {
         const el = grid.createDiv({ cls: "story-planner-cell" });
         this.makeDropTarget(el, "card", null, () => this.dropInTime(item.bucketId, item.plotLineId, null, "on"));
+        this.echoLane(el, item.plotLineId);
         // Double-click creates an off-page event at this time; it can be given a chapter later.
         el.addEventListener("dblclick", () => {
           const bucket = this.buckets.get(item.bucketId);
@@ -1365,6 +1391,7 @@ export class StoryBoardView extends TextFileView {
         const el = this.timeCard(grid, card, story);
         el.addEventListener("dblclick", () => this.editTitleInPlace(el, card));
         this.makeDropTarget(el, "card", "slot", (place) => this.dropInTime(item.bucketId, card.plotLine, card, place));
+        this.echoLane(el, card.plotLine);
         return el;
       }
 
@@ -1377,6 +1404,7 @@ export class StoryBoardView extends TextFileView {
         if (this.highlighted(card, story) === false) el.addClass("is-dimmed");
         el.addEventListener("click", () => this.select(card.id));
         this.makeDropTarget(el, "card", null, () => this.dropInTime(item.bucketId, item.plotLineId, null, "on"));
+        this.echoLane(el, item.plotLineId);
         return el;
       }
     }
@@ -1894,57 +1922,123 @@ export class StoryBoardView extends TextFileView {
       let ghost: HTMLElement | null = null;
       let target: { el: HTMLElement; spec: DropTargetSpec } | null = null;
       let place: DropPlace = "on";
+      /** Where the pointer is and which keys are held, kept for scrolling at the edge and for key presses alone. */
+      let pointer = { clientX: startX, clientY: startY };
+      let keys = { altKey: false, ctrlKey: false, metaKey: false, shiftKey: false };
+      let echo = false;
+      let frame = 0;
+      const label = el.innerText.split("\n")[0] ?? "";
 
-      const clearMark = () => target?.el.removeClass("is-drop-target", "is-drop-before", "is-drop-after");
+      const clearMark = () => target?.el.removeClass("is-drop-target", "is-drop-before", "is-drop-after", "is-drop-echo");
+
+      /** Finds and marks what is under the pointer; shows when the drop will be an echo. */
+      const update = () => {
+        if (!ghost) return;
+        clearMark();
+        target = this.dropTargetAt(pointer.clientX, pointer.clientY, dragged.kind);
+        echo = dragged.kind === "card" && this.echoKeyHeld(keys) && !!target?.spec.plotLine;
+        ghost.setText(echo ? `${label}  ＋ echo` : label);
+        ghost.toggleClass("is-echo", echo);
+        this.contentEl.toggleClass("is-echo-drag", echo);
+        if (target) {
+          place = this.dropPlace(pointer, target.el, target.spec);
+          target.el.addClass(echo ? "is-drop-echo" : place === "on" ? "is-drop-target" : place === "after" ? "is-drop-after" : "is-drop-before");
+        }
+      };
+
+      /**
+       * Near an edge of the board, with more board beyond it, scrolls that way:
+       * faster the nearer the pointer is to the edge. Runs every frame while
+       * the pointer stays there, and keeps the drop target up to date.
+       */
+      const edgeScroll = () => {
+        frame = 0;
+        if (!ghost || !dragged || dragged.kind !== "card") return;
+        const board = this.boardEl;
+        const r = board.getBoundingClientRect();
+        const speed = (distance: number) => Math.ceil(EDGE_SPEED * Math.min(1, (EDGE_ZONE - distance) / EDGE_ZONE));
+        let dx = 0;
+        let dy = 0;
+        const { clientX: x, clientY: y } = pointer;
+        const inRows = y > r.top - EDGE_ZONE && y < r.bottom + EDGE_ZONE;
+        const inColumns = x > r.left - EDGE_ZONE && x < r.right + EDGE_ZONE;
+        if (inRows && x < r.left + EDGE_ZONE && board.scrollLeft > 0) dx = -speed(Math.max(0, x - r.left));
+        else if (inRows && x > r.right - EDGE_ZONE && board.scrollLeft < board.scrollWidth - board.clientWidth) dx = speed(Math.max(0, r.right - x));
+        if (inColumns && y < r.top + EDGE_ZONE && board.scrollTop > 0) dy = -speed(Math.max(0, y - r.top));
+        else if (inColumns && y > r.bottom - EDGE_ZONE && board.scrollTop < board.scrollHeight - board.clientHeight) dy = speed(Math.max(0, r.bottom - y));
+        if (dx === 0 && dy === 0) return;
+        board.scrollBy(dx, dy);
+        update();
+        frame = requestAnimationFrame(edgeScroll);
+      };
 
       const onMove = (ev: PointerEvent) => {
         if (!ghost) {
           if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
           this.dragged = dragged;
-          ghost = document.body.createDiv({ cls: "story-planner-drag-ghost", text: el.innerText.split("\n")[0] ?? "" });
+          ghost = document.body.createDiv({ cls: "story-planner-drag-ghost", text: label });
           el.addClass("is-dragging");
           this.contentEl.addClass("is-drag-active");
         }
         ev.preventDefault();
         ghost.style.left = `${ev.clientX + 12}px`;
         ghost.style.top = `${ev.clientY + 12}px`;
-
-        clearMark();
-        target = this.dropTargetAt(ev.clientX, ev.clientY, dragged.kind);
-        if (target) {
-          place = this.dropPlace(ev, target.el, target.spec);
-          target.el.addClass(place === "on" ? "is-drop-target" : place === "after" ? "is-drop-after" : "is-drop-before");
-        }
+        pointer = { clientX: ev.clientX, clientY: ev.clientY };
+        keys = ev;
+        update();
+        if (!frame) frame = requestAnimationFrame(edgeScroll);
       };
 
       const finish = (drop: boolean) => {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("keydown", onKey, true);
+        window.removeEventListener("keyup", onKeyUp, true);
+        cancelAnimationFrame(frame);
+        frame = 0;
         this.cancelDrag = () => {};
         clearMark();
         el.removeClass("is-dragging");
-        this.contentEl.removeClass("is-drag-active");
+        this.contentEl.removeClass("is-drag-active", "is-echo-drag");
         if (ghost) {
           ghost.remove();
           // The click that follows a drag must not open the card editor.
           this.suppressClick = true;
           window.setTimeout(() => (this.suppressClick = false), 0);
-          if (drop && target) target.spec.onDrop(place);
+          if (drop && target) {
+            if (echo && target.spec.plotLine) this.dropAsEcho(dragged.id, target.spec.plotLine);
+            else target.spec.onDrop(place);
+          }
         }
         this.dragged = null;
       };
-      const onUp = () => finish(true);
+      const onUp = (ev: PointerEvent) => {
+        keys = ev;
+        if (ghost) update();
+        finish(true);
+      };
       const onKey = (ev: KeyboardEvent) => {
         if (ev.key === "Escape") {
           ev.stopPropagation();
           finish(false);
+          return;
         }
+        // Pressing or letting go of the echo key alone changes the drop at once.
+        keys = ev;
+        if (ghost) {
+          if (ev.key === "Alt") ev.preventDefault(); // keeps Alt from moving focus to the window menu
+          update();
+        }
+      };
+      const onKeyUp = (ev: KeyboardEvent) => {
+        keys = ev;
+        if (ghost) update();
       };
 
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
       window.addEventListener("keydown", onKey, true);
+      window.addEventListener("keyup", onKeyUp, true);
       this.cancelDrag = () => finish(false);
     });
   }
@@ -1982,7 +2076,7 @@ export class StoryBoardView extends TextFileView {
     return null;
   }
 
-  private dropPlace(e: PointerEvent, el: HTMLElement, spec: DropTargetSpec): DropPlace {
+  private dropPlace(e: { clientX: number; clientY: number }, el: HTMLElement, spec: DropTargetSpec): DropPlace {
     if (!spec.axis) return "on";
     const rect = el.getBoundingClientRect();
     const alongY = (spec.axis === "slot") === (this.orientation === "vertical");
@@ -2013,6 +2107,41 @@ export class StoryBoardView extends TextFileView {
         ),
       beside,
     );
+    this.echoLane(el, plotLine);
+  }
+
+  /** Marks a card drop target as being in a plot line, for drops with the echo key held. */
+  private echoLane(el: HTMLElement, plotLine: Id): void {
+    const spec = this.dropTargets.get(el);
+    if (spec) spec.plotLine = plotLine;
+  }
+
+  /** True when the event has the key set for echo drops held. */
+  private echoKeyHeld(e: { altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }): boolean {
+    switch (this.plugin.settings.echoModifier) {
+      case "alt":
+        return e.altKey;
+      case "ctrl":
+        return e.ctrlKey || e.metaKey;
+      case "shift":
+        return e.shiftKey;
+      default:
+        return false;
+    }
+  }
+
+  /** Shows a dropped card as an echo in another plot line, instead of moving it there. */
+  private dropAsEcho(cardId: Id, plotLine: Id): void {
+    const story = this.story;
+    if (!story) return;
+    const name = story.plotLines.find((p) => p.id === plotLine)?.name ?? "that plot line";
+    const title = story.cards[cardId]?.title ?? "The card";
+    // Try it on a copy first, to know what to say; then apply it as an undoable edit.
+    const result = echoByDrop(JSON.parse(JSON.stringify(story)) as Story, cardId, plotLine);
+    if (result === "added") this.mutate((s) => echoByDrop(s, cardId, plotLine) === "added");
+    if (result === "added") new Notice(`"${title}" now also shows in ${name}. Press Ctrl+Z to undo.`);
+    else if (result === "own") new Notice(`${name} is where "${title}" lives, so it needs no echo there.`);
+    else if (result === "already") new Notice(`"${title}" already shows as an echo in ${name}.`);
   }
 }
 
@@ -2031,6 +2160,13 @@ const GAP_PROBES: [number, number][] = [
   [6, 0],
 ];
 
+
+/** True while the cursor is in a text field, where keys such as Delete belong to the text. */
+function isTyping(): boolean {
+  const el = document.activeElement;
+  if (!(el instanceof HTMLElement)) return false;
+  return el.isContentEditable || el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && !["checkbox", "radio", "button", "color"].includes(el.type)) || el instanceof HTMLSelectElement;
+}
 
 /** Sets a Lucide icon, falling back to another where Obsidian's icon set does not have the first. */
 function iconOr(el: HTMLElement, icon: string, fallback: string): void {

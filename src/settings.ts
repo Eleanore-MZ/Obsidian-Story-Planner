@@ -47,7 +47,11 @@ export function orderedTabs(order: StoryTab[] | undefined): StoryTab[] {
   return [...known, ...ALL_TABS.filter((t) => !known.includes(t))];
 }
 
+/** The key that, held while dropping a card on another plot line, adds an echo there instead of moving it. */
+export type EchoModifier = "alt" | "ctrl" | "shift" | "off";
+
 export interface StoryPlannerSettings {
+  echoModifier: EchoModifier;
   /** The order of the view tabs, the same for every story. */
   tabOrder: StoryTab[];
   defaultOrientation: Orientation;
@@ -69,6 +73,7 @@ export interface StoryPlannerSettings {
 }
 
 export const DEFAULT_SETTINGS: StoryPlannerSettings = {
+  echoModifier: "alt",
   tabOrder: [...ALL_TABS],
   defaultOrientation: "vertical",
   defaultStoryTimeOrientation: "vertical",
@@ -121,6 +126,21 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.defaultStoryTimeOrientation)
           .onChange(async (value) => {
             this.plugin.settings.defaultStoryTimeOrientation = value as Orientation;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Key for dropping an echo")
+      .setDesc(
+        "Hold this key while dropping a card on another plot line to show the card there as an echo, instead of moving it. On Windows, Ctrl is the usual key for copying while dragging.",
+      )
+      .addDropdown((d) =>
+        d
+          .addOptions({ alt: "Alt", ctrl: "Ctrl (Cmd on Mac)", shift: "Shift", off: "Off" })
+          .setValue(this.plugin.settings.echoModifier)
+          .onChange(async (value) => {
+            this.plugin.settings.echoModifier = value as EchoModifier;
             await this.plugin.saveSettings();
           }),
       );

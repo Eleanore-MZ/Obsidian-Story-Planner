@@ -45,6 +45,23 @@ export function setEcho(story: Story, cardId: Id, plotLine: Id, on: boolean, now
   return true;
 }
 
+/** What happened when a card was dropped onto a plot line as an echo. */
+export type EchoDrop = "added" | "own" | "already" | "missing";
+
+/**
+ * Adds an echo of a card in a plot line, for a card dropped there with the
+ * echo modifier held. Says why nothing changed when the plot line is the
+ * card's own or already has its echo.
+ */
+export function echoByDrop(story: Story, cardId: Id, plotLine: Id, now = new Date().toISOString()): EchoDrop {
+  const card = story.cards[cardId];
+  if (!card || !story.plotLines.some((p) => p.id === plotLine)) return "missing";
+  if (card.plotLine === plotLine) return "own";
+  if (card.alsoIn.includes(plotLine)) return "already";
+  setEcho(story, cardId, plotLine, true, now);
+  return "added";
+}
+
 /**
  * Adds a character to a card by name. An existing story character with that
  * name (ignoring case) is reused; otherwise a new one is added to the story.

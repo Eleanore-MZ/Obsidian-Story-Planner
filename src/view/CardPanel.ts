@@ -9,10 +9,11 @@ import {
 } from "../model/edits";
 import { compareDates, effectiveZone, ZoneSource } from "../model/calendar";
 import { setCardDate, setCardLocation, setCardTag, setRelationshipState } from "../model/edits";
-import { locationTree, relationshipOf } from "../model/setup";
+import { locationTree, plotLineColor, relationshipOf } from "../model/setup";
 import { CharacterRole, Id, Story } from "../model/types";
 import { DateEditor } from "./DateEditor";
 import { addCardNote, noteName, removeCardNote } from "../model/links";
+import { setIcon } from "obsidian";
 
 const ROLE_LABELS: Record<CharacterRole, string> = {
   pov: "Point of view",
@@ -135,6 +136,21 @@ export class CardPanel {
 
     const header = el.createDiv({ cls: "story-planner-panel-header" });
     header.createDiv({ cls: "story-planner-panel-heading", text: "Card" });
+    // Written or not, in the header: the same square as on the card.
+    header.style.setProperty("--lane-color", plotLineColor(story, story.plotLines.find((p) => p.id === card.plotLine)) ?? "var(--interactive-accent)");
+    const written = header.createEl("label", { cls: "story-planner-panel-written" });
+    written.toggleClass("is-written", card.written);
+    written.createSpan({ text: "Written" });
+    const box = written.createEl("button", { cls: "story-planner-written" });
+    box.dataset.field = "written";
+    box.setAttr("role", "checkbox");
+    box.setAttr("aria-checked", String(card.written));
+    box.setAttr("aria-label", card.written ? "Written. Click to mark it not written." : "Not written yet. Click to mark it written.");
+    if (card.written) setIcon(box, "check");
+    box.addEventListener("click", (e) => {
+      e.preventDefault();
+      this.host.edit((s) => updateCard(s, id, { written: !s.cards[id]!.written }));
+    });
     const close = header.createEl("button", { cls: "story-planner-panel-close clickable-icon", text: "×" });
     close.setAttr("aria-label", "Close");
     close.addEventListener("click", () => this.host.close());
@@ -167,14 +183,6 @@ export class CardPanel {
     synopsis.addEventListener("input", () =>
       this.host.edit((s) => updateCard(s, id, { synopsis: synopsis.value }), `synopsis:${id}`),
     );
-
-    const written = this.field("Written").createEl("label", { cls: "story-planner-panel-check" });
-    const box = written.createEl("input");
-    box.type = "checkbox";
-    box.checked = card.written;
-    box.dataset.field = "written";
-    box.addEventListener("change", () => this.host.edit((s) => updateCard(s, id, { written: box.checked })));
-    written.createSpan({ text: "This scene is written" });
 
     // Where the card sits on the board.
     const plotLines = Object.fromEntries(story.plotLines.map((p) => [p.id, p.name]));

@@ -1,7 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { createCard, createEmptyStory, PALETTE } from "../src/model/defaults";
 import { chapterRows } from "../src/model/moves";
-import { addPlotLine, deleteChapter, deleteCharacter, deletePlotLine, mergeCharacters, shiftInList } from "../src/model/setup";
+import { blankCalendar } from "../src/model/defaults";
+import { momentOf } from "../src/model/calendar";
+import {
+  addPlotLine,
+  addZone,
+  applyCalendar,
+  cardsWithBadDates,
+  deleteChapter,
+  deleteCharacter,
+  deletePlotLine,
+  deleteZone,
+  mergeCharacters,
+  setReferenceZone,
+  shiftInList,
+} from "../src/model/setup";
 import { CardCharacter, Story } from "../src/model/types";
 
 const NOW = "2026-10-18T23:30:00.000Z";
@@ -113,5 +127,55 @@ describe("characters", () => {
     expect(s.cards.b!.characters).toEqual([{ id: "tom", role: "pov" }]);
     expect(s.cards.c!.characters).toEqual([{ id: "tom", role: "present", note: "Arrives" }]);
     expect(s.cards.a!.characters).toEqual([{ id: "tom", role: "mentioned", note: "Writes" }]);
+  });
+});
+
+describe("calendar and zones", () => {
+  it("finds dates a changed calendar can no longer show", () => {
+    const s = story();
+    s.cards.a!.date = { calendar: "main", year: 1531, month: 12, day: 31 };
+    s.cards.b!.date = { calendar: "main", year: 1531, month: 2, day: 3 };
+    expect(cardsWithBadDates(s)).toEqual([]);
+    s.calendars[0]!.months.pop();
+    expect(cardsWithBadDates(s).map((c) => c.id)).toEqual(["a"]);
+  });
+
+  it("applies a preset, keeping the calendar id and dropping parts of the day it lacks", () => {
+    const s = story();
+    s.cards.a!.date = { calendar: "main", year: 1531, month: 1, day: 2, dayPart: "dawn" };
+    applyCalendar(s, { ...blankCalendar(), id: "other" }, NOW);
+    expect(s.calendars[0]!.id).toBe("main");
+    expect(s.cards.a!.date).toEqual({ calendar: "main", year: 1531, month: 1, day: 2 });
+    expect(s.cards.a!.modified).toBe(NOW);
+  });
+
+  it("makes the first zone the reference and re-measures offsets when the reference changes", () => {
+    const s = story();
+    const harbour = addZone(s, "Harbour", 999);
+    const east = addZone(s, "East", 180);
+    expect(s.referenceZone).toBe(harbour);
+    expect(s.zones.map((z) => z.offsetMinutes)).toEqual([0, 180]);
+    const date = { calendar: "main", year: 1531, month: 1, day: 1, minutes: 600, zone: east };
+    const before = momentOf(s, date).key - momentOf(s, { ...date, zone: harbour }).key;
+    setReferenceZone(s, east);
+    expect(s.zones.map((z) => z.offsetMinutes)).toEqual([-180, 0]);
+    expect(momentOf(s, date).key - momentOf(s, { ...date, zone: harbour }).key).toBe(before);
+  });
+
+  it("deletes a zone from dates, places and characters, passing on the reference", () => {
+    const s = story();
+    const harbour = addZone(s, "Harbour");
+    const east = addZone(s, "East", 180);
+    s.cards.a!.date = { calendar: "main", year: 1531, zone: harbour };
+    s.characters[0]!.zone = harbour;
+    s.locations = [{ id: "l", name: "Pier", zone: harbour }];
+    deleteZone(s, harbour, NOW);
+    expect(s.referenceZone).toBe(east);
+    expect(s.zones).toEqual([{ id: east, name: "East", offsetMinutes: 0 }]);
+    expect(s.cards.a!.date).toEqual({ calendar: "main", year: 1531 });
+    expect(s.characters[0]!.zone).toBeUndefined();
+    expect(s.locations[0]!.zone).toBeUndefined();
+    deleteZone(s, east, NOW);
+    expect(s.referenceZone).toBeUndefined();
   });
 });

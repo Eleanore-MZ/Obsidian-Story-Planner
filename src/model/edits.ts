@@ -1,7 +1,7 @@
 import { createCard, newId } from "./defaults";
 import { CardTarget, chapterCards, moveCard } from "./moves";
 import { freeColor } from "./setup";
-import { Card, CardCharacter, CharacterRole, Id, Story } from "./types";
+import { Card, CardCharacter, CharacterRole, Id, Story, StoryDate } from "./types";
 
 // Pure edits behind the card editor. Like moves.ts they change the story in
 // place and stamp `modified` on the card they touch, and they stay free of
@@ -119,4 +119,25 @@ export function deleteCard(story: Story, cardId: Id, now = new Date().toISOStrin
 function orderedLike(plotLines: { id: Id }[], ids: Id[]): Id[] {
   const index = new Map(plotLines.map((p, i) => [p.id, i]));
   return [...ids].sort((a, b) => (index.get(a) ?? Infinity) - (index.get(b) ?? Infinity));
+}
+
+/**
+ * Sets or clears a card's date or end date. Clearing the start date clears
+ * the end date with it, since an end needs a start.
+ */
+export function setCardDate(
+  story: Story,
+  cardId: Id,
+  which: "date" | "endDate",
+  date: StoryDate | undefined,
+  now = new Date().toISOString(),
+): boolean {
+  const card = story.cards[cardId];
+  if (!card) return false;
+  if (JSON.stringify(card[which]) === JSON.stringify(date)) return false;
+  if (date) card[which] = date;
+  else delete card[which];
+  if (which === "date" && !date) delete card.endDate;
+  card.modified = now;
+  return true;
 }

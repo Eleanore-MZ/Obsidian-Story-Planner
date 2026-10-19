@@ -1,6 +1,7 @@
 import { newId, PALETTE } from "./defaults";
 import { chapterRows } from "./moves";
-import { Card, CardCharacter, CharacterRole, Id, Story } from "./types";
+import { dateProblem } from "./calendar";
+import { Calendar, Card, CardCharacter, CharacterRole, Id, Story } from "./types";
 
 // Pure edits behind the story setup panel: plot lines, chapters and
 // characters. Deleting something that cards depend on always says what
@@ -177,4 +178,102 @@ function renumberAll(story: Story, now: string): void {
       }
     });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Calendar and time zones
+
+/** Cards whose date or end date the calendar can no longer show, e.g. after a month was removed. */
+export function cardsWithBadDates(story: Story): Card[] {
+  const calendar = story.calendars[0];
+  if (!calendar) return [];
+  return Object.values(story.cards).filter(
+    (c) => (c.date && dateProblem(calendar, c.date)) || (c.endDate && dateProblem(calendar, c.endDate)),
+  );
+}
+
+export function cardsWithDates(story: Story): Card[] {
+  return Object.values(story.cards).filter((c) => c.date);
+}
+
+/**
+ * Replaces the story's calendar with a fresh copy of a preset. Dates keep
+ * their components; eras and parts of the day that the new calendar lacks
+ * are taken off the dates, as the calendar no longer knows them.
+ */
+export function applyCalendar(story: Story, calendar: Calendar, now = new Date().toISOString()): boolean {
+  const id = story.calendars[0]?.id ?? calendar.id;
+  story.calendars = [{ ...calendar, id }, ...story.calendars.slice(1)];
+  const eras = new Set((calendar.eras ?? []).map((e) => e.id));
+  const parts = new Set((calendar.dayParts ?? []).map((p) => p.id));
+  for (const card of Object.values(story.cards)) {
+    for (const date of [card.date, card.endDate]) {
+      if (!date) continue;
+      if (date.era !== undefined && !eras.has(date.era)) {
+        delete date.era;
+        card.modified = now;
+      }
+      if (date.dayPart !== undefined && !parts.has(date.dayPart)) {
+        delete date.dayPart;
+        card.modified = now;
+      }
+    }
+  }
+  return true;
+}
+
+/** Adds a time zone. The story's first zone becomes the reference zone, with no offset. */
+export function addZone(story: Story, name: string, offsetMinutes = 0): Id {
+  const id = newId("z");
+  const first = story.zones.length === 0;
+  story.zones.push({ id, name, offsetMinutes: first ? 0 : offsetMinutes });
+  if (first) story.referenceZone = id;
+  return id;
+}
+
+/**
+ * Makes another zone the reference. Every offset is re-measured from it, so
+ * no event moves relative to another; only the numbers shown change.
+ */
+export function setReferenceZone(story: Story, zoneId: Id): boolean {
+  const zone = story.zones.find((z) => z.id === zoneId);
+  if (!zone || story.referenceZone === zoneId) return false;
+  const shift = zone.offsetMinutes;
+  for (const z of story.zones) z.offsetMinutes -= shift;
+  story.referenceZone = zoneId;
+  return true;
+}
+
+/** Zones still in use: on card dates, locations and characters. */
+export function zoneUses(story: Story, zoneId: Id): number {
+  const onCards = Object.values(story.cards).filter((c) => c.date?.zone === zoneId || c.endDate?.zone === zoneId).length;
+  return (
+    onCards + story.locations.filter((l) => l.zone === zoneId).length + story.characters.filter((c) => c.zone === zoneId).length
+  );
+}
+
+/**
+ * Deletes a zone and takes it off dates, locations and characters, which
+ * then fall back to the next zone in line. The reference zone passes to the
+ * first remaining zone.
+ */
+export function deleteZone(story: Story, zoneId: Id, now = new Date().toISOString()): boolean {
+  if (!story.zones.some((z) => z.id === zoneId)) return false;
+  if (story.referenceZone === zoneId) {
+    const next = story.zones.find((z) => z.id !== zoneId);
+    if (next) setReferenceZone(story, next.id);
+  }
+  for (const card of Object.values(story.cards)) {
+    for (const date of [card.date, card.endDate]) {
+      if (date?.zone === zoneId) {
+        delete date.zone;
+        card.modified = now;
+      }
+    }
+  }
+  for (const place of story.locations) if (place.zone === zoneId) delete place.zone;
+  for (const character of story.characters) if (character.zone === zoneId) delete character.zone;
+  story.zones = story.zones.filter((z) => z.id !== zoneId);
+  if (story.zones.length === 0) delete story.referenceZone;
+  return true;
 }

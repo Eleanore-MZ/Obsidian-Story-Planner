@@ -1,6 +1,7 @@
 import { formatStoryDate } from "../model/calendar";
 import { linkTarget, noteName } from "../model/links";
-import { Card, STORY_SCHEMA_VERSION, Story, StorySetup } from "../model/types";
+import { Card, Chapter, STORY_SCHEMA_VERSION, Story, StorySetup } from "../model/types";
+import { actsShown, actTitle, chapterNumbers, chapterTitle, titleFromOldName } from "../model/chapters";
 
 // A story note has three parts:
 //
@@ -145,10 +146,9 @@ export function renderOutline(story: Story): string {
       .map((c) => characterName.get(c.id))
       .filter((n): n is string => n !== undefined);
     if (people.length > 0) out.push(`Characters: ${people.join(", ")}`);
-    // Story tags are written as plain words, never as Obsidian #tags.
+    // Scene tags are written as plain words, never as Obsidian #tags.
     const tags = story.tagsEnabled ? card.tags.map((t) => tagName.get(t)).filter((n): n is string => n !== undefined) : [];
-    if (tags.length > 0) out.push(`Story tags: ${tags.map(escapeText).join(", ")}`);
-    if (card.relationshipState?.trim()) out.push(`Relationship: ${escapeText(card.relationshipState.trim())}`);
+    if (tags.length > 0) out.push(`Scene tags: ${tags.map(escapeText).join(", ")}`);
     if (card.synopsis.trim()) {
       out.push(...card.synopsis.trim().split(/\n+/).map(escapeLine));
     }
@@ -163,8 +163,23 @@ export function renderOutline(story: Story): string {
   const laneOf = (c: Card) => lane.get(c.plotLine) ?? story.plotLines.length;
   const byOrder = (a: Card, b: Card) => a.order - b.order || laneOf(a) - laneOf(b) || a.id.localeCompare(b.id);
 
+  // With acts, each act is a heading and its chapters sit one level below it.
+  const numbers = chapterNumbers(story);
+  const showActs = actsShown(story);
+  const chapterLevel = showActs ? "###" : "##";
+  let currentAct: string | undefined;
   for (const chapter of story.chapters) {
-    out.push(`## ${escapeText(chapter.name)}`);
+    const act = showActs && chapter.act ? story.acts.find((a) => a.id === chapter.act) : undefined;
+    if (act && act.id !== currentAct) {
+      out.push(`## ${escapeText(actTitle(story, act))}`);
+      out.push("");
+      if (act.summary?.trim()) {
+        out.push(escapeLine(act.summary.trim()));
+        out.push("");
+      }
+    }
+    currentAct = act?.id;
+    out.push(`${chapterLevel} ${escapeText(chapterTitle(story, chapter, numbers))}`);
     out.push("");
     if (chapter.summary?.trim()) {
       out.push(escapeLine(chapter.summary.trim()));
@@ -246,15 +261,20 @@ function readSetup(raw: unknown): StorySetup | string {
   return {
     schema: STORY_SCHEMA_VERSION,
     title: typeof raw.title === "string" ? raw.title : "Untitled story",
-    plotLines: arrayOf(raw.plotLines),
+    // Plot lines no longer name characters (that was the removed relationships feature).
+    plotLines: arrayOf<Record<string, unknown>>(raw.plotLines).map(({ characters: _dropped, ...p }) => p) as unknown as StorySetup["plotLines"],
     // Stories saved before categories existed have none.
     plotLineCategories: arrayOf(raw.plotLineCategories),
+    actsEnabled: raw.actsEnabled !== false,
     colorByCategory: raw.colorByCategory === true,
-    chapters: arrayOf(raw.chapters),
+    acts: arrayOf(raw.acts),
+    // Before version 2 a chapter's number was part of its name: "Chapter 3: The Pier".
+    chapters: schema < 2 ? arrayOf<Chapter>(raw.chapters).map((c) => ({ ...c, name: titleFromOldName(String(c.name ?? "")) })) : arrayOf(raw.chapters),
     characters: arrayOf(raw.characters),
     locations: arrayOf(raw.locations),
     tags: arrayOf(raw.tags),
-    tagsEnabled: raw.tagsEnabled !== false,
+    // Scene tags can no longer be switched off; a story that had them off shows them again.
+    tagsEnabled: true,
     calendars: arrayOf(raw.calendars),
     zones: arrayOf(raw.zones),
     referenceZone: typeof raw.referenceZone === "string" ? raw.referenceZone : undefined,
@@ -270,7 +290,8 @@ function readCard(raw: unknown): Card | null {
   }
   // Before cards were simply written or not, they had a status; drafted and
   // revised scenes count as written. The old field is not kept.
-  const { status, ...rest } = raw as Partial<Card> & { status?: unknown };
+  // Relationship states belonged to a feature that has been removed; they are dropped.
+  const { status, relationshipState: _dropped, ...rest } = raw as Partial<Card> & { status?: unknown; relationshipState?: unknown };
   return {
     ...rest,
     id: raw.id,

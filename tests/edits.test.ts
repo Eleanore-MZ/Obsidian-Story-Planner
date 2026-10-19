@@ -8,7 +8,6 @@ import {
   setCardDate,
   setCardLocation,
   setCardTag,
-  setRelationshipState,
   setEcho,
   echoByDrop,
   updateCard,
@@ -134,7 +133,7 @@ describe("dates on cards", () => {
   });
 });
 
-describe("location, tags and relationship state", () => {
+describe("location and tags", () => {
   it("sets and clears them", () => {
     const s = story();
     const id = Object.keys(s.cards)[0]!;
@@ -147,10 +146,6 @@ describe("location, tags and relationship state", () => {
     expect(s.cards[id]!.tags).toEqual(["g1"]);
     setCardTag(s, id, "g1", false, NOW);
     expect(s.cards[id]!.tags).toEqual([]);
-    setRelationshipState(s, id, " allies ", NOW);
-    expect(s.cards[id]!.relationshipState).toBe("allies");
-    setRelationshipState(s, id, "", NOW);
-    expect("relationshipState" in s.cards[id]!).toBe(false);
   });
 });
 

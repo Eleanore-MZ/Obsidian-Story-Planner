@@ -1699,3 +1699,906 @@ body.story-planner-reordering * {
 .story-planner-setup-fold[open] {
   padding-bottom: var(--size-4-2);
 }
+
+/* Chapter headers: "Chapter 3" small, the title, then a few lines of synopsis. */
+.story-planner-chapter-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.story-planner-chapter-number {
+  font-size: var(--font-ui-smaller);
+  font-weight: normal;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.story-planner-chapter-header .story-planner-chapter-name {
+  color: var(--text-normal);
+}
+
+/* The chapter header runs down beside its rows; the synopsis takes the room
+   that leaves, in full, and fades out only where it does not fit. */
+.story-planner-grid .story-planner-chapter-header {
+  align-self: stretch;
+}
+
+.story-planner-chapter-header .story-planner-chapter-text {
+  align-self: stretch;
+  flex: 1;
+}
+
+.story-planner-chapter-synopsis {
+  /* Takes the space left without making the chapter's rows taller. */
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  font-weight: normal;
+  font-size: var(--font-ui-smaller);
+  line-height: 1.4;
+  color: var(--text-muted);
+  white-space: pre-line;
+}
+
+.story-planner-chapter-synopsis.is-clipped {
+  mask-image: linear-gradient(to bottom, black calc(100% - 2.5em), transparent);
+}
+
+.story-planner-grid.is-compact .story-planner-chapter-synopsis {
+  display: none;
+}
+
+/* An act: a row across the whole board above its first chapter. */
+.story-planner-act-header {
+  position: relative;
+  z-index: 2;
+  align-self: stretch;
+  margin-top: var(--size-4-3);
+  border-top: 2px solid var(--text-faint);
+  background: var(--background-primary);
+}
+
+.story-planner-act-label {
+  position: sticky;
+  left: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  width: max-content;
+  max-width: 100%;
+  padding: var(--size-4-2) var(--size-4-2) var(--size-4-2) 0;
+  background: var(--background-primary);
+}
+
+.story-planner-grid.is-horizontal .story-planner-act-header {
+  margin-top: 0;
+  margin-left: var(--size-4-3);
+  border-top: none;
+  border-left: 2px solid var(--text-faint);
+}
+
+.story-planner-grid.is-horizontal .story-planner-act-label {
+  position: sticky;
+  top: 0;
+  writing-mode: vertical-rl;
+}
+
+.story-planner-act-number {
+  font-weight: var(--font-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.story-planner-act-title {
+  font-weight: var(--font-semibold);
+}
+
+.story-planner-act-synopsis {
+  max-width: 40em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+
+/* A long card in story time: one card from its start row down to its end row,
+   its colour bar and background running the whole way. Cards in its plot line
+   during that time sit on top of it, a step in, so its edge stays in view. */
+.story-planner-card.is-long,
+.story-planner-echo.is-long {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+}
+
+.story-planner-long-end {
+  margin-top: auto;
+  padding-top: var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+.story-planner .is-nested {
+  position: relative;
+}
+
+.story-planner-grid.is-vertical .is-nested {
+  margin-left: calc(var(--depth, 1) * 18px);
+}
+
+.story-planner-grid.is-horizontal .is-nested {
+  margin-top: calc(var(--depth, 1) * 18px);
+}
+
+/* A card on top of a long one is lifted a little, so the two read apart. */
+.story-planner-card.is-nested,
+.story-planner-echo.is-nested {
+  box-shadow: -2px 0 0 var(--background-primary);
+}
+
+/* Plain icon buttons, such as Undo and Redo. */
+.story-planner .story-planner-icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+
+.story-planner .story-planner-icon-action:hover:not(:disabled) {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.story-planner .story-planner-icon-action:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.story-planner .story-planner-icon-action svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Small tags in setup rows: a chapter's number, an act's numeral. */
+.story-planner-setup-tag {
+  flex: none;
+  min-width: 2.5em;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The chapter and act editor. */
+.story-planner-form-modal .story-planner-form-wide {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--size-4-2);
+}
+
+.story-planner-form-modal .story-planner-form-wide textarea {
+  width: 100%;
+  min-height: 7em;
+}
+
+/* "Characters to track": untracked characters come after the tracked ones. */
+.story-planner-lane-list .setting-item.is-untracked {
+  opacity: 0.75;
+}
+
+/* The act column: narrow, sticky like the chapter column, before it. */
+.story-planner {
+  --story-planner-act-size: 40px;
+}
+
+.story-planner-act-band {
+  position: sticky;
+  z-index: 3;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2) 0;
+  background: var(--background-primary);
+  border-top: 2px solid var(--text-muted);
+  cursor: default;
+}
+
+.story-planner-act-band.is-empty {
+  border-top-color: transparent;
+}
+
+.story-planner-grid.is-vertical .story-planner-act-band {
+  left: 0;
+  /* Covers the gap to the chapter column, so nothing shows between them. */
+  box-shadow: var(--size-4-2) 0 0 var(--background-primary);
+}
+
+.story-planner-act-band .story-planner-act-label {
+  position: sticky;
+  top: calc(var(--story-planner-head-size, 48px) + var(--size-4-3));
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  width: auto;
+  max-height: 60vh;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+}
+
+.story-planner-grid.is-horizontal .story-planner-act-band {
+  top: 0;
+  flex-direction: row;
+  height: var(--story-planner-act-size);
+  padding: 0 var(--size-4-2);
+  border-top: none;
+  border-left: 2px solid var(--text-muted);
+}
+
+.story-planner-grid.is-horizontal .story-planner-act-band .story-planner-act-label {
+  writing-mode: horizontal-tb;
+  left: 0;
+  top: auto;
+  position: sticky;
+}
+
+/* The chapter column sits after the act column; both stay put when scrolling. */
+.story-planner-grid.is-vertical.has-acts .story-planner-chapter-header {
+  left: calc(var(--story-planner-act-size) + var(--size-4-2));
+}
+
+.story-planner-grid.is-horizontal.has-acts .story-planner-chapter-header {
+  top: calc(var(--story-planner-act-size) + var(--size-4-2));
+}
+
+.story-planner-grid.is-vertical.has-acts .story-planner-sticky-column {
+  grid-column: 1 / span 2;
+}
+
+.story-planner-grid.is-horizontal.has-acts .story-planner-sticky-row {
+  grid-row: 1 / span 2;
+}
+
+/* Where one act gives way to the next: a strong line across the whole board,
+   under the sticky headers; the act and chapter cells carry it through their columns. */
+.story-planner-act-divider {
+  position: relative;
+  z-index: 2;
+  align-self: start;
+  pointer-events: none;
+}
+
+.story-planner-grid.is-vertical .story-planner-act-divider {
+  height: 0;
+  margin-top: calc(-1 * var(--size-4-2) / 2 - 1px);
+  border-top: 2px solid var(--text-muted);
+}
+
+.story-planner-grid.is-horizontal .story-planner-act-divider {
+  justify-self: start;
+  align-self: stretch;
+  width: 0;
+  margin-left: calc(-1 * var(--size-4-2) / 2 - 1px);
+  border-left: 2px solid var(--text-muted);
+}
+
+.story-planner-grid.is-vertical .story-planner-chapter-header.is-act-start {
+  border-top: 2px solid var(--text-muted);
+}
+
+.story-planner-grid.is-horizontal .story-planner-chapter-header.is-act-start {
+  border-left: 2px solid var(--text-muted);
+}
+
+/* Story setup: acts as header rows in the chapter list, chapters indented under them. */
+/* Acts as header rows in the chapter list: a hairline above, the numeral in
+   small capitals; everything lines up with the chapter rows. */
+.story-planner-setup-row.story-planner-setup-act {
+  margin-top: var(--size-4-3);
+  border-top: 1px solid var(--text-faint);
+}
+
+.story-planner-setup-tag,
+.story-planner-setup-tag.is-act {
+  min-width: 4.5em;
+}
+
+.story-planner-setup-tag.is-act {
+  font-variant: small-caps;
+  text-transform: lowercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+/* A synopsis: a quiet line of text under the title, aligned with it. The left
+   margin is the grip, the tag and the gaps before the title. */
+.story-planner-setup-section textarea.story-planner-setup-synopsis {
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 16px - 4.5em - 3 * var(--size-4-1) - 40px);
+  min-height: 0;
+  margin: -2px 0 var(--size-4-1) calc(16px + 4.5em + 3 * var(--size-4-1) + var(--size-4-1));
+  padding: 2px var(--size-4-1);
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--font-ui-small);
+  line-height: 1.4;
+  color: var(--text-muted);
+  resize: none;
+  overflow: hidden;
+}
+
+.story-planner-setup-section textarea.story-planner-setup-synopsis:hover {
+  border-color: var(--background-modifier-border);
+}
+
+.story-planner-setup-section textarea.story-planner-setup-synopsis:focus {
+  border-color: var(--interactive-accent);
+  color: var(--text-normal);
+}
+
+/* A chapter's number and title (and its fold button) stay just below the
+   header row while the chapter scrolls past, as the act's label does. */
+.story-planner-grid.is-vertical .story-planner-chapter-head,
+.story-planner-grid.is-vertical .story-planner-chapter-header > .story-planner-fold,
+.story-planner-grid.is-vertical .story-planner-act-band > .story-planner-fold {
+  position: sticky;
+  top: calc(var(--story-planner-head-size, 48px) + var(--size-4-3));
+  z-index: 1;
+}
+
+.story-planner-grid.is-horizontal .story-planner-chapter-head,
+.story-planner-grid.is-horizontal .story-planner-chapter-header > .story-planner-fold {
+  position: sticky;
+  left: calc(var(--story-planner-head-size, 9rem) + var(--size-4-3));
+  z-index: 1;
+}
+
+.story-planner-chapter-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--background-primary);
+  /* Covers the synopsis as it slides underneath. */
+  box-shadow: 0 var(--size-4-1) var(--size-4-1) var(--background-primary);
+}
+
+.story-planner-grid.is-horizontal .story-planner-chapter-header {
+  align-items: stretch;
+}
+
+.story-planner-grid.is-horizontal .story-planner-chapter-head {
+  max-width: var(--story-planner-card-width);
+}
+
+/* Dates in the date column stay just below the header row while a tall span scrolls past. */
+.story-planner-grid .story-planner-time-header {
+  align-self: stretch;
+}
+
+.story-planner-time-label {
+  display: block;
+  background: var(--background-primary);
+}
+
+.story-planner-grid.is-vertical .story-planner-time-label {
+  position: sticky;
+  top: calc(var(--story-planner-head-size, 48px) + var(--size-4-3));
+}
+
+.story-planner-grid.is-horizontal .story-planner-time-label {
+  position: sticky;
+  left: calc(var(--story-planner-head-size, 9rem) + var(--size-4-3));
+  max-width: var(--story-planner-card-width);
+}
+
+/* The chapter label: one block (fold button, number, title, synopsis) that
+   floats over the chapter's cell and stays just below the header row while the
+   chapter scrolls past. "overflow: clip" rather than hidden, which would stop
+   it sticking. */
+.story-planner-grid .story-planner-chapter-header {
+  min-height: 3.6em;
+}
+
+.story-planner-chapter-wrap {
+  position: absolute;
+  inset: 0;
+  padding: var(--size-4-2);
+  overflow: clip;
+}
+
+.story-planner-chapter-block {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-1);
+  background: var(--background-primary);
+}
+
+.story-planner-grid.is-vertical .story-planner-chapter-block {
+  position: sticky;
+  top: calc(var(--story-planner-head-size, 48px) + var(--size-4-3));
+}
+
+.story-planner-grid.is-horizontal .story-planner-chapter-block {
+  position: sticky;
+  left: calc(var(--story-planner-head-size, 9rem) + var(--size-4-3));
+  max-width: var(--story-planner-card-width);
+}
+
+.story-planner-chapter-block .story-planner-chapter-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.story-planner-grid .story-planner-chapter-block .story-planner-chapter-head,
+.story-planner-grid .story-planner-chapter-block .story-planner-fold {
+  position: static;
+  box-shadow: none;
+}
+
+.story-planner-chapter-block .story-planner-chapter-synopsis {
+  flex: none;
+  min-height: 0;
+  overflow: visible;
+  mask-image: none;
+}
+
+/* Only a label longer than its chapter fades out, at the chapter's end. */
+.story-planner-chapter-wrap.is-clipped {
+  mask-image: linear-gradient(to bottom, black calc(100% - 2.5em), transparent);
+}
+
+.story-planner-grid.is-horizontal .story-planner-chapter-wrap.is-clipped {
+  mask-image: linear-gradient(to bottom, black calc(100% - 1.5em), transparent);
+}
+
+/* Grid lines: hairlines between plot line columns, and across the board at
+   each chapter or span. Act dividers are stronger; "days later" lines are dashed. */
+.story-planner-lane-line,
+.story-planner-row-line {
+  position: relative;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.story-planner-grid.is-vertical .story-planner-lane-line {
+  justify-self: start;
+  align-self: stretch;
+  width: 0;
+  margin-left: calc(-1 * var(--size-4-2) / 2);
+  border-left: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-grid.is-horizontal .story-planner-lane-line {
+  align-self: start;
+  height: 0;
+  margin-top: calc(-1 * var(--size-4-2) / 2);
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-grid.is-vertical .story-planner-row-line {
+  align-self: start;
+  height: 0;
+  margin-top: calc(-1 * var(--size-4-2) / 2);
+  border-top: 1px solid var(--background-modifier-border-hover, var(--background-modifier-border));
+}
+
+.story-planner-grid.is-horizontal .story-planner-row-line {
+  justify-self: start;
+  width: 0;
+  margin-left: calc(-1 * var(--size-4-2) / 2);
+  border-left: 1px solid var(--background-modifier-border-hover, var(--background-modifier-border));
+}
+
+.story-planner-grid.is-vertical .story-planner-time-gap::before {
+  border-top-style: dashed;
+}
+
+/* A character's relationships: a toggle on the row, and the plot lines that follow them below it. */
+.story-planner .story-planner-setup-relations {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 26px;
+  padding: 0 var(--size-4-1);
+  border-radius: 0;
+  color: var(--text-faint);
+  font-size: var(--font-ui-smaller);
+}
+
+.story-planner .story-planner-setup-relations svg {
+  width: 15px;
+  height: 15px;
+}
+
+.story-planner .story-planner-setup-relations:hover,
+.story-planner .story-planner-setup-relations.is-active {
+  color: var(--text-normal);
+}
+
+.story-planner-setup-section .story-planner-setup-relationship {
+  margin: 0 0 var(--size-4-2) calc(16px + 4.5em);
+  padding: var(--size-4-1) var(--size-4-2);
+  border-left: 1px solid var(--background-modifier-border);
+}
+
+/* Presence marks, on the matrix, the track and in the legend: a square for
+   point of view, a dot for present, a small grey ring for mentioned. */
+.story-planner-presence {
+  display: inline-block;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+.story-planner-presence.role-pov {
+  width: 12px;
+  height: 12px;
+  background: var(--lane-color, var(--text-accent));
+}
+
+.story-planner-presence.role-present {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--lane-color, var(--text-normal));
+}
+
+.story-planner-presence.role-mentioned {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-faint);
+  background: transparent;
+}
+
+.story-planner-matrix td.role-pov {
+  color: inherit;
+  font-weight: normal;
+}
+
+.story-planner-matrix-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-4);
+  white-space: normal;
+}
+
+.story-planner-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+
+.story-planner-legend-item .story-planner-presence.role-pov,
+.story-planner-legend-item .story-planner-presence.role-present {
+  --lane-color: var(--text-muted);
+}
+
+/* Narrow chapter columns, with the acts in a row above them. */
+.story-planner-matrix thead th {
+  max-width: 6em;
+}
+
+.story-planner-matrix td {
+  min-width: 2em;
+}
+
+.story-planner-matrix tr.story-planner-matrix-acts th {
+  top: 0;
+  max-width: none;
+  text-align: left;
+  font-size: var(--font-ui-smaller);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-normal);
+  border-bottom: 2px solid var(--text-muted);
+}
+
+.story-planner-matrix tr.story-planner-matrix-acts + tr th {
+  top: 2em;
+}
+
+.story-planner-appearance-role .story-planner-presence {
+  margin-right: var(--size-4-1);
+}
+
+/* On cards, the date is a small, quiet line and the synopsis reads clearly:
+   the two should never look the same. */
+.story-planner-card .story-planner-card-date {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.story-planner-card .story-planner-card-synopsis {
+  color: var(--text-normal);
+  opacity: 0.82;
+}
+
+/* The presence matrix: the legend stays at the top, the header row under it,
+   and each character's name (with its colour bar) at the left, while the
+   matrix scrolls. Separate borders, because sticky cells lose collapsed ones. */
+.story-planner-matrix-wrap {
+  --story-planner-legend-height: 2.4em;
+}
+
+.story-planner-matrix-legend {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  height: var(--story-planner-legend-height);
+  margin: 0;
+  background: var(--background-primary);
+}
+
+.story-planner-matrix {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.story-planner-matrix th,
+.story-planner-matrix td {
+  border: none;
+  border-right: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-matrix thead th {
+  top: var(--story-planner-legend-height);
+  z-index: 2;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-matrix tr.story-planner-matrix-acts th {
+  top: var(--story-planner-legend-height);
+}
+
+.story-planner-matrix tr.story-planner-matrix-acts + tr th {
+  top: calc(var(--story-planner-legend-height) + 2em);
+}
+
+.story-planner-matrix th.story-planner-matrix-name {
+  z-index: 1;
+  border-left: none;
+  box-shadow: inset 3px 0 0 var(--lane-color);
+  padding-left: calc(var(--size-4-2) + 3px);
+}
+
+.story-planner-matrix thead th.story-planner-matrix-corner {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+}
+
+/* ------------------------------------------------------------------------
+   Fields and buttons that read like the finished page. Inside the plugin,
+   text boxes, dropdowns and buttons have no grey fill or box: they look like
+   the text they hold, show a hairline when hovered, and an accent line while
+   being edited. */
+
+.story-planner input[type="text"],
+.story-planner input[type="search"],
+.story-planner input[type="number"],
+.story-planner input:not([type]),
+.story-planner textarea,
+.story-planner select.dropdown,
+.story-planner-form-modal input[type="text"],
+.story-planner-form-modal textarea,
+.story-planner-form-modal select.dropdown {
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--text-normal);
+  transition: border-color 0.12s;
+}
+
+.story-planner input[type="text"]:hover,
+.story-planner input[type="search"]:hover,
+.story-planner input[type="number"]:hover,
+.story-planner textarea:hover,
+.story-planner select.dropdown:hover,
+.story-planner-form-modal input[type="text"]:hover,
+.story-planner-form-modal textarea:hover,
+.story-planner-form-modal select.dropdown:hover {
+  border-color: var(--background-modifier-border);
+  background-color: transparent;
+}
+
+.story-planner input[type="text"]:focus,
+.story-planner input[type="search"]:focus,
+.story-planner input[type="number"]:focus,
+.story-planner textarea:focus,
+.story-planner select.dropdown:focus,
+.story-planner-form-modal input[type="text"]:focus,
+.story-planner-form-modal textarea:focus,
+.story-planner-form-modal select.dropdown:focus {
+  border-color: var(--interactive-accent);
+  background-color: var(--background-primary);
+  box-shadow: none;
+  outline: none;
+}
+
+.story-planner input::placeholder,
+.story-planner textarea::placeholder {
+  color: var(--text-faint);
+}
+
+/* The search box keeps a quiet line, so it can be found. */
+.story-planner .story-planner-search {
+  border-bottom-color: var(--background-modifier-border);
+}
+
+/* The card panel: the title reads as a heading, the synopsis as body text. */
+.story-planner-panel .story-planner-panel-label {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.story-planner-panel input.story-planner-panel-title {
+  padding-left: 0;
+  padding-right: 0;
+  font-size: var(--h3-size, 1.3em);
+  font-weight: var(--font-semibold);
+}
+
+.story-planner-panel textarea.story-planner-panel-synopsis {
+  padding-left: 0;
+  padding-right: 0;
+  font-size: var(--font-text-size, 1em);
+  line-height: 1.5;
+  resize: none;
+}
+
+.story-planner-panel input.story-planner-panel-title:hover,
+.story-planner-panel textarea.story-planner-panel-synopsis:hover,
+.story-planner-panel input.story-planner-panel-title:focus,
+.story-planner-panel textarea.story-planner-panel-synopsis:focus {
+  padding-left: var(--size-4-1);
+  padding-right: var(--size-4-1);
+}
+
+/* Buttons: quiet ghost buttons with square corners. */
+.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item),
+.story-planner-form-modal button {
+  height: auto;
+  padding: var(--size-2-2) var(--size-4-3);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):hover,
+.story-planner-form-modal button:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.story-planner .story-planner-tab-actions button.is-active,
+.story-planner .story-planner-toolbar button.is-active {
+  background: transparent;
+  color: var(--text-normal);
+  border-color: var(--interactive-accent);
+}
+
+.story-planner-form-modal button.mod-cta {
+  border-color: var(--interactive-accent);
+  color: var(--text-normal);
+}
+
+.story-planner button.mod-warning {
+  border-color: transparent;
+  color: var(--text-error);
+}
+
+.story-planner button.mod-warning:hover {
+  background: color-mix(in srgb, var(--text-error) 10%, transparent);
+}
+
+/* Colour pickers in setup: small squares, like the colour bars they set. */
+.story-planner input[type="color"].story-planner-setup-color {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.story-planner input[type="color"].story-planner-setup-color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.story-planner input[type="color"].story-planner-setup-color::-webkit-color-swatch {
+  border: none;
+  border-radius: 0;
+}
+
+/* Row actions in setup: small icons on the row, shown on hover or keyboard focus. */
+.story-planner-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.story-planner-setup-row:hover .story-planner-row-actions,
+.story-planner-setup-row:focus-within .story-planner-row-actions {
+  opacity: 1;
+}
+
+.story-planner .story-planner-row-action {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 0;
+  color: var(--text-faint);
+}
+
+.story-planner .story-planner-row-action svg {
+  width: 15px;
+  height: 15px;
+}
+
+.story-planner .story-planner-row-action:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.story-planner .story-planner-row-action.is-danger:hover {
+  color: var(--text-error);
+}
+
+.story-planner .story-planner-row-action:disabled {
+  opacity: 0.3;
+}
+
+/* The typed date field and how it reads. */
+.story-planner .story-planner-date-input {
+  flex: 1;
+  min-width: 10em;
+  font-variant-numeric: tabular-nums;
+}
+
+.story-planner-date-hint {
+  margin-top: 2px;
+  min-height: 1.2em;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+.story-planner-date-hint.is-problem {
+  color: var(--text-error);
+}
+
+.story-planner-date-approx {
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}

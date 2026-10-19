@@ -21,6 +21,10 @@ export type BoardItem =
   | { kind: "empty"; cardId: string; plotLineId: string }
   /** Drop zone after a chapter's last scene, so cards can be dropped at the end. */
   | { kind: "chapter-end"; chapterId: string | null; plotLineId: string }
+  /** An act in the act column, running beside all its chapters; null for chapters in no act. */
+  | { kind: "act-band"; actId: string | null }
+  /** A line across the whole board where one act ends and the next begins. */
+  | { kind: "act-divider" }
   /** A folded chapter's single row: how many cards each plot line has in it. */
   | { kind: "chapter-folded"; chapterId: string | null; plotLineId: string; count: number };
 
@@ -29,12 +33,16 @@ export interface PlacedItem {
   /** 1-based grid line positions, as CSS grid expects. */
   row: number;
   column: number;
+  /** How many slots it covers along the reading axis (acts run beside their chapters). */
+  span?: number;
 }
 
 export interface BoardLayout {
   rows: number;
   columns: number;
   items: PlacedItem[];
+  /** True when the story has acts, which then have a column of their own before the chapters. */
+  acts: boolean;
 }
 
 /**
@@ -52,7 +60,8 @@ export function computeBoardLayout(
 ): BoardLayout {
   const laneIndex = new Map(story.plotLines.map((p, i) => [p.id, i]));
   const laneCount = story.plotLines.length;
-  const items: { item: BoardItem; slot: number; lane: number }[] = [];
+  // Lane -1 is the act column, lane 0 the chapter column; plot lines start at 1.
+  const items: { item: BoardItem; slot: number; lane: number; span?: number }[] = [];
 
   // Lane 0 / slot 0 hold the headers; content starts at 1 on both axes.
   items.push({ item: { kind: "corner" }, slot: 0, lane: 0 });
@@ -72,14 +81,39 @@ export function computeBoardLayout(
   if (offPage.length > 0) groups.push({ chapterId: null, cards: offPage });
 
   let slot = 1;
+  const hasActs = story.actsEnabled !== false && story.acts.length > 0;
+  const actOf = new Map(story.chapters.map((c) => [c.id, c.act && story.acts.some((a) => a.id === c.act) ? c.act : null]));
+  // Runs of chapters in the same act (or in none), for the act column.
+  let run: { act: string | null; start: number } | null = null;
+  const closeRun = (end: number) => {
+    if (run && hasActs) items.push({ item: { kind: "act-band", actId: run.act }, slot: run.start, lane: -1, span: end - run.start });
+  };
   for (const group of groups) {
-    items.push({ item: { kind: "chapter-header", chapterId: group.chapterId }, slot, lane: 0 });
+    const act = group.chapterId === null ? null : (actOf.get(group.chapterId) ?? null);
+    if (!run || act !== run.act) {
+      closeRun(slot);
+      // A line across the board where one act gives way to the next.
+      if (run && hasActs) items.push({ item: { kind: "act-divider" }, slot, lane: -1 });
+      run = { act, start: slot };
+    }
+    // The chapter's header runs down beside all of its rows; its span is filled in once they are laid out.
+    const header: { item: BoardItem; slot: number; lane: number; span?: number } = {
+      item: { kind: "chapter-header", chapterId: group.chapterId },
+      slot,
+      lane: 0,
+    };
+    items.push(header);
+    const headerSlot = slot;
+    const finishHeader = () => {
+      if (slot - headerSlot > 1) header.span = slot - headerSlot;
+    };
     if (folded.has(group.chapterId)) {
       story.plotLines.forEach((p, i) => {
         const count = group.cards.filter((c) => c.plotLine === p.id || c.alsoIn.includes(p.id)).length;
         items.push({ item: { kind: "chapter-folded", chapterId: group.chapterId, plotLineId: p.id, count }, slot, lane: i + 1 });
       });
       slot++;
+      finishHeader();
       continue;
     }
     // Chapter header slot also carries an "add card" button in every lane.
@@ -109,6 +143,7 @@ export function computeBoardLayout(
         }
       });
       slot += height;
+      finishHeader();
       continue;
     }
     for (const row of sceneRows(group.cards, laneIndex)) {
@@ -135,17 +170,24 @@ export function computeBoardLayout(
       items.push({ item: { kind: "chapter-end", chapterId: group.chapterId, plotLineId: p.id }, slot, lane: i + 1 });
     });
     slot++;
+    finishHeader();
   }
 
+  closeRun(slot);
+
   const vertical = orientation === "vertical";
+  // With acts, every lane moves over by one to make room for the act column.
+  const offset = hasActs ? 1 : 0;
   return {
-    rows: vertical ? slot : laneCount + 1,
-    columns: vertical ? laneCount + 1 : slot,
-    items: items.map(({ item, slot, lane }) => ({
+    rows: vertical ? slot : laneCount + 1 + offset,
+    columns: vertical ? laneCount + 1 + offset : slot,
+    items: items.map(({ item, slot, lane, span }) => ({
       item,
-      row: (vertical ? slot : lane) + 1,
-      column: (vertical ? lane : slot) + 1,
+      row: (vertical ? slot : lane + offset) + 1,
+      column: (vertical ? lane + offset : slot) + 1,
+      ...(span !== undefined ? { span } : {}),
     })),
+    acts: hasActs,
   };
 }
 

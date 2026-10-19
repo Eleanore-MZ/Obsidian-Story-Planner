@@ -109,6 +109,16 @@ describe("board layout", () => {
     expect(ends.filter((p) => p.column === 3)).toHaveLength(1);
   });
 
+  it("runs each chapter's header down beside all of its rows", () => {
+    const { story } = storyWithTwoPlotLines();
+    const layout = computeBoardLayout(story, "vertical");
+    const header = layout.items.find((p) => p.item.kind === "chapter-header")!;
+    // The header row, two scene rows and the drop row at the end.
+    expect(header.span).toBe(4);
+    const folded = computeBoardLayout(story, "vertical", false, new Set([story.chapters[0]!.id]));
+    expect(folded.items.find((p) => p.item.kind === "chapter-header")!.span).toBeUndefined();
+  });
+
   it("shows a folded chapter as one row, counting each plot line's cards and echoes", () => {
     const { story } = storyWithTwoPlotLines();
     const chapter = story.chapters[0]!.id;

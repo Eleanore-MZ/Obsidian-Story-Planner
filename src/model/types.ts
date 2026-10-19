@@ -3,7 +3,7 @@
 // See docs/design.md for the reasoning behind each concept.
 
 /** Bumped whenever the stored shape changes, so older stories can be upgraded. */
-export const STORY_SCHEMA_VERSION = 1;
+export const STORY_SCHEMA_VERSION = 2;
 
 export type Id = string;
 
@@ -17,8 +17,6 @@ export interface PlotLine {
   /** The category this plot line belongs to, such as "Main story lines". */
   category?: Id;
   description?: string;
-  /** Characters this plot line is about, e.g. both sides of a relationship. */
-  characters?: Id[];
 }
 
 /** A group of plot lines, such as "Main story lines" or "Relationship development". */
@@ -30,7 +28,20 @@ export interface PlotLineCategory {
 
 export interface Chapter {
   id: Id;
+  /** The writer's title, which may be empty; the number comes from the chapter's place (see model/chapters.ts). */
   name: string;
+  /** What happens in the chapter. */
+  summary?: string;
+  /** The act the chapter belongs to. */
+  act?: Id;
+  /** Shown instead of a number, such as "Prologue"; such a chapter takes no number. */
+  label?: string;
+}
+
+/** A run of chapters, such as "Act I: The Pier". Its number comes from its place. */
+export interface Act {
+  id: Id;
+  title?: string;
   summary?: string;
 }
 
@@ -156,8 +167,6 @@ export interface Card {
   /** Whether the scene has been written yet. */
   written: boolean;
   tags: Id[];
-  /** Relationship state label, for cards in relationship plot lines. */
-  relationshipState?: string;
   /** Vault paths of linked notes. */
   notes: string[];
   /** ISO timestamp of the last edit, used to resolve sync conflicts. */
@@ -170,6 +179,9 @@ export interface StorySetup {
   title: string;
   plotLines: PlotLine[];
   plotLineCategories: PlotLineCategory[];
+  /** Whether the story shows its acts; turning it off hides them and keeps them for later. */
+  actsEnabled: boolean;
+  acts: Act[];
   /** Colour each plot line by its category instead of by its own colour. */
   colorByCategory: boolean;
   chapters: Chapter[];

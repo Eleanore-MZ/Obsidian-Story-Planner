@@ -65,13 +65,15 @@ export const CALENDAR_PRESETS: { name: string; create: () => Calendar }[] = [
 
 export function createEmptyStory(title: string): Story {
   const plotLine = { id: newId("p"), name: "Main plot", color: "#4a90d9" };
-  const chapter = { id: newId("c"), name: "Chapter 1" };
+  const chapter = { id: newId("c"), name: "" };
   return {
     schema: STORY_SCHEMA_VERSION,
     title,
     plotLines: [plotLine],
     plotLineCategories: [],
+    actsEnabled: true,
     colorByCategory: false,
+    acts: [],
     chapters: [chapter],
     characters: [],
     locations: [],

@@ -75,18 +75,14 @@ describe("text that could break the note", () => {
     expect(outline).toContain("2\\. not numbered");
   });
 
-  it("writes story tags and relationship states as plain text, never as Obsidian tags", () => {
+  it("writes story tags as plain text, never as Obsidian tags", () => {
     const story = sampleStory();
     story.tags = [{ id: "g1", name: "#clue", color: "#000" }, { id: "g2", name: "red herring", color: "#111" }];
     const card = Object.values(story.cards)[0]!;
     card.tags = ["g1", "g2"];
-    card.relationshipState = "trust [[broken]]";
     const outline = renderOutline(story);
-    expect(outline).toContain("Story tags: \\#clue, red herring");
-    expect(outline).toContain("Relationship: trust \\[\\[broken\\]\\]");
+    expect(outline).toContain("Scene tags: \\#clue, red herring");
     expect(outline).not.toMatch(/(^|[^\\])#clue/);
-    story.tagsEnabled = false;
-    expect(renderOutline(story)).not.toContain("Story tags:");
     expect(parseOk(serializeStory(story)).story).toEqual(story);
   });
 
@@ -167,6 +163,22 @@ describe("written and unwritten scenes", () => {
   });
 });
 
+describe("relationships, which were removed", () => {
+  it("still opens stories that have them, and drops them on the next save", () => {
+    const text = serializeStory(sampleStory())
+      .replace('"color":"#4a90d9"}', '"color":"#4a90d9","characters":["x1"]}')
+      .replace(/"written":false/, '"written":false,"relationshipState":"allies"');
+    expect(text).toContain('"characters":["x1"]');
+    expect(text).toContain('"relationshipState":"allies"');
+    const parsed = parseOk(text);
+    expect("characters" in parsed.story.plotLines[0]!).toBe(false);
+    expect(Object.values(parsed.story.cards).some((c) => "relationshipState" in c)).toBe(false);
+    const saved = serializeStory(parsed.story, parsed.frontmatter);
+    expect(saved).not.toContain("relationshipState");
+    expect(saved).not.toContain('"characters":["x1"]');
+  });
+});
+
 describe("damaged or unusual notes", () => {
   it("refuses notes that are not stories", () => {
     expect(parseStory("# Just a note").ok).toBe(false);
@@ -188,7 +200,7 @@ describe("damaged or unusual notes", () => {
   });
 
   it("refuses stories saved by a newer version", () => {
-    const text = serializeStory(sampleStory()).replace('"schema":1', '"schema":99');
+    const text = serializeStory(sampleStory()).replace('"schema":2', '"schema":99');
     const result = parseStory(text);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/newer version/);

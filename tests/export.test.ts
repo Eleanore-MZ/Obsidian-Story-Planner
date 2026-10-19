@@ -10,8 +10,8 @@ function story(): Story {
     { id: "p2", name: "Old friends", color: "#000" },
   ];
   s.chapters = [
-    { id: "c1", name: "Chapter 1", summary: "June leaves." },
-    { id: "c2", name: "Chapter 2" },
+    { id: "c1", name: "", summary: "June leaves." },
+    { id: "c2", name: "" },
   ];
   s.characters = [
     { id: "x1", name: "June", color: "#000" },
@@ -29,7 +29,7 @@ function story(): Story {
   });
   add("k2", {
     title: "Coffee, with Tom", plotLine: "p2", chapter: "c2", order: 1, alsoIn: ["p1"], location: "l2", tags: ["g1"],
-    date: { calendar: "main", year: 2024, month: 3, day: 1 }, relationshipState: "friends again",
+    date: { calendar: "main", year: 2024, month: 3, day: 1 },
     characters: [{ id: "x1", role: "pov" }, { id: "x2", role: "present" }], notes: ["Drafts/Coffee.md"],
   });
   add("k3", { title: "Unpacked", plotLine: "p1", chapter: "c2", order: 2 });
@@ -46,8 +46,7 @@ describe("Markdown export", () => {
     expect(text).toContain("June leaves.");
     expect(text).toContain("*Old friends · 2024/03/01 · Linden Street › The café*");
     expect(text).toContain("**Characters:** June (point of view: Tired)");
-    expect(text).toContain("**Story tags:** turning point");
-    expect(text).toContain("**Relationship:** friends again");
+    expect(text).toContain("**Scene tags:** turning point");
     // Nothing from a card becomes an Obsidian tag or heading.
     expect(text).toContain("\\#1 rule: no tears");
     expect(text).not.toContain("storyplanner-data");
@@ -65,7 +64,7 @@ describe("Markdown export", () => {
 describe("CSV export", () => {
   it("writes one row per card with a header, readable by spreadsheets", () => {
     const text = exportCsv(story(), "reading");
-    expect(text.startsWith("\uFEFFChapter,Scene,Title,")).toBe(true);
+    expect(text.startsWith("\uFEFFAct,Chapter,Chapter title,Scene,Title,")).toBe(true);
     const lines = text.slice(1).trimEnd().split("\r\n");
     // Rows end in CRLF; the line break inside a quoted synopsis stays a plain LF.
     expect(lines).toHaveLength(1 + 4);
@@ -79,7 +78,7 @@ describe("CSV export", () => {
     const titles = exportCsv(story(), "time")
       .split("\r\n")
       .slice(1, -1)
-      .map((line) => line.split(",")[2]);
+      .map((line) => line.split(",")[4]);
     expect(titles[0]).toBe("Tom moves");
     expect(titles.at(-1)).toBe("Unpacked");
   });

@@ -14,9 +14,23 @@ import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
 import { cardMatches, queryTerms, searchCards } from "../model/search";
 import { CardPanel, NoteHost } from "./CardPanel";
 import { Minimap } from "./Minimap";
+import { STORY_ICON } from "../icon";
 import { SetupPanel } from "./SetupPanel";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
-import { ChoiceModal, DateModal, LaneModal, TextPromptModal } from "./modals";
+import { ChoiceModal, DateModal, FormField, FormModal, LaneModal, TextPromptModal } from "./modals";
+import {
+  actHeading,
+  actsShown,
+  actTitle,
+  chapterHeading,
+  chapterNumbers,
+  chaptersInAct,
+  chapterTitle,
+  deleteAct,
+  orderedActs,
+  setChapterAct,
+  startActAt,
+} from "../model/chapters";
 import { Bucket, bucketDate, computeTimeLayout, TimeItem, Zoom, ZOOM_LABELS } from "./timeLayout";
 import { computeMatrix, computeTrackLayout, TrackAxis, TrackItem } from "./trackLayout";
 
@@ -40,7 +54,7 @@ interface DropTargetSpec {
 
 /** The view tabs: label and Lucide icon name. Their order is the writer's, set by dragging. */
 const TABS: Record<StoryTab, [string, string]> = {
-  board: ["Main", "layout-dashboard"],
+  board: ["Main", "columns-3"],
   time: ["Story time", "calendar-clock"],
   characters: ["Characters", "users"],
   setup: ["Setup", "settings-2"],
@@ -51,8 +65,6 @@ const EMPTY_SPACE =
   ".story-planner-grid, .story-planner-corner, .story-planner-folded-cell, .story-planner-cell, .story-planner-chapter-end, .story-planner-tray, .story-planner-time-empty, .story-planner-matrix-wrap, .story-planner-track-note";
 
 const ROLE_LABELS: Record<CharacterRole, string> = { pov: "Point of view", present: "Present", mentioned: "Mentioned" };
-/** Marks for the presence matrix and appearances: filled for point of view, solid for present, hollow for mentioned. */
-const ROLE_MARKS: Record<CharacterRole, string> = { pov: "\u25C9", present: "\u25CF", mentioned: "\u25CB" };
 
 /** Pixels the pointer must move before a press becomes a drag. */
 const DRAG_THRESHOLD = 5;
@@ -106,7 +118,8 @@ export class StoryBoardView extends TextFileView {
   /** A card to show once the story has loaded, for "Jump to card" on a board that is still opening. */
   private pendingReveal: Id | null = null;
   /** Which lanes each drawn grid has, for resizing a lane while it is dragged. */
-  private gridLanes = new WeakMap<HTMLElement, { kind: LaneKind; ids: string[] }>();
+  /** Lanes can have several tracks, where a long card runs beside others in story time. */
+  private gridLanes = new WeakMap<HTMLElement, { kind: LaneKind; ids: string[]; tracks: number[]; lead: number }>();
 
   constructor(leaf: WorkspaceLeaf, private plugin: StoryPlannerPlugin) {
     super(leaf);
@@ -168,6 +181,8 @@ export class StoryBoardView extends TextFileView {
       listSnapshots: () => this.listSnapshots(),
       restore: (snapshot) => void this.restoreSnapshot(snapshot),
       notes: this.noteHost(),
+      editChapter: (id) => this.editChapter(id),
+      editAct: (id) => this.editAct(id),
       section: () => this.viewState()?.setupSection,
       setSection: (section) => this.setViewState({ setupSection: section }),
     });
@@ -189,7 +204,7 @@ export class StoryBoardView extends TextFileView {
   }
 
   getIcon(): string {
-    return "layout-dashboard";
+    return STORY_ICON;
   }
 
   async onOpen(): Promise<void> {
@@ -335,6 +350,105 @@ export class StoryBoardView extends TextFileView {
   }
 
   // -------------------------------------------------------------------------
+  // Chapters and acts
+
+  /** Edits a chapter's title, number label, act and synopsis; null makes a new chapter. */
+  private editChapter(chapterId: Id | null): void {
+    const story = this.story;
+    if (!story) return;
+    const chapter = chapterId ? story.chapters.find((c) => c.id === chapterId) : undefined;
+    if (chapterId && !chapter) return;
+    const numbers = chapterNumbers(story);
+    const auto = chapter ? (numbers.get(chapter.id) ? `Chapter ${numbers.get(chapter.id)}` : "Chapter") : `Chapter ${numbers.size + 1}`;
+    const fields: FormField[] = [
+      { key: "name", label: "Title", kind: "text", value: chapter?.name ?? "", placeholder: "No title" },
+      {
+        key: "label",
+        label: "Instead of a number",
+        kind: "text",
+        value: chapter?.label ?? "",
+        placeholder: auto,
+        description: "Such as Prologue or Interlude. Leave empty to number the chapter; labelled chapters do not take a number.",
+      },
+    ];
+    if (actsShown(story)) {
+      fields.push({
+        key: "act",
+        label: "Act",
+        kind: "select",
+        value: chapter?.act ?? (story.chapters[story.chapters.length - 1]?.act ?? ""),
+        options: [["", "No act"], ...orderedActs(story).map((a): [string, string] => [a.id, actTitle(story, a)])],
+      });
+    }
+    fields.push({ key: "summary", label: "Synopsis", kind: "textarea", value: chapter?.summary ?? "", placeholder: "What happens in this chapter" });
+    new FormModal(this.app, chapter ? `Edit ${chapterTitle(story, chapter)}` : "New chapter", fields, (values) =>
+      this.mutate((s) => {
+        const id = chapter ? chapter.id : addChapter(s, values.name!.trim());
+        const target = s.chapters.find((c) => c.id === id)!;
+        target.name = values.name!.trim();
+        const label = values.label?.trim();
+        if (label) target.label = label;
+        else delete target.label;
+        const summary = values.summary?.trim();
+        if (summary) target.summary = summary;
+        else delete target.summary;
+        if (values.act !== undefined) setChapterAct(s, id, values.act || undefined);
+      }),
+    ).open();
+  }
+
+  private editAct(actId: Id): void {
+    const story = this.story;
+    const act = story?.acts.find((a) => a.id === actId);
+    if (!story || !act) return;
+    new FormModal(
+      this.app,
+      `Edit ${actHeading(story, act)}`,
+      [
+        { key: "title", label: "Title", kind: "text", value: act.title ?? "", placeholder: "No title" },
+        { key: "summary", label: "Synopsis", kind: "textarea", value: act.summary ?? "", placeholder: "What happens in this act" },
+      ],
+      (values) =>
+        this.mutate((s) => {
+          const target = s.acts.find((a) => a.id === actId)!;
+          const title = values.title?.trim();
+          if (title) target.title = title;
+          else delete target.title;
+          const summary = values.summary?.trim();
+          if (summary) target.summary = summary;
+          else delete target.summary;
+        }),
+    ).open();
+  }
+
+  /** Right-click on a chapter: edit it, start an act there, or take it out of its act. */
+  private chapterMenu(e: MouseEvent, chapterId: Id): void {
+    const story = this.story;
+    const chapter = story?.chapters.find((c) => c.id === chapterId);
+    if (!story || !chapter) return;
+    e.preventDefault();
+    const menu = new Menu();
+    menu.addItem((i) => i.setTitle("Edit chapter…").setIcon("pencil").onClick(() => this.editChapter(chapterId)));
+    if (story.actsEnabled !== false) menu.addItem((i) =>
+      i
+        .setTitle("Start a new act here")
+        .setIcon("milestone")
+        .onClick(() => {
+          let id: Id | null = null;
+          this.mutate((s) => {
+            id = startActAt(s, chapterId);
+            return id !== null;
+          });
+          if (id) this.editAct(id);
+        }),
+    );
+    if (chapter.act && actsShown(story)) {
+      menu.addItem((i) => i.setTitle("Take out of its act").setIcon("log-out").onClick(() => this.mutate((s) => setChapterAct(s, chapterId, undefined))));
+    }
+    menu.showAtMouseEvent(e);
+  }
+
+  // -------------------------------------------------------------------------
   // Switching stories and arranging tabs
 
   /** Lists the vault's stories under the title; picking one opens it in this view. */
@@ -345,7 +459,7 @@ export class StoryBoardView extends TextFileView {
       menu.addItem((item) =>
         item
           .setTitle(file.parent && file.parent.path !== "/" ? `${file.basename}  ·  ${file.parent.path}` : file.basename)
-          .setIcon(file === this.file ? "check" : "layout-dashboard")
+          .setIcon(file === this.file ? "check" : STORY_ICON)
           .onClick(() => {
             if (file !== this.file) void this.openStory(file);
           }),
@@ -450,7 +564,7 @@ export class StoryBoardView extends TextFileView {
     input.type = "search";
     input.placeholder = "Search cards";
     input.value = this.query;
-    input.setAttr("aria-label", "Search cards. Enter goes to the next match, Shift+Enter to the previous one.");
+    input.setAttr("aria-label", "Search cards");
     this.searchCount = box.createSpan({ cls: "story-planner-search-count" });
     this.updateSearchCount(story);
     input.addEventListener("input", () => {
@@ -777,8 +891,8 @@ export class StoryBoardView extends TextFileView {
     setIcon(title.createSpan({ cls: "story-planner-title-chevron" }), "chevron-down");
     title.setAttr("aria-label", "Switch to another story");
     title.addEventListener("click", (e) => this.storyMenu(e));
-    this.button(toolbar, "Undo", () => this.undo(), !this.history.canUndo);
-    this.button(toolbar, "Redo", () => this.redo(), !this.history.canRedo);
+    this.iconAction(toolbar, "undo-2", "Undo (Ctrl+Z)", () => this.undo(), !this.history.canUndo);
+    this.iconAction(toolbar, "redo-2", "Redo (Ctrl+Shift+Z)", () => this.redo(), !this.history.canRedo);
     if (this.tab !== "setup") {
       const input = this.searchBox(toolbar, story);
       if (caret) {
@@ -799,9 +913,8 @@ export class StoryBoardView extends TextFileView {
       el.dataset.tab = id;
       el.setAttr("role", "tab");
       el.setAttr("aria-selected", String(id === tab));
-      el.setAttr("title", "Drag to reorder the tabs");
       el.toggleClass("is-active", id === tab);
-      setIcon(el.createSpan({ cls: "story-planner-tab-icon" }), icon);
+      iconOr(el.createSpan({ cls: "story-planner-tab-icon" }), icon, "layout-grid");
       el.createSpan({ text: label });
       el.addEventListener("click", () => {
         if (!tabs.hasClass("is-reordering")) this.showTab(id);
@@ -822,20 +935,10 @@ export class StoryBoardView extends TextFileView {
       this.button(actions, "Add plot line", () =>
         new TextPromptModal(this.app, "New plot line", "", (name) => this.mutate((s) => void addPlotLine(s, name))).open(),
       );
-      this.button(actions, "Add chapter", () =>
-        new TextPromptModal(this.app, "New chapter", `Chapter ${story.chapters.length + 1}`, (name) =>
-          this.mutate((s) => void addChapter(s, name)),
-        ).open(),
-      );
+      this.button(actions, "Add chapter", () => this.editChapter(null));
       this.highlightPicker(actions, story);
       // The button names the layout it switches to.
       const compact = this.button(actions, this.compact ? "Cozy" : "Compact", () => this.toggleCompact());
-      compact.setAttr(
-        "title",
-        this.compact
-          ? "Back to one row per scene, which shows the order across plot lines"
-          : "Stack each plot line's cards from the top of the chapter",
-      );
     }
 
     const actions = tabsRow.querySelector<HTMLElement>(".story-planner-tab-actions") ?? tabsRow.createDiv({ cls: "story-planner-tab-actions" });
@@ -844,7 +947,7 @@ export class StoryBoardView extends TextFileView {
       const on = !!this.viewState()?.minimap;
       map.toggleClass("is-active", on);
       map.setAttr("aria-pressed", String(on));
-      map.setAttr("title", "Show an overview of the whole board beside it");
+      map.setAttr("title", "Minimap");
     }
     // Story setup opens from a gear at the right, and closes back to the view it came from.
     const gear = actions.createEl("button", { cls: "story-planner-setup-toggle clickable-icon" });
@@ -875,22 +978,44 @@ export class StoryBoardView extends TextFileView {
     this.boardEl.replaceChildren(...Array.from(content.childNodes));
     this.boardEl.scrollTop = scrollTop;
     this.boardEl.scrollLeft = scrollLeft;
+    // Act and chapter labels stay just below the header row while their rows scroll past.
+    const grid = this.boardEl.querySelector<HTMLElement>(".story-planner-grid");
+    const headerRow = grid?.querySelector<HTMLElement>(".story-planner-lane-header");
+    if (grid && headerRow) {
+      const size = this.orientation === "vertical" ? headerRow.offsetHeight : headerRow.offsetWidth;
+      grid.style.setProperty("--story-planner-head-size", `${size}px`);
+    }
+    // A chapter's label shows in full beside the chapter; only one that does not fit fades out.
+    for (const wrap of Array.from(this.boardEl.querySelectorAll<HTMLElement>(".story-planner-chapter-wrap"))) {
+      wrap.toggleClass("is-clipped", wrap.scrollHeight > wrap.clientHeight + 1);
+    }
     this.minimap.refresh();
   }
 
   private fillBoard(parent: HTMLElement, story: Story): void {
     if (story.plotLines.length === 0) {
-      parent.createDiv({ cls: "story-planner-empty", text: "Add a plot line to start planning." });
+      parent.createDiv({ cls: "story-planner-empty", text: "No plot lines yet" });
       return;
     }
 
     const layout = computeBoardLayout(story, this.orientation, this.compact, this.foldedChapters);
-    const grid = this.spanGrid(parent, "", layout.rows, layout.columns, "plotLine", story.plotLines.map((p) => p.id));
+    const cls = [this.compact ? "is-compact" : "", layout.acts ? "has-acts" : ""].filter(Boolean).join(" ");
+    const grid = this.spanGrid(parent, cls, layout.rows, layout.columns, "plotLine", story.plotLines.map((p) => p.id), undefined, layout.acts ? 2 : 1);
 
     for (const placed of layout.items) {
       const el = this.renderItem(grid, placed.item, story);
-      el.style.gridRow = String(placed.row);
-      el.style.gridColumn = String(placed.column);
+      const vertical = this.orientation === "vertical";
+      const along = placed.span && placed.span > 1 ? ` / span ${placed.span}` : "";
+      el.style.gridRow = String(placed.row) + (vertical ? along : "");
+      el.style.gridColumn = String(placed.column) + (vertical ? "" : along);
+      // The line between acts runs across the whole board; with acts, the corner covers the act column too.
+      if (placed.item.kind === "act-divider") {
+        if (vertical) el.style.gridColumn = "1 / -1";
+        else el.style.gridRow = "1 / -1";
+      } else if (placed.item.kind === "corner" && layout.acts) {
+        if (vertical) el.style.gridColumn = "1 / span 2";
+        else el.style.gridRow = "1 / span 2";
+      }
     }
     this.markFoldedLanes(grid);
   }
@@ -946,16 +1071,39 @@ export class StoryBoardView extends TextFileView {
       case "chapter-header": {
         const chapter = story.chapters.find((c) => c.id === item.chapterId);
         const el = grid.createDiv({ cls: "story-planner-chapter-header" });
-        el.createSpan({ cls: "story-planner-chapter-name", text: chapter?.name ?? "Off-page" });
-        this.chapterControls(el, item.chapterId, story);
+        // The first chapter of an act (and off-page after an act) carries the line between acts.
+        if (actsShown(story)) {
+          const index = chapter ? story.chapters.indexOf(chapter) : story.chapters.length;
+          const previous = story.chapters[index - 1];
+          if (index > 0 && (previous?.act ?? null) !== (chapter?.act ?? null)) el.addClass("is-act-start");
+        }
+        // "Chapter 3" small, the writer's title below it, then the synopsis, as
+        // one label that stays in view while the chapter scrolls past. The label
+        // floats over the chapter's cell, so a long synopsis never makes the
+        // chapter's rows taller; one that does not fit fades out at the bottom.
+        const wrap = el.createDiv({ cls: "story-planner-chapter-wrap" });
+        const block = wrap.createDiv({ cls: "story-planner-chapter-block" });
+        const text = block.createDiv({ cls: "story-planner-chapter-text" });
         if (chapter) {
-          el.addEventListener("dblclick", () => {
-            new TextPromptModal(this.app, "Rename chapter", chapter.name, (name) =>
-              this.mutate((s) => {
-                s.chapters.find((c) => c.id === chapter.id)!.name = name;
-              }),
-            ).open();
-          });
+          const head = text.createDiv({ cls: "story-planner-chapter-head" });
+          head.createDiv({ cls: "story-planner-chapter-number", text: chapterHeading(story, chapter) });
+          if (chapter.name.trim()) head.createDiv({ cls: "story-planner-chapter-name", text: chapter.name });
+          if (chapter.summary?.trim()) {
+            const synopsis = text.createDiv({ cls: "story-planner-chapter-synopsis", text: chapter.summary });
+            synopsis.setAttr("title", chapter.summary);
+          }
+        } else {
+          text.createDiv({ cls: "story-planner-chapter-head" }).createDiv({ cls: "story-planner-chapter-name", text: "Off-page" });
+        }
+        this.chapterControls(el, item.chapterId, story);
+        // The fold button and a folded chapter's count go into the label, so they move with it.
+        const fold = el.querySelector<HTMLElement>(":scope > .story-planner-fold");
+        if (fold) block.prepend(fold);
+        const count = el.querySelector<HTMLElement>(":scope > .story-planner-fold-count");
+        if (count) text.appendChild(count);
+        if (chapter) {
+          el.addEventListener("dblclick", () => this.editChapter(chapter.id));
+          el.addEventListener("contextmenu", (e) => this.chapterMenu(e, chapter.id));
           this.makeDraggable(el, { kind: "chapter", id: chapter.id });
           this.makeDropTarget(el, "chapter", "slot", (place) =>
             this.mutate((s) => moveInList(s.chapters, this.dragged!.id, neighbour(s.chapters, chapter.id, place === "after"))),
@@ -969,7 +1117,6 @@ export class StoryBoardView extends TextFileView {
       case "add-card": {
         const el = grid.createDiv({ cls: "story-planner-add-card", text: "+" });
         el.setAttr("aria-label", "Add card");
-        el.setAttr("title", "Add a card at the end of this chapter");
         el.addEventListener("click", () => this.addCard({ chapter: item.chapterId, plotLine: item.plotLineId }));
         // Dropping here puts the card first in the chapter.
         this.makeDropTarget(el, "card", null, () =>
@@ -999,12 +1146,60 @@ export class StoryBoardView extends TextFileView {
         return el;
       }
 
+      case "act-band": {
+        // The act column: one cell beside all of an act's chapters, with its
+        // number and title turned on their side. Chapters in no act get an empty cell.
+        const el = grid.createDiv({ cls: "story-planner-act-band" });
+        const act = item.actId ? story.acts.find((a) => a.id === item.actId) : undefined;
+        if (!act) {
+          el.addClass("is-empty");
+          return el;
+        }
+        const chapters = chaptersInAct(story, act.id);
+        const folded = this.foldedChapters;
+        const allFolded = chapters.length > 0 && chapters.every((c) => folded.has(c.id));
+        const fold = el.createEl("button", { cls: "story-planner-fold clickable-icon" });
+        setIcon(fold, allFolded ? "chevron-right" : "chevron-down");
+        fold.setAttr("aria-label", allFolded ? "Unfold this act's chapters" : "Fold this act's chapters");
+        fold.setAttr("title", allFolded ? "Unfold this act's chapters" : "Fold this act's chapters");
+        stopBoardGestures(fold);
+        fold.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const ids = new Set(chapters.map((c) => c.id));
+          const rest = (this.viewState()?.foldedChapters ?? []).filter((id) => !ids.has(id));
+          this.setViewState({ foldedChapters: allFolded ? rest : [...rest, ...ids] });
+        });
+        const label = el.createDiv({ cls: "story-planner-act-label" });
+        label.createSpan({ cls: "story-planner-act-number", text: actHeading(story, act) });
+        if (act.title?.trim()) label.createSpan({ cls: "story-planner-act-title", text: act.title });
+        el.setAttr("title", [actTitle(story, act), act.summary?.trim()].filter(Boolean).join("\n\n"));
+        el.addEventListener("dblclick", () => this.editAct(act.id));
+        el.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          const menu = new Menu();
+          menu.addItem((i) => i.setTitle("Edit act…").setIcon("pencil").onClick(() => this.editAct(act.id)));
+          menu.addItem((i) =>
+            i
+              .setTitle("Delete act (keeps its chapters)")
+              .setIcon("trash-2")
+              .onClick(() => {
+                this.mutate((s) => deleteAct(s, act.id));
+                new Notice(`Deleted ${actTitle(story, act)}. Its chapters are kept. Press Ctrl+Z to undo.`);
+              }),
+          );
+          menu.showAtMouseEvent(e);
+        });
+        return el;
+      }
+
+      case "act-divider":
+        return grid.createDiv({ cls: "story-planner-act-divider" });
+
       case "chapter-folded": {
         const el = grid.createDiv({
           cls: "story-planner-folded-cell",
           text: item.count > 0 ? `${item.count} ${item.count === 1 ? "card" : "cards"}` : "",
         });
-        el.setAttr("title", "This chapter is folded. Double-click to unfold it; drop a card here to put it at the end of the chapter.");
         el.addEventListener("dblclick", () => this.toggleChapterFold(item.chapterId));
         this.makeDropTarget(el, "card", null, () =>
           this.mutate((s) => moveCard(s, this.dragged!.id, { chapter: item.chapterId, plotLine: item.plotLineId })),
@@ -1084,7 +1279,7 @@ export class StoryBoardView extends TextFileView {
       for (const [value, text] of items) el.createEl("option", { text }).value = value;
     };
     group("Characters", story.characters.map((c) => [`character:${c.id}`, c.name]));
-    if (story.tagsEnabled) group("Story tags", story.tags.map((t) => [`tag:${t.id}`, t.name]));
+    group("Scene tags", story.tags.map((t) => [`tag:${t.id}`, t.name]));
     group("Places", locationTree(story).map(({ location, depth }) => [`location:${location.id}`, `${"\u2003".repeat(depth)}${location.name}`]));
     select.value = this.highlight;
     if (select.value !== this.highlight) select.value = "";
@@ -1136,7 +1331,6 @@ export class StoryBoardView extends TextFileView {
         chip.style.setProperty("--tag-color", tag.color);
       }
     }
-    if (card.relationshipState) el.createDiv({ cls: "story-planner-card-state", text: card.relationshipState });
     if (card.notes.length > 0) {
       const missing = card.notes.filter((n) => !this.plugin.noteExists(n)).length;
       const notes = el.createDiv({ cls: "story-planner-card-links", text: `${card.notes.length} ${card.notes.length === 1 ? "note" : "notes"}` });
@@ -1177,7 +1371,7 @@ export class StoryBoardView extends TextFileView {
 
   private fillTime(parent: HTMLElement, story: Story): void {
     if (story.plotLines.length === 0) {
-      parent.createDiv({ cls: "story-planner-empty", text: "Add a plot line to start planning." });
+      parent.createDiv({ cls: "story-planner-empty", text: "No plot lines yet" });
       return;
     }
     const orientation = this.orientation;
@@ -1187,14 +1381,21 @@ export class StoryBoardView extends TextFileView {
     if (layout.buckets.length === 0) {
       parent.createDiv({
         cls: "story-planner-empty story-planner-time-empty",
-        text: "No card has a date yet. Open a card and fill in \"When\" to place it in story time.",
+        text: "No dated scenes yet",
       });
     } else {
-      const grid = this.spanGrid(parent, "is-time", layout.rows, layout.columns, "plotLine", story.plotLines.map((p) => p.id));
+      const grid = this.spanGrid(parent, "is-time", layout.rows, layout.columns, "plotLine", story.plotLines.map((p) => p.id), layout.laneTracks);
       for (const placed of layout.items) this.place(placed, this.renderTimeItem(grid, placed.item, story));
       this.markFoldedLanes(grid);
     }
     this.renderTray(parent, story, layout.undated);
+  }
+
+  /** A date in the date column; its label stays in view while a tall span scrolls past. */
+  private timeHeader(grid: HTMLElement, label: string): HTMLElement {
+    const el = grid.createDiv({ cls: "story-planner-time-header" });
+    el.createSpan({ cls: "story-planner-time-label", text: label });
+    return el;
   }
 
   /**
@@ -1208,12 +1409,22 @@ export class StoryBoardView extends TextFileView {
   }
 
   /** A grid for story time or the character track, whose headers can span several slots. */
-  private spanGrid(parent: HTMLElement, cls: string, rows: number, columns: number, kind: LaneKind, laneIds: string[]): HTMLElement {
+  private spanGrid(
+    parent: HTMLElement,
+    cls: string,
+    rows: number,
+    columns: number,
+    kind: LaneKind,
+    laneIds: string[],
+    tracks?: number[],
+    /** Header tracks before the lanes: the chapter or date column, and the act column when there is one. */
+    lead = 1,
+  ): HTMLElement {
     const orientation = this.orientation;
     const grid = parent.createDiv({ cls: `story-planner-grid ${cls} is-${orientation}`.replace("  ", " ") });
     grid.style.gridTemplateRows = `repeat(${rows}, auto)`;
     if (orientation === "horizontal") grid.style.gridTemplateColumns = `var(--story-planner-header-size) repeat(${columns - 1}, var(--story-planner-card-width))`;
-    this.gridLanes.set(grid, { kind, ids: laneIds });
+    this.gridLanes.set(grid, { kind, ids: laneIds, tracks: tracks ?? laneIds.map(() => 1), lead });
     // Solid backgrounds behind the sticky header row and column, so cards
     // scrolling past never show between or beside the headers.
     grid.createDiv({ cls: "story-planner-sticky-column" });
@@ -1279,32 +1490,94 @@ export class StoryBoardView extends TextFileView {
     if (!lanes) return;
     const folded = this.foldedLanes(lanes.kind);
     const widths = this.laneWidths(lanes.kind);
+    // A lane's extra tracks hold the thin bars of long cards; a folded lane keeps only its strip.
+    const extra = (i: number, size: string) => Array.from({ length: (lanes.tracks[i] ?? 1) - 1 }, () => size);
+    // The act column (a row, transposed) is narrow and comes before the chapter column.
+    const headers = lanes.lead === 2 ? ["var(--story-planner-act-size)", "var(--story-planner-header-size)"] : ["var(--story-planner-header-size)"];
     if (this.orientation === "horizontal") {
-      grid.style.gridTemplateRows = ["auto", ...lanes.ids.map((id) => (folded.has(id) ? FOLDED_LANE : "auto"))].join(" ");
+      grid.style.gridTemplateRows = [
+        ...(lanes.lead === 2 ? ["auto"] : []),
+        "auto",
+        ...lanes.ids.flatMap((id, i) => (folded.has(id) ? [FOLDED_LANE, ...extra(i, "0px")] : ["auto", ...extra(i, "var(--story-planner-run-width)")])),
+      ].join(" ");
       return;
     }
     const width = (id: string) => (live?.id === id ? live.width : widths[id]);
-    const sizes = lanes.ids.map((id) =>
-      folded.has(id) ? FOLDED_LANE : width(id) ? `${width(id)}px` : "minmax(var(--story-planner-card-width), 1fr)",
+    const sizes = lanes.ids.flatMap((id, i) =>
+      folded.has(id)
+        ? [FOLDED_LANE, ...extra(i, "0px")]
+        : [width(id) ? `${width(id)}px` : "minmax(var(--story-planner-card-width), 1fr)", ...extra(i, "var(--story-planner-run-width)")],
     );
-    grid.style.gridTemplateColumns = `var(--story-planner-header-size) ${sizes.join(" ")}`;
-    const least = lanes.ids.map((id) => (folded.has(id) ? FOLDED_LANE : width(id) ? `${width(id)}px` : "var(--story-planner-card-width)"));
+    grid.style.gridTemplateColumns = `${headers.join(" ")} ${sizes.join(" ")}`;
+    const least = lanes.ids.flatMap((id, i) =>
+      folded.has(id)
+        ? [FOLDED_LANE]
+        : [width(id) ? `${width(id)}px` : "var(--story-planner-card-width)", ...extra(i, "var(--story-planner-run-width)")],
+    );
     grid.style.minWidth =
       least.length > 0
-        ? `calc(var(--story-planner-header-size) + ${least.join(" + ")} + ${least.length} * var(--size-4-2))`
+        ? `calc(${headers.join(" + ")} + ${least.join(" + ")} + ${least.length + headers.length - 1} * var(--size-4-2))`
         : "";
+  }
+
+  /**
+   * Hairlines between the lanes, and across the board at the start of each
+   * chapter or span after the first, so the grid reads at a glance. Acts
+   * have their own, stronger line.
+   */
+  private drawGridLines(grid: HTMLElement): void {
+    const lanes = this.gridLanes.get(grid);
+    if (!lanes) return;
+    const vertical = this.orientation === "vertical";
+    let line = lanes.lead + 1;
+    lanes.ids.forEach((_, i) => {
+      if (i > 0) {
+        const el = grid.createDiv({ cls: "story-planner-lane-line" });
+        if (vertical) {
+          el.style.gridColumn = String(line);
+          el.style.gridRow = "1 / -1";
+        } else {
+          el.style.gridRow = String(line);
+          el.style.gridColumn = "1 / -1";
+        }
+      }
+      line += lanes.tracks[i] ?? 1;
+    });
+    const rows = new Set<number>();
+    for (const header of Array.from(grid.querySelectorAll<HTMLElement>(":scope > .story-planner-chapter-header, :scope > .story-planner-time-header"))) {
+      if (header.hasClass("is-act-start")) continue;
+      const at = parseInt(vertical ? header.style.gridRow : header.style.gridColumn, 10);
+      // The first chapter or span sits right under the header row (line 2), which has its own line.
+      if (at > 2) rows.add(at);
+    }
+    for (const at of rows) {
+      const el = grid.createDiv({ cls: "story-planner-row-line" });
+      if (vertical) {
+        el.style.gridRow = String(at);
+        el.style.gridColumn = "1 / -1";
+      } else {
+        el.style.gridColumn = String(at);
+        el.style.gridRow = "1 / -1";
+      }
+    }
   }
 
   /** Marks everything in a folded lane, so it shows as a thin strip. */
   private markFoldedLanes(grid: HTMLElement): void {
+    this.drawGridLines(grid);
     const lanes = this.gridLanes.get(grid);
     if (!lanes) return;
     const folded = this.foldedLanes(lanes.kind);
     if (folded.size === 0) return;
     const vertical = this.orientation === "vertical";
+    // Which lane each grid line belongs to, counting each lane's tracks.
+    const laneAt: (string | undefined)[] = Array.from({ length: lanes.lead + 1 }, () => undefined);
+    lanes.ids.forEach((id, i) => {
+      for (let t = 0; t < (lanes.tracks[i] ?? 1); t++) laneAt.push(id);
+    });
     for (const el of Array.from(grid.children) as HTMLElement[]) {
       const line = parseInt(vertical ? el.style.gridColumn : el.style.gridRow, 10);
-      const id = lanes.ids[line - 2];
+      const id = laneAt[line];
       if (id && folded.has(id)) el.addClass("is-in-folded-lane");
     }
   }
@@ -1331,7 +1604,7 @@ export class StoryBoardView extends TextFileView {
     if (!vertical || folded) return;
 
     const handle = header.createDiv({ cls: "story-planner-resize" });
-    handle.setAttr("aria-label", "Drag to change the width; double-click to reset it");
+    handle.setAttr("aria-label", "Resize");
     stopBoardGestures(handle);
     handle.addEventListener("dblclick", () => this.setLaneWidth(kind, id, undefined));
     handle.addEventListener("pointerdown", (down) => {
@@ -1384,15 +1657,21 @@ export class StoryBoardView extends TextFileView {
   }
 
   /** Puts an item on a span grid: a header covers its slots, and a gap marker runs across every lane. */
-  private place(placed: { item: { kind: string }; row: number; column: number; span: number }, el: HTMLElement): void {
+  private place(placed: { item: { kind: string }; row: number; column: number; span: number; cross?: number; depth?: number }, el: HTMLElement): void {
     const vertical = this.orientation === "vertical";
+    // On top of a long card: drawn a step in, so the long card's edge shows.
+    if (placed.depth) {
+      el.addClass("is-nested");
+      el.style.setProperty("--depth", String(Math.min(placed.depth, 3)));
+    }
     const along = placed.span > 1 ? ` / span ${placed.span}` : "";
+    const across = (placed.cross ?? 1) > 1 ? ` / span ${placed.cross}` : "";
     if (placed.item.kind === "gap") {
       el.style.gridRow = vertical ? String(placed.row) : "1 / -1";
       el.style.gridColumn = vertical ? "1 / -1" : String(placed.column);
     } else {
-      el.style.gridRow = String(placed.row) + (vertical ? along : "");
-      el.style.gridColumn = String(placed.column) + (vertical ? "" : along);
+      el.style.gridRow = String(placed.row) + (vertical ? along : across);
+      el.style.gridColumn = String(placed.column) + (vertical ? across : along);
     }
   }
 
@@ -1403,7 +1682,7 @@ export class StoryBoardView extends TextFileView {
         return this.renderItem(grid, item, story);
 
       case "time-header":
-        return grid.createDiv({ cls: "story-planner-time-header", text: item.bucket.label });
+        return this.timeHeader(grid, item.bucket.label);
 
       case "gap":
         return this.gap(grid, item.text);
@@ -1432,6 +1711,11 @@ export class StoryBoardView extends TextFileView {
       case "card": {
         const card = story.cards[item.cardId]!;
         const el = this.timeCard(grid, card, story);
+        // A long card runs on down to the span its end date falls in, with its end at the bottom.
+        if (item.until && card.endDate) {
+          el.addClass("is-long");
+          el.createDiv({ cls: "story-planner-long-end", text: `until ${formatStoryDate(story, card.endDate)}` });
+        }
         el.addEventListener("dblclick", () => this.editTitleInPlace(el, card));
         this.makeDropTarget(el, "card", "slot", (place) => this.dropInTime(item.bucketId, card.plotLine, card, place));
         this.echoLane(el, card.plotLine);
@@ -1444,6 +1728,7 @@ export class StoryBoardView extends TextFileView {
         const el = grid.createDiv({ cls: "story-planner-echo", text: card.title });
         el.style.setProperty("--lane-color", plotLineColor(story, home) ?? "var(--interactive-accent)");
         el.setAttr("aria-label", `Also in ${home?.name ?? "another plot line"}`);
+        if (item.until) el.addClass("is-long");
         if (this.highlighted(card, story) === false) el.addClass("is-dimmed");
         el.addEventListener("click", () => this.select(card.id));
         this.makeDropTarget(el, "card", null, () => this.dropInTime(item.bucketId, item.plotLineId, null, "on"));
@@ -1461,7 +1746,7 @@ export class StoryBoardView extends TextFileView {
     if (!chapter) el.addClass("is-off-page");
     el.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
     this.writtenToggle(el, card);
-    el.createDiv({ cls: "story-planner-card-badge", text: chapter?.name ?? "Off-page" });
+    el.createDiv({ cls: "story-planner-card-badge", text: chapterTitle(story, chapter) });
     el.createDiv({ cls: "story-planner-card-title", text: card.title });
     if (card.date) {
       const when = el.createDiv({ cls: "story-planner-card-date", text: this.timeLabel(card, story) });
@@ -1469,6 +1754,7 @@ export class StoryBoardView extends TextFileView {
       if (when.textContent !== local) when.setAttr("title", `Local: ${local}`);
       if (this.shiftedDay(card, story)) when.addClass("is-shifted");
     }
+    if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
     this.cardExtras(el, card, story);
     el.dataset.cardId = card.id;
     if (card.id === this.panel.selected) el.addClass("is-selected");
@@ -1506,13 +1792,6 @@ export class StoryBoardView extends TextFileView {
     tray.createDiv({
       cls: "story-planner-tray-heading",
       text: undated.length > 0 ? `Undated (${undated.length})` : "Undated",
-    });
-    tray.createDiv({
-      cls: "story-planner-panel-hint",
-      text:
-        undated.length > 0
-          ? "Drag a card onto a time to give it that date, then refine it in the card panel."
-          : "Every card has a date. Drop a card here to take its date off.",
     });
     const list = tray.createDiv({ cls: "story-planner-tray-cards" });
     for (const id of undated) this.timeCard(list, story.cards[id]!, story);
@@ -1630,13 +1909,12 @@ export class StoryBoardView extends TextFileView {
       const lanes = this.lanes(story);
       this.button(actions, `Characters (${lanes.length})`, () =>
         new LaneModal(this.app, story, lanes, (chosen) => this.setViewState({ characterLanes: chosen })).open(),
-      ).setAttr("title", "Choose which characters get a lane, and their order");
+      );
       if (lanes.length >= 2) {
         const shared = this.button(actions, "Shared scenes", () => this.setViewState({ sharedOnly: !this.viewState()?.sharedOnly }));
         const on = !!this.viewState()?.sharedOnly;
         shared.toggleClass("is-active", on);
         shared.setAttr("aria-pressed", String(on));
-        shared.setAttr("title", "Show only the scenes all these characters are in");
       }
       this.highlightPicker(actions, story);
     }
@@ -1666,7 +1944,7 @@ export class StoryBoardView extends TextFileView {
   private fillTrack(parent: HTMLElement, story: Story, clashes: Clash[]): void {
     const lanes = this.lanes(story);
     if (lanes.length === 0) {
-      parent.createDiv({ cls: "story-planner-empty", text: "Choose characters to track with the Characters button." });
+      parent.createDiv({ cls: "story-planner-empty", text: "No characters tracked" });
       return;
     }
     const axis = this.characterAxis;
@@ -1678,7 +1956,7 @@ export class StoryBoardView extends TextFileView {
     if (axis === "time" && layout.buckets.length === 0) {
       parent.createDiv({
         cls: "story-planner-empty story-planner-time-empty",
-        text: "None of these characters' scenes has a date yet. Fill in \"When\" on a card to place it in story time.",
+        text: "No dated scenes yet",
       });
     } else {
       const grid = this.spanGrid(parent, "is-track", layout.rows, layout.columns, "character", lanes);
@@ -1697,7 +1975,7 @@ export class StoryBoardView extends TextFileView {
     if (axis === "time") {
       const ids = new Set(lanes);
       const undated = Object.values(story.cards).filter((c) => !c.date && c.characters.some((x) => ids.has(x.id))).length;
-      if (undated > 0) notes.push(`${undated} undated ${undated === 1 ? "scene is" : "scenes are"} left out; give ${undated === 1 ? "it" : "them"} a date to place ${undated === 1 ? "it" : "them"} here.`);
+      if (undated > 0) notes.push(`${undated} undated ${undated === 1 ? "scene is" : "scenes are"} left out.`);
     }
     if (notes.length > 0) parent.createDiv({ cls: "story-planner-panel-hint story-planner-track-note", text: notes.join(" ") });
   }
@@ -1712,7 +1990,6 @@ export class StoryBoardView extends TextFileView {
         const el = grid.createDiv({ cls: "story-planner-lane-header is-character" });
         el.createSpan({ cls: "story-planner-lane-name", text: character?.name ?? "" });
         el.style.setProperty("--lane-color", character?.color ?? "var(--interactive-accent)");
-        el.setAttr("title", "Drag to reorder the lanes");
         this.laneControls(el, "character", item.characterId, character?.name ?? "this character");
         this.makeDraggable(el, { kind: "character", id: item.characterId });
         this.makeDropTarget(el, "character", "lane", (place) => {
@@ -1726,13 +2003,17 @@ export class StoryBoardView extends TextFileView {
 
       case "chapter-header": {
         const chapter = story.chapters.find((c) => c.id === item.chapterId);
-        const el = grid.createDiv({ cls: "story-planner-chapter-header", text: chapter?.name ?? "Off-page" });
+        const el = grid.createDiv({ cls: "story-planner-chapter-header", text: chapterTitle(story, chapter) });
         if (!chapter) el.addClass("is-off-page");
+        else {
+          if (chapter.summary?.trim()) el.setAttr("title", chapter.summary);
+          el.addEventListener("dblclick", () => this.editChapter(chapter.id));
+        }
         return el;
       }
 
       case "time-header":
-        return grid.createDiv({ cls: "story-planner-time-header", text: item.bucket.label });
+        return this.timeHeader(grid, item.bucket.label);
 
       case "gap":
         return this.gap(grid, item.text);
@@ -1770,13 +2051,14 @@ export class StoryBoardView extends TextFileView {
     if (!chapter) el.addClass("is-off-page");
     el.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
     this.writtenToggle(el, card);
-    if (this.characterAxis === "time") el.createDiv({ cls: "story-planner-card-badge", text: chapter?.name ?? "Off-page" });
+    if (this.characterAxis === "time") el.createDiv({ cls: "story-planner-card-badge", text: chapterTitle(story, chapter) });
     const role = el.createDiv({ cls: "story-planner-appearance-role" });
-    role.createSpan({ cls: "story-planner-role-mark", text: ROLE_MARKS[entry.role] });
+    role.createSpan({ cls: `story-planner-presence role-${entry.role}` }).style.setProperty("--lane-color", story.characters.find((c) => c.id === entry.id)?.color ?? "var(--text-normal)");
     role.createSpan({ text: ROLE_LABELS[entry.role] });
     el.createDiv({ cls: "story-planner-card-title", text: card.title });
     if (entry.note) el.createDiv({ cls: "story-planner-card-note", text: entry.note });
     if (card.date) el.createDiv({ cls: "story-planner-card-date", text: formatDateRange(story, card.date, card.endDate) });
+    if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
     this.cardExtras(el, card, story, false);
     if (clash) {
       el.addClass("has-clash");
@@ -1876,15 +2158,40 @@ export class StoryBoardView extends TextFileView {
     if (matrix.columns.length === 0) {
       wrap.createDiv({
         cls: "story-planner-empty",
-        text: axis === "time" ? "No scene has a date yet, so there is nothing to show in story time." : "Add a chapter to start.",
+        text: axis === "time" ? "No dated scenes yet" : "No chapters yet",
       });
     } else {
+      // The legend uses the same marks as the cells: a square, a dot and a ring, each a different size.
       const legend = wrap.createDiv({ cls: "story-planner-panel-hint story-planner-matrix-legend" });
-      legend.setText(`${ROLE_MARKS.pov} point of view   ${ROLE_MARKS.present} present   ${ROLE_MARKS.mentioned} mentioned   A number counts the scenes.`);
+      for (const role of ["pov", "present", "mentioned"] as const) {
+        const item = legend.createSpan({ cls: "story-planner-legend-item" });
+        item.createSpan({ cls: `story-planner-presence role-${role}` });
+        item.createSpan({ text: ROLE_LABELS[role].toLowerCase() });
+      }
       const table = wrap.createEl("table", { cls: "story-planner-matrix" });
-      const head = table.createEl("thead").createEl("tr");
+      const thead = table.createEl("thead");
+      // With acts, a row of them above the chapters, each across its chapters.
+      if (matrix.columns.some((c) => c.act !== undefined)) {
+        const acts = thead.createEl("tr", { cls: "story-planner-matrix-acts" });
+        acts.createEl("th", { cls: "story-planner-matrix-corner" });
+        let i = 0;
+        while (i < matrix.columns.length) {
+          const act = matrix.columns[i]!.act;
+          let span = 1;
+          while (i + span < matrix.columns.length && matrix.columns[i + span]!.act === act) span++;
+          const th = acts.createEl("th", { attr: { colspan: String(span) } });
+          const found = act ? story.acts.find((a) => a.id === act) : undefined;
+          if (found) {
+            th.setText(actTitle(story, found));
+            th.setAttr("title", [actTitle(story, found), found.summary?.trim()].filter(Boolean).join("\n\n"));
+          }
+          i += span;
+        }
+        acts.createEl("th");
+      }
+      const head = thead.createEl("tr");
       head.createEl("th", { cls: "story-planner-matrix-corner" });
-      for (const column of matrix.columns) head.createEl("th", { text: column.label, attr: { title: column.label } });
+      for (const column of matrix.columns) head.createEl("th", { text: column.label, attr: { title: column.title ?? column.label } });
       head.createEl("th", { text: "Scenes" });
       const body = table.createEl("tbody");
       for (const row of matrix.rows) {
@@ -1902,11 +2209,12 @@ export class StoryBoardView extends TextFileView {
           const td = tr.createEl("td");
           if (!cell.role) return;
           td.addClass(`role-${cell.role}`);
-          td.createSpan({ cls: "story-planner-role-mark", text: ROLE_MARKS[cell.role] });
+          const mark = td.createSpan({ cls: `story-planner-presence role-${cell.role}` });
+          mark.style.setProperty("--lane-color", character.color);
           if (cell.cards.length > 1) td.createSpan({ cls: "story-planner-matrix-count", text: String(cell.cards.length) });
           const titles = cell.cards.map((id) => story.cards[id]?.title ?? "").join(", ");
           const clash = cell.clashes.length > 0 ? ". Possibly in two places at once." : "";
-          td.setAttr("title", `${character.name} in ${matrix.columns[i]!.label}: ${titles}${clash}`);
+          td.setAttr("title", `${character.name} in ${matrix.columns[i]!.title ?? matrix.columns[i]!.label}, ${ROLE_LABELS[cell.role].toLowerCase()}: ${titles}${clash}`);
           if (clash) td.addClass("has-clash");
           // A click opens the first scene, or the first one with a clash.
           td.addEventListener("click", () => this.select(cell.clashes[0] ?? cell.cards[0]!));
@@ -1921,13 +2229,6 @@ export class StoryBoardView extends TextFileView {
   private renderClashes(parent: HTMLElement, story: Story, clashes: Clash[]): void {
     const box = parent.createDiv({ cls: "story-planner-clashes" });
     box.createDiv({ cls: "story-planner-tray-heading", text: clashes.length > 0 ? `Possible clashes (${clashes.length})` : "No clashes" });
-    box.createDiv({
-      cls: "story-planner-panel-hint",
-      text:
-        clashes.length > 0
-          ? "A character is in two scenes whose times overlap, in places that are not one inside the other. This is only a warning; a twin, a disguise or a lie can explain it."
-          : "No character is in two places at once. Scenes need a place and a time of day (or an end date) to be checked.",
-    });
     const list = box.createEl("ul");
     for (const clash of clashes) {
       const character = story.characters.find((c) => c.id === clash.characterId);
@@ -1943,6 +2244,17 @@ export class StoryBoardView extends TextFileView {
         item.createSpan({ cls: "story-planner-clash-detail", text: ` (${[where, when].filter(Boolean).join(", ")})` });
       });
     }
+  }
+
+  /** A plain icon button, such as Undo, with its name as a tooltip. */
+  private iconAction(parent: HTMLElement, icon: string, label: string, onClick: () => void, disabled = false): HTMLButtonElement {
+    const el = parent.createEl("button", { cls: "story-planner-icon-action clickable-icon" });
+    setIcon(el, icon);
+    el.setAttr("aria-label", label);
+    el.setAttr("title", label);
+    el.disabled = disabled;
+    el.addEventListener("click", onClick);
+    return el;
   }
 
   private button(parent: HTMLElement, text: string, onClick: () => void, disabled = false): HTMLButtonElement {

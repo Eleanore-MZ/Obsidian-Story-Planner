@@ -3,6 +3,7 @@ import { FRONTMATTER_KEY, FRONTMATTER_VALUE, parseStory, serializeStory } from "
 import { createEmptyStory } from "./model/defaults";
 import { DEFAULT_NOTE_TEMPLATE, fillTemplate, noteFileName, noteValues, renameLinkedPath } from "./model/links";
 import { cardsInReadingOrder } from "./model/search";
+import { chapterTitleOf } from "./model/chapters";
 import { setDefaultFormats } from "./model/dateFormat";
 import { EXPORT_EXTENSIONS, exportStory } from "./format/export";
 import { Card, Story } from "./model/types";
@@ -10,6 +11,7 @@ import { SnapshotInfo } from "./model/snapshots";
 import { SnapshotStore } from "./snapshotStore";
 import { DEFAULT_SETTINGS, StoryPlannerSettings, StoryPlannerSettingTab } from "./settings";
 import { STORY_BOARD_VIEW, StoryBoardView } from "./view/StoryBoardView";
+import { registerIcon, STORY_ICON } from "./icon";
 import { ExportChoice, ExportModal, TextPromptModal } from "./view/modals";
 
 export default class StoryPlannerPlugin extends Plugin {
@@ -21,6 +23,7 @@ export default class StoryPlannerPlugin extends Plugin {
   private noteLeaf: WorkspaceLeaf | null = null;
 
   async onload(): Promise<void> {
+    registerIcon();
     await this.loadSettings();
     const pluginDir = this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
     this.snapshots = new SnapshotStore(this.app.vault.adapter, `${pluginDir}/snapshots`, () => this.settings.snapshotsPerStory);
@@ -28,7 +31,7 @@ export default class StoryPlannerPlugin extends Plugin {
     this.registerView(STORY_BOARD_VIEW, (leaf) => new StoryBoardView(leaf, this));
     this.addSettingTab(new StoryPlannerSettingTab(this.app, this));
 
-    this.addRibbonIcon("layout-dashboard", "Open story", () => new StoryPickerModal(this).open());
+    this.addRibbonIcon(STORY_ICON, "Open story", () => new StoryPickerModal(this).open());
 
     this.addCommand({
       id: "create-story",
@@ -85,13 +88,13 @@ export default class StoryPlannerPlugin extends Plugin {
       this.app.workspace.on("file-menu", (menu, target) => {
         if (target instanceof TFolder) {
           menu.addItem((item) =>
-            item.setTitle("New story here").setIcon("layout-dashboard").onClick(() => this.promptNewStory(target.path)),
+            item.setTitle("New story here").setIcon(STORY_ICON).onClick(() => this.promptNewStory(target.path)),
           );
         } else if (target instanceof TFile && this.isStoryFile(target)) {
           menu.addItem((item) =>
             item
               .setTitle("Open as story board")
-              .setIcon("layout-dashboard")
+              .setIcon(STORY_ICON)
               .onClick(() => this.openAsBoard(this.app.workspace.getLeaf(false), target)),
           );
         }
@@ -178,9 +181,8 @@ export default class StoryPlannerPlugin extends Plugin {
     const active = this.app.workspace.getActiveViewOfType(StoryBoardView);
     const items: CardChoice[] = [];
     const add = (file: TFile, story: Story) => {
-      const chapters = new Map(story.chapters.map((c) => [c.id, c.name]));
       for (const card of cardsInReadingOrder(story)) {
-        const where = (card.chapter !== null && chapters.get(card.chapter)) || "Off-page";
+        const where = chapterTitleOf(story, card.chapter);
         items.push({ file, cardId: card.id, text: `${card.title} · ${where} · ${story.title}` });
       }
     };

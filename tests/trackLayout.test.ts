@@ -124,7 +124,8 @@ describe("presence matrix", () => {
     add(s, "two", { characters: who(["ann", "pov"], ["bo", "present"]) });
     add(s, "three", { chapter: null, characters: who(["bo", "mentioned"]) });
     const m = computeMatrix(s, "chapters", "day");
-    expect(m.columns.map((c) => c.label)).toEqual(["One", "Two", "Off-page"]);
+    expect(m.columns.map((c) => c.label)).toEqual(["1", "2", "Off-page"]);
+    expect(m.columns.map((c) => c.title)).toEqual(["Chapter 1: One", "Chapter 2: Two", undefined]);
     const row = (id: string) => m.rows.find((r) => r.characterId === id)!;
     expect(row("ann").cells.map((c) => c.role ?? "-")).toEqual(["pov", "-", "-"]);
     expect(row("ann").cells[0]!.cards).toEqual(["one", "two"]);

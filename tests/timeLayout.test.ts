@@ -136,3 +136,75 @@ describe("story order", () => {
     expect(reorderInTime(s, "a", "other", false, NOW)).toBe(false);
   });
 });
+
+describe("cards that run over several spans", () => {
+  const layoutOf = (s: Story, orientation: "vertical" | "horizontal" = "vertical") => computeTimeLayout(s, "day", orientation);
+  const find = (s: Story, kind: string, id: string, orientation: "vertical" | "horizontal" = "vertical") =>
+    layoutOf(s, orientation).items.find((p) => p.item.kind === kind && "cardId" in p.item && p.item.cardId === id)!;
+
+  it("runs from its own row down to the span of its end, adding a row for the end", () => {
+    const s = story();
+    add(s, "trip", d(2020, 1, 1), { endDate: d(2020, 1, 5) });
+    add(s, "before", d(2019, 12, 30), { plotLine: "p2" });
+    const layout = layoutOf(s);
+    expect(layout.buckets.map((b) => b.label)).toEqual(["2019/12/30", "2020/01/01", "2020/01/05"]);
+    const trip = find(s, "card", "trip");
+    const end = layout.items.find((p) => p.item.kind === "time-header" && p.item.bucket.label === "2020/01/05")!;
+    // Through the "4 days later" gap to the 5th's row.
+    expect(trip.row + trip.span - 1).toBe(end.row);
+    expect(layout.items.some((p) => p.item.kind === "gap" && p.row > trip.row && p.row < end.row)).toBe(true);
+    expect(trip.depth).toBe(0);
+  });
+
+  it("stays a normal card when it starts and ends in the same span", () => {
+    const s = story();
+    add(s, "day", d(2020, 1, 1, { minutes: 60 }), { endDate: d(2020, 1, 1, { minutes: 600 }) });
+    const card = find(s, "card", "day");
+    expect(card.span).toBe(1);
+    expect(card.item.kind === "card" && card.item.until).toBeUndefined();
+  });
+
+  it("puts the cards it runs past on top of it, a step in, and leaves other plot lines alone", () => {
+    const s = story();
+    add(s, "long", d(2020, 1, 1), { endDate: d(2020, 1, 9) });
+    add(s, "middle", d(2020, 1, 4));
+    add(s, "after", d(2020, 1, 20));
+    add(s, "elsewhere", d(2020, 1, 4), { plotLine: "p2" });
+    const long = find(s, "card", "long");
+    const middle = find(s, "card", "middle");
+    expect([middle.column, middle.depth]).toEqual([long.column, 1]);
+    expect(find(s, "card", "after").depth).toBe(0);
+    expect(find(s, "card", "elsewhere").depth).toBe(0);
+    // Empty space beside it is on top too, so a drop there lands in that row's span.
+    const cells = layoutOf(s).items.filter((p) => p.item.kind === "time-cell" && p.column === long.column && p.row > long.row && p.row < long.row + long.span);
+    expect(cells.length).toBeGreaterThan(0);
+    expect(cells.every((p) => p.depth === 1)).toBe(true);
+  });
+
+  it("nests long cards that overlap each other, each a step further in", () => {
+    const s = story();
+    add(s, "a", d(2020, 1, 1), { endDate: d(2020, 1, 9) });
+    add(s, "b", d(2020, 1, 3), { endDate: d(2020, 1, 5) });
+    add(s, "inside", d(2020, 1, 5));
+    expect(find(s, "card", "a").depth).toBe(0);
+    expect(find(s, "card", "b").depth).toBe(1);
+    expect(find(s, "card", "inside").depth).toBe(2);
+  });
+
+  it("runs its echoes over the same rows", () => {
+    const s = story();
+    add(s, "trip", d(2020, 1, 1), { endDate: d(2020, 1, 5), alsoIn: ["p2"] });
+    const card = find(s, "card", "trip");
+    const echo = find(s, "echo", "trip");
+    expect([echo.row, echo.span]).toEqual([card.row, card.span]);
+  });
+
+  it("runs across, not down, when time runs across", () => {
+    const s = story();
+    add(s, "trip", d(2020, 1, 1), { endDate: d(2020, 1, 5) });
+    const vertical = find(s, "card", "trip");
+    const across = find(s, "card", "trip", "horizontal");
+    expect(across.span).toBe(vertical.span);
+    expect([across.row, across.column]).toEqual([vertical.column, vertical.row]);
+  });
+});

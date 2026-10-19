@@ -1,3 +1,4 @@
+import { actOf, actTitle, chapterTitleOf } from "./chapters";
 import { noteName } from "./links";
 import { locationPath } from "./setup";
 import { Card, Story } from "./types";
@@ -13,9 +14,9 @@ export function fold(text: string): string {
 
 /** Everything a search looks at on a card, folded. */
 export function searchText(story: Story, card: Card): string {
-  const parts = [card.title, card.synopsis, card.relationshipState ?? ""];
+  const parts = [card.title, card.synopsis];
   parts.push(story.plotLines.find((p) => p.id === card.plotLine)?.name ?? "");
-  parts.push(story.chapters.find((c) => c.id === card.chapter)?.name ?? (card.chapter === null ? "Off-page" : ""));
+  parts.push(chapterTitleOf(story, card.chapter), actTitle(story, actOf(story, card.chapter)));
   for (const entry of card.characters) {
     parts.push(story.characters.find((c) => c.id === entry.id)?.name ?? "", entry.note ?? "");
   }

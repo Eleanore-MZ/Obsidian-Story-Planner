@@ -2,6 +2,7 @@ import { App, Modal, Setting } from "obsidian";
 import { EXPORT_EXTENSIONS, ExportFormat, ExportOrder } from "../format/export";
 import { Story, StoryDate } from "../model/types";
 import { DateEditor } from "./DateEditor";
+import { reorderHandle } from "./reorder";
 
 /** Asks for a single line of text, such as a story or chapter name. */
 export class TextPromptModal extends Modal {
@@ -156,30 +157,26 @@ export class LaneModal extends Modal {
 
   private draw(): void {
     const el = this.contentEl;
+    // Redrawing must not jump back to the top of a long list.
+    const [modalScroll, contentScroll] = [this.modalEl.scrollTop, el.scrollTop];
     el.empty();
-    el.createEl("p", { cls: "setting-item-description", text: "Ticked characters get a lane, in this order. Drag lane headers to reorder them too." });
+    el.createEl("p", { cls: "setting-item-description", text: "Ticked characters get a lane, in this order. Drag ⋮⋮ to reorder them, or drag the lane headers on the board." });
+    const list = el.createDiv({ cls: "story-planner-lane-list" });
     const others = this.story.characters.filter((c) => !this.chosen.includes(c.id));
     const ordered = [...this.chosen.map((id) => this.story.characters.find((c) => c.id === id)!).filter(Boolean), ...others];
     for (const character of ordered) {
       const index = this.chosen.indexOf(character.id);
-      const setting = new Setting(el).setName(character.name);
+      const setting = new Setting(list).setName(character.name);
       setting.nameEl.addClass("story-planner-lane-choice");
       setting.nameEl.style.setProperty("--lane-color", character.color);
       if (index >= 0) {
-        setting.addExtraButton((b) =>
-          b
-            .setIcon("arrow-up")
-            .setTooltip("Earlier")
-            .setDisabled(index === 0)
-            .onClick(() => this.shift(index, -1)),
-        );
-        setting.addExtraButton((b) =>
-          b
-            .setIcon("arrow-down")
-            .setTooltip("Later")
-            .setDisabled(index === this.chosen.length - 1)
-            .onClick(() => this.shift(index, 1)),
-        );
+        reorderHandle(setting.settingEl, "lanes", index, (to) => {
+          const [id] = this.chosen.splice(index, 1);
+          this.chosen.splice(to, 0, id!);
+          this.draw();
+        });
+      } else {
+        setting.settingEl.addClass("is-untracked");
       }
       setting.addToggle((t) =>
         t.setValue(index >= 0).onChange((on) => {
@@ -210,12 +207,90 @@ export class LaneModal extends Modal {
             this.onDone(this.chosen);
           }),
       );
+    this.modalEl.scrollTop = modalScroll;
+    el.scrollTop = contentScroll;
   }
 
-  private shift(index: number, by: number): void {
-    const [id] = this.chosen.splice(index, 1);
-    this.chosen.splice(index + by, 0, id!);
-    this.draw();
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+/** One field of a FormModal. */
+export interface FormField {
+  key: string;
+  label: string;
+  kind: "text" | "textarea" | "select";
+  value: string;
+  placeholder?: string;
+  description?: string;
+  options?: [string, string][];
+}
+
+/**
+ * A small form, such as a chapter's title and synopsis. Enter in a one-line
+ * field moves on; Ctrl+Enter (or the button) saves; Escape cancels.
+ */
+export class FormModal extends Modal {
+  private values: Record<string, string>;
+
+  constructor(
+    app: App,
+    private heading: string,
+    private fields: FormField[],
+    private onSave: (values: Record<string, string>) => void,
+  ) {
+    super(app);
+    this.values = Object.fromEntries(fields.map((f) => [f.key, f.value]));
+  }
+
+  onOpen(): void {
+    this.titleEl.setText(this.heading);
+    this.modalEl.addClass("story-planner-form-modal");
+    const inputs: HTMLElement[] = [];
+    for (const field of this.fields) {
+      const setting = new Setting(this.contentEl).setName(field.label);
+      if (field.description) setting.setDesc(field.description);
+      if (field.kind === "select") {
+        setting.addDropdown((d) => {
+          for (const [value, label] of field.options ?? []) d.addOption(value, label);
+          d.setValue(field.value).onChange((v) => (this.values[field.key] = v));
+          inputs.push(d.selectEl);
+        });
+      } else if (field.kind === "textarea") {
+        setting.settingEl.addClass("story-planner-form-wide");
+        setting.addTextArea((t) => {
+          t.setValue(field.value).setPlaceholder(field.placeholder ?? "").onChange((v) => (this.values[field.key] = v));
+          t.inputEl.rows = 5;
+          inputs.push(t.inputEl);
+        });
+      } else {
+        setting.addText((t) => {
+          t.setValue(field.value).setPlaceholder(field.placeholder ?? "").onChange((v) => (this.values[field.key] = v));
+          inputs.push(t.inputEl);
+        });
+      }
+    }
+    inputs.forEach((input, i) =>
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          this.save();
+        } else if (e.key === "Enter" && input instanceof HTMLInputElement) {
+          e.preventDefault();
+          (inputs[i + 1] ?? input).focus();
+        }
+      }),
+    );
+    new Setting(this.contentEl)
+      .addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((b) => b.setButtonText("Save").setCta().onClick(() => this.save()));
+    window.setTimeout(() => (inputs[0] as HTMLInputElement | undefined)?.focus(), 0);
+  }
+
+  private save(): void {
+    this.close();
+    this.onSave(this.values);
   }
 
   onClose(): void {

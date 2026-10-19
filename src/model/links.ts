@@ -1,4 +1,5 @@
 import { formatDateRange } from "./calendar";
+import { actOf, actTitle, chapterTitleOf } from "./chapters";
 import { locationPath } from "./setup";
 import { Card, Id, Story } from "./types";
 
@@ -95,7 +96,6 @@ export const DEFAULT_NOTE_TEMPLATE = `# {{title}}
 
 /** The template placeholders, filled from a card. */
 export function noteValues(story: Story, card: Card): Record<string, string> {
-  const chapter = story.chapters.find((c) => c.id === card.chapter);
   const names = card.characters
     .map((c) => story.characters.find((x) => x.id === c.id)?.name)
     .filter((n): n is string => !!n);
@@ -104,7 +104,8 @@ export function noteValues(story: Story, card: Card): Record<string, string> {
     synopsis: card.synopsis.trim(),
     story: story.title,
     plotLine: story.plotLines.find((p) => p.id === card.plotLine)?.name ?? "",
-    chapter: chapter?.name ?? "Off-page",
+    chapter: chapterTitleOf(story, card.chapter),
+    act: actTitle(story, actOf(story, card.chapter)),
     date: card.date ? formatDateRange(story, card.date, card.endDate) : "",
     location: card.location && story.locations.some((l) => l.id === card.location) ? locationPath(story, card.location) : "",
     characters: names.join(", "),

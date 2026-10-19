@@ -1,6 +1,6 @@
 ---
 storyplanner: story
-storyplanner-version: 1
+storyplanner-version: 2
 ---
 
 # Large Story (performance test)
@@ -8,7 +8,11 @@ storyplanner-version: 1
 > [!info] Story Planner
 > This note is a Story Planner board. Open it as a board to edit it. The outline below is regenerated on every save, so edits made here as text will be replaced.
 
-## Chapter 1
+## Act I: Setup
+
+### Chapter 1: Part 1 begins
+
+A chapter synopsis: what happens, in a sentence or two, so the outline reads well.
 
 **Scene 1** (Plot line 4, 2020/01/03 08:37)
 Characters: Character 2
@@ -42,7 +46,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 2
+### Chapter 2
 
 **Scene 9** (Plot line 4, 2020/01/21 13:33)
 Characters: Character 10, Character 3
@@ -76,7 +80,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 3
+### Chapter 3
 
 **Scene 17** (Plot line 4, 2020/02/03 18:29)
 Characters: Character 2
@@ -110,7 +114,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 4
+### Chapter 4
 
 **Scene 25** (Plot line 4, 2020/02/20 11:25)
 Characters: Character 10
@@ -144,7 +148,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 5
+### Chapter 5
 
 **Scene 33** (Plot line 4, 2020/01/01 16:21)
 Characters: Character 2, Character 11
@@ -178,7 +182,9 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 6
+### Chapter 6: Part 2 begins
+
+A chapter synopsis: what happens, in a sentence or two, so the outline reads well.
 
 **Scene 41** (Plot line 4, 2020/03/23 09:17)
 Characters: Character 10
@@ -212,7 +218,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1, Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 7
+### Chapter 7
 
 **Scene 49** (Plot line 4, 2020/04/10 14:13)
 Characters: Character 2
@@ -246,7 +252,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 8
+### Chapter 8
 
 **Scene 57** (Plot line 4, 2020/04/23 19:09)
 Characters: Character 10, Character 3
@@ -280,7 +286,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 9
+### Chapter 9
 
 **Scene 65** (Plot line 4)
 Characters: Character 2
@@ -314,7 +320,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 10
+### Chapter 10
 
 **Scene 73** (Plot line 4, 2020/05/27 17:01)
 Characters: Character 10
@@ -348,7 +354,13 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 11
+## Act II: Rising action
+
+Everything gets harder.
+
+### Chapter 11: Part 3 begins
+
+A chapter synopsis: what happens, in a sentence or two, so the outline reads well.
 
 **Scene 81** (Plot line 4, 2020/06/11 09:57)
 Characters: Character 2, Character 11
@@ -382,7 +394,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 12
+### Chapter 12
 
 **Scene 89** (Plot line 4, 2020/06/29 14:53)
 Characters: Character 10
@@ -416,7 +428,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1, Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 13
+### Chapter 13
 
 **Scene 97** (Plot line 4, 2020/07/12 19:49)
 Characters: Character 2
@@ -450,7 +462,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 14
+### Chapter 14
 
 **Scene 105** (Plot line 4, 2020/07/29 12:45)
 Characters: Character 10, Character 3
@@ -484,7 +496,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 15
+### Chapter 15
 
 **Scene 113** (Plot line 4, 2020/08/15 17:41)
 Characters: Character 2
@@ -518,7 +530,9 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 16
+### Chapter 16: Part 4 begins
+
+A chapter synopsis: what happens, in a sentence or two, so the outline reads well.
 
 **Scene 121** (Plot line 4, 2020/01/01 10:37)
 Characters: Character 10
@@ -552,7 +566,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 17
+### Chapter 17
 
 **Scene 129** (Plot line 4, 2020/09/17 15:33)
 Characters: Character 2, Character 11
@@ -586,7 +600,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 18
+### Chapter 18
 
 **Scene 137** (Plot line 4, 2020/09/30 08:29)
 Characters: Character 10
@@ -620,7 +634,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1, Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 19
+### Chapter 19
 
 **Scene 145** (Plot line 4, 2020/10/17 13:25)
 Characters: Character 2
@@ -654,7 +668,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 20
+### Chapter 20
 
 **Scene 153** (Plot line 4, 2020/11/03 18:21)
 Characters: Character 10, Character 3
@@ -688,7 +702,11 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 21
+## Act III: Crisis
+
+### Chapter 21: Part 5 begins
+
+A chapter synopsis: what happens, in a sentence or two, so the outline reads well.
 
 **Scene 161** (Plot line 4, 2020/11/18 11:17)
 Characters: Character 2
@@ -722,7 +740,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 22
+### Chapter 22
 
 **Scene 169** (Plot line 4)
 Characters: Character 10
@@ -756,7 +774,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 23
+### Chapter 23
 
 **Scene 177** (Plot line 4, 2020/12/19 09:09)
 Characters: Character 2, Character 11
@@ -790,7 +808,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 24
+### Chapter 24
 
 **Scene 185** (Plot line 4, 2021/01/05 14:05)
 Characters: Character 10
@@ -824,7 +842,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1, Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 25
+### Chapter 25
 
 **Scene 193** (Plot line 4, 2021/01/22 19:01)
 Characters: Character 2
@@ -858,7 +876,9 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 26
+### Chapter 26: Part 6 begins
+
+A chapter synopsis: what happens, in a sentence or two, so the outline reads well.
 
 **Scene 201** (Plot line 4, 2021/02/06 11:57)
 Characters: Character 10, Character 3
@@ -892,7 +912,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 27
+### Chapter 27
 
 **Scene 209** (Plot line 4, 2020/02/25 16:53)
 Characters: Character 2
@@ -926,7 +946,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 28
+### Chapter 28
 
 **Scene 217** (Plot line 4, 2021/03/09 09:49)
 Characters: Character 10
@@ -960,7 +980,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 29
+### Chapter 29
 
 **Scene 225** (Plot line 4, 2021/03/26 14:45)
 Characters: Character 2, Character 11
@@ -994,7 +1014,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 30
+### Chapter 30
 
 **Scene 233** (Plot line 4, 2021/04/12 19:41)
 Characters: Character 10
@@ -1028,7 +1048,11 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1, Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 31
+## Act IV: Resolution
+
+### Chapter 31: Part 7 begins
+
+A chapter synopsis: what happens, in a sentence or two, so the outline reads well.
 
 **Scene 241** (Plot line 4, 2021/04/27 12:37)
 Characters: Character 2
@@ -1062,7 +1086,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 32
+### Chapter 32
 
 **Scene 249** (Plot line 4, 2021/05/15 17:33)
 Characters: Character 10, Character 3
@@ -1096,7 +1120,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 33
+### Chapter 33
 
 **Scene 257** (Plot line 4, 2021/05/28 10:29)
 Characters: Character 2
@@ -1130,7 +1154,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 34
+### Chapter 34
 
 **Scene 265** (Plot line 4, 2021/06/14 15:25)
 Characters: Character 10
@@ -1164,7 +1188,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 35
+### Chapter 35
 
 **Scene 273** (Plot line 4)
 Characters: Character 2, Character 11
@@ -1198,7 +1222,9 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 36
+### Chapter 36: Part 8 begins
+
+A chapter synopsis: what happens, in a sentence or two, so the outline reads well.
 
 **Scene 281** (Plot line 4, 2021/07/16 13:17)
 Characters: Character 10
@@ -1232,7 +1258,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1, Character 4
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 37
+### Chapter 37
 
 **Scene 289** (Plot line 4, 2021/08/03 18:13)
 Characters: Character 2
@@ -1266,7 +1292,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 38
+### Chapter 38
 
 **Scene 297** (Plot line 4, 2020/08/16 11:09)
 Characters: Character 10, Character 3
@@ -1300,7 +1326,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 1
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 39
+### Chapter 39
 
 **Scene 305** (Plot line 4, 2021/09/02 16:05)
 Characters: Character 2
@@ -1334,7 +1360,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 Characters: Character 9, Character 12
 A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.
 
-## Chapter 40
+### Chapter 40
 
 **Scene 313** (Plot line 4, 2021/09/19 09:01)
 Characters: Character 10
@@ -1370,7 +1396,7 @@ A short synopsis of a few sentences, roughly the length a real card would have. 
 
 %%
 storyplanner-data
-{"schema":1,"title":"Large Story (performance test)","plotLines":[{"id":"p1","name":"Plot line 1","color":"#4a90d9","category":"pc1"},{"id":"p2","name":"Plot line 2","color":"#d9534f","category":"pc1"},{"id":"p3","name":"Plot line 3","color":"#5cb85c","category":"pc1"},{"id":"p4","name":"Plot line 4","color":"#f0ad4e","category":"pc2"},{"id":"p5","name":"Plot line 5","color":"#9b59b6","category":"pc2"},{"id":"p6","name":"Plot line 6","color":"#1abc9c","category":"pc2"},{"id":"p7","name":"Plot line 7","color":"#e67e22","category":"pc3"},{"id":"p8","name":"Plot line 8","color":"#7f8c8d","category":"pc3"}],"plotLineCategories":[{"id":"pc1","name":"Main story lines","color":"#4a90d9"},{"id":"pc2","name":"Relationship development","color":"#d9534f"},{"id":"pc3","name":"Background","color":"#7f8c8d"}],"colorByCategory":true,"chapters":[{"id":"c01","name":"Chapter 1"},{"id":"c02","name":"Chapter 2"},{"id":"c03","name":"Chapter 3"},{"id":"c04","name":"Chapter 4"},{"id":"c05","name":"Chapter 5"},{"id":"c06","name":"Chapter 6"},{"id":"c07","name":"Chapter 7"},{"id":"c08","name":"Chapter 8"},{"id":"c09","name":"Chapter 9"},{"id":"c10","name":"Chapter 10"},{"id":"c11","name":"Chapter 11"},{"id":"c12","name":"Chapter 12"},{"id":"c13","name":"Chapter 13"},{"id":"c14","name":"Chapter 14"},{"id":"c15","name":"Chapter 15"},{"id":"c16","name":"Chapter 16"},{"id":"c17","name":"Chapter 17"},{"id":"c18","name":"Chapter 18"},{"id":"c19","name":"Chapter 19"},{"id":"c20","name":"Chapter 20"},{"id":"c21","name":"Chapter 21"},{"id":"c22","name":"Chapter 22"},{"id":"c23","name":"Chapter 23"},{"id":"c24","name":"Chapter 24"},{"id":"c25","name":"Chapter 25"},{"id":"c26","name":"Chapter 26"},{"id":"c27","name":"Chapter 27"},{"id":"c28","name":"Chapter 28"},{"id":"c29","name":"Chapter 29"},{"id":"c30","name":"Chapter 30"},{"id":"c31","name":"Chapter 31"},{"id":"c32","name":"Chapter 32"},{"id":"c33","name":"Chapter 33"},{"id":"c34","name":"Chapter 34"},{"id":"c35","name":"Chapter 35"},{"id":"c36","name":"Chapter 36"},{"id":"c37","name":"Chapter 37"},{"id":"c38","name":"Chapter 38"},{"id":"c39","name":"Chapter 39"},{"id":"c40","name":"Chapter 40"}],"characters":[{"id":"x01","name":"Character 1","color":"#4a90d9"},{"id":"x02","name":"Character 2","color":"#d9534f"},{"id":"x03","name":"Character 3","color":"#5cb85c"},{"id":"x04","name":"Character 4","color":"#f0ad4e"},{"id":"x05","name":"Character 5","color":"#9b59b6"},{"id":"x06","name":"Character 6","color":"#1abc9c"},{"id":"x07","name":"Character 7","color":"#e67e22"},{"id":"x08","name":"Character 8","color":"#7f8c8d"},{"id":"x09","name":"Character 9","color":"#4a90d9"},{"id":"x10","name":"Character 10","color":"#d9534f"},{"id":"x11","name":"Character 11","color":"#5cb85c"},{"id":"x12","name":"Character 12","color":"#f0ad4e"},{"id":"x13","name":"Character 13","color":"#9b59b6"},{"id":"x14","name":"Character 14","color":"#1abc9c"},{"id":"x15","name":"Character 15","color":"#e67e22"},{"id":"x16","name":"Character 16","color":"#7f8c8d"}],"locations":[],"tags":[],"tagsEnabled":true,"calendars":[{"id":"main","name":"Main calendar","months":[{"name":"January","short":"Jan","days":31},{"name":"February","short":"Feb","days":28},{"name":"March","short":"Mar","days":31},{"name":"April","short":"Apr","days":30},{"name":"May","short":"May","days":31},{"name":"June","short":"Jun","days":30},{"name":"July","short":"Jul","days":31},{"name":"August","short":"Aug","days":31},{"name":"September","short":"Sep","days":30},{"name":"October","short":"Oct","days":31},{"name":"November","short":"Nov","days":30},{"name":"December","short":"Dec","days":31}],"leap":{"everyYears":4,"monthIndex":1,"extraDays":1},"weekdays":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"weekAnchor":{"year":2000,"month":1,"day":1,"weekdayIndex":5},"hoursPerDay":24,"minutesPerHour":60,"dayParts":[{"id":"dawn","name":"Dawn","startHour":5,"endHour":7},{"id":"morning","name":"Morning","startHour":7,"endHour":12},{"id":"afternoon","name":"Afternoon","startHour":12,"endHour":17},{"id":"evening","name":"Evening","startHour":17,"endHour":21},{"id":"night","name":"Night","startHour":21,"endHour":24}]}],"zones":[]}
+{"schema":2,"title":"Large Story (performance test)","plotLines":[{"id":"p1","name":"Plot line 1","color":"#4a90d9","category":"pc1"},{"id":"p2","name":"Plot line 2","color":"#d9534f","category":"pc1"},{"id":"p3","name":"Plot line 3","color":"#5cb85c","category":"pc1"},{"id":"p4","name":"Plot line 4","color":"#f0ad4e","category":"pc2"},{"id":"p5","name":"Plot line 5","color":"#9b59b6","category":"pc2"},{"id":"p6","name":"Plot line 6","color":"#1abc9c","category":"pc2"},{"id":"p7","name":"Plot line 7","color":"#e67e22","category":"pc3"},{"id":"p8","name":"Plot line 8","color":"#7f8c8d","category":"pc3"}],"plotLineCategories":[{"id":"pc1","name":"Main story lines","color":"#4a90d9"},{"id":"pc2","name":"Subplots","color":"#d9534f"},{"id":"pc3","name":"Background","color":"#7f8c8d"}],"actsEnabled":true,"colorByCategory":true,"acts":[{"id":"a1","title":"Setup"},{"id":"a2","title":"Rising action","summary":"Everything gets harder."},{"id":"a3","title":"Crisis"},{"id":"a4","title":"Resolution"}],"chapters":[{"id":"c01","name":"Part 1 begins","act":"a1","summary":"A chapter synopsis: what happens, in a sentence or two, so the outline reads well."},{"id":"c02","name":"","act":"a1"},{"id":"c03","name":"","act":"a1"},{"id":"c04","name":"","act":"a1"},{"id":"c05","name":"","act":"a1"},{"id":"c06","name":"Part 2 begins","act":"a1","summary":"A chapter synopsis: what happens, in a sentence or two, so the outline reads well."},{"id":"c07","name":"","act":"a1"},{"id":"c08","name":"","act":"a1"},{"id":"c09","name":"","act":"a1"},{"id":"c10","name":"","act":"a1"},{"id":"c11","name":"Part 3 begins","act":"a2","summary":"A chapter synopsis: what happens, in a sentence or two, so the outline reads well."},{"id":"c12","name":"","act":"a2"},{"id":"c13","name":"","act":"a2"},{"id":"c14","name":"","act":"a2"},{"id":"c15","name":"","act":"a2"},{"id":"c16","name":"Part 4 begins","act":"a2","summary":"A chapter synopsis: what happens, in a sentence or two, so the outline reads well."},{"id":"c17","name":"","act":"a2"},{"id":"c18","name":"","act":"a2"},{"id":"c19","name":"","act":"a2"},{"id":"c20","name":"","act":"a2"},{"id":"c21","name":"Part 5 begins","act":"a3","summary":"A chapter synopsis: what happens, in a sentence or two, so the outline reads well."},{"id":"c22","name":"","act":"a3"},{"id":"c23","name":"","act":"a3"},{"id":"c24","name":"","act":"a3"},{"id":"c25","name":"","act":"a3"},{"id":"c26","name":"Part 6 begins","act":"a3","summary":"A chapter synopsis: what happens, in a sentence or two, so the outline reads well."},{"id":"c27","name":"","act":"a3"},{"id":"c28","name":"","act":"a3"},{"id":"c29","name":"","act":"a3"},{"id":"c30","name":"","act":"a3"},{"id":"c31","name":"Part 7 begins","act":"a4","summary":"A chapter synopsis: what happens, in a sentence or two, so the outline reads well."},{"id":"c32","name":"","act":"a4"},{"id":"c33","name":"","act":"a4"},{"id":"c34","name":"","act":"a4"},{"id":"c35","name":"","act":"a4"},{"id":"c36","name":"Part 8 begins","act":"a4","summary":"A chapter synopsis: what happens, in a sentence or two, so the outline reads well."},{"id":"c37","name":"","act":"a4"},{"id":"c38","name":"","act":"a4"},{"id":"c39","name":"","act":"a4"},{"id":"c40","name":"","act":"a4"}],"characters":[{"id":"x01","name":"Character 1","color":"#4a90d9"},{"id":"x02","name":"Character 2","color":"#d9534f"},{"id":"x03","name":"Character 3","color":"#5cb85c"},{"id":"x04","name":"Character 4","color":"#f0ad4e"},{"id":"x05","name":"Character 5","color":"#9b59b6"},{"id":"x06","name":"Character 6","color":"#1abc9c"},{"id":"x07","name":"Character 7","color":"#e67e22"},{"id":"x08","name":"Character 8","color":"#7f8c8d"},{"id":"x09","name":"Character 9","color":"#4a90d9"},{"id":"x10","name":"Character 10","color":"#d9534f"},{"id":"x11","name":"Character 11","color":"#5cb85c"},{"id":"x12","name":"Character 12","color":"#f0ad4e"},{"id":"x13","name":"Character 13","color":"#9b59b6"},{"id":"x14","name":"Character 14","color":"#1abc9c"},{"id":"x15","name":"Character 15","color":"#e67e22"},{"id":"x16","name":"Character 16","color":"#7f8c8d"}],"locations":[],"tags":[],"tagsEnabled":true,"calendars":[{"id":"main","name":"Main calendar","months":[{"name":"January","short":"Jan","days":31},{"name":"February","short":"Feb","days":28},{"name":"March","short":"Mar","days":31},{"name":"April","short":"Apr","days":30},{"name":"May","short":"May","days":31},{"name":"June","short":"Jun","days":30},{"name":"July","short":"Jul","days":31},{"name":"August","short":"Aug","days":31},{"name":"September","short":"Sep","days":30},{"name":"October","short":"Oct","days":31},{"name":"November","short":"Nov","days":30},{"name":"December","short":"Dec","days":31}],"leap":{"everyYears":4,"monthIndex":1,"extraDays":1},"weekdays":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"weekAnchor":{"year":2000,"month":1,"day":1,"weekdayIndex":5},"hoursPerDay":24,"minutesPerHour":60,"dayParts":[{"id":"dawn","name":"Dawn","startHour":5,"endHour":7},{"id":"morning","name":"Morning","startHour":7,"endHour":12},{"id":"afternoon","name":"Afternoon","startHour":12,"endHour":17},{"id":"evening","name":"Evening","startHour":17,"endHour":21},{"id":"night","name":"Night","startHour":21,"endHour":24}]}],"zones":[]}
 {"id":"k0001","title":"Scene 1","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x02","role":"pov"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c01","order":1,"date":{"calendar":"main","year":2020,"month":1,"day":3,"minutes":517}}
 {"id":"k0002","title":"Scene 2","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x03","role":"pov"},{"id":"x11","role":"present"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c01","order":2,"date":{"calendar":"main","year":2020,"month":1,"day":6,"dayPart":"afternoon"}}
 {"id":"k0003","title":"Scene 3","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x04","role":"pov"},{"id":"x09","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c01","order":3,"date":{"calendar":"main","year":2020,"month":1,"day":10,"dayPart":"evening"}}
@@ -1395,7 +1421,7 @@ storyplanner-data
 {"id":"k0022","title":"Scene 22","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x07","role":"pov"},{"id":"x15","role":"present"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c03","order":6,"date":{"calendar":"main","year":2020,"month":1,"day":1,"dayPart":"afternoon"}}
 {"id":"k0023","title":"Scene 23","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x08","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p6","chapter":"c03","order":7,"date":{"calendar":"main","year":2020,"month":2,"day":19,"dayPart":"evening"}}
 {"id":"k0024","title":"Scene 24","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x09","role":"pov"},{"id":"x12","role":"mentioned"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":"c03","order":8,"date":{"calendar":"main","year":2020,"month":2,"day":20}}
-{"id":"k0025","title":"Scene 25","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x10","role":"pov"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c04","order":1,"date":{"calendar":"main","year":2020,"month":2,"day":20,"minutes":685}}
+{"id":"k0025","title":"Scene 25","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x10","role":"pov"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c04","order":1,"date":{"calendar":"main","year":2020,"month":2,"day":20,"minutes":685},"endDate":{"calendar":"main","year":2020,"month":3,"day":12}}
 {"id":"k0026","title":"Scene 26","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x11","role":"pov"},{"id":"x03","role":"present"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c04","order":2}
 {"id":"k0027","title":"Scene 27","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x12","role":"pov"},{"id":"x01","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c04","order":3,"date":{"calendar":"main","year":2020,"month":2,"day":27,"dayPart":"afternoon"}}
 {"id":"k0028","title":"Scene 28","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p6"],"characters":[{"id":"x13","role":"pov"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c04","order":4,"date":{"calendar":"main","year":2020,"month":2,"day":28}}
@@ -1420,7 +1446,7 @@ storyplanner-data
 {"id":"k0047","title":"Scene 47","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x16","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p6","chapter":"c06","order":7,"date":{"calendar":"main","year":2020,"month":4,"day":7,"dayPart":"afternoon"}}
 {"id":"k0048","title":"Scene 48","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x01","role":"pov"},{"id":"x04","role":"mentioned"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":"c06","order":8,"date":{"calendar":"main","year":2020,"month":4,"day":8}}
 {"id":"k0049","title":"Scene 49","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p5"],"characters":[{"id":"x02","role":"pov"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c07","order":1,"date":{"calendar":"main","year":2020,"month":4,"day":10,"minutes":853}}
-{"id":"k0050","title":"Scene 50","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x03","role":"pov"},{"id":"x11","role":"present"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c07","order":2,"date":{"calendar":"main","year":2020,"month":4,"day":10,"dayPart":"dawn"}}
+{"id":"k0050","title":"Scene 50","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x03","role":"pov"},{"id":"x11","role":"present"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c07","order":2,"date":{"calendar":"main","year":2020,"month":4,"day":10,"dayPart":"dawn"},"endDate":{"calendar":"main","year":2020,"month":5,"day":1}}
 {"id":"k0051","title":"Scene 51","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x04","role":"pov"},{"id":"x09","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c07","order":3,"date":{"calendar":"main","year":2020,"month":4,"day":14,"dayPart":"morning"}}
 {"id":"k0052","title":"Scene 52","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x05","role":"pov"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c07","order":4}
 {"id":"k0053","title":"Scene 53","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x06","role":"pov"}],"written":true,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p8","chapter":"c07","order":5,"date":{"calendar":"main","year":2020,"month":4,"day":17,"minutes":1001}}
@@ -1445,7 +1471,7 @@ storyplanner-data
 {"id":"k0072","title":"Scene 72","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x09","role":"pov"},{"id":"x12","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":"c09","order":8,"date":{"calendar":"main","year":2020,"month":5,"day":25}}
 {"id":"k0073","title":"Scene 73","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x10","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c10","order":1,"date":{"calendar":"main","year":2020,"month":5,"day":27,"minutes":1021}}
 {"id":"k0074","title":"Scene 74","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x11","role":"pov"},{"id":"x03","role":"present"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c10","order":2,"date":{"calendar":"main","year":2020,"month":5,"day":30,"dayPart":"night"}}
-{"id":"k0075","title":"Scene 75","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x12","role":"pov"},{"id":"x01","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c10","order":3,"date":{"calendar":"main","year":2020,"month":5,"day":30,"dayPart":"dawn"}}
+{"id":"k0075","title":"Scene 75","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x12","role":"pov"},{"id":"x01","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c10","order":3,"date":{"calendar":"main","year":2020,"month":5,"day":30,"dayPart":"dawn"},"endDate":{"calendar":"main","year":2020,"month":6,"day":20}}
 {"id":"k0076","title":"Scene 76","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x13","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c10","order":4,"date":{"calendar":"main","year":2020,"month":5,"day":31}}
 {"id":"k0077","title":"Scene 77","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p1"],"characters":[{"id":"x14","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p8","chapter":"c10","order":5,"date":{"calendar":"main","year":2020,"month":1,"day":1,"minutes":1169}}
 {"id":"k0078","title":"Scene 78","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x15","role":"pov"},{"id":"x07","role":"present"},{"id":"x06","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c10","order":6}
@@ -1470,7 +1496,7 @@ storyplanner-data
 {"id":"k0097","title":"Scene 97","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x02","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c13","order":1,"date":{"calendar":"main","year":2020,"month":7,"day":12,"minutes":1189}}
 {"id":"k0098","title":"Scene 98","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p8"],"characters":[{"id":"x03","role":"pov"},{"id":"x11","role":"present"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c13","order":2,"date":{"calendar":"main","year":2020,"month":7,"day":15,"dayPart":"evening"}}
 {"id":"k0099","title":"Scene 99","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x04","role":"pov"},{"id":"x09","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c13","order":3,"date":{"calendar":"main","year":2020,"month":1,"day":1,"dayPart":"night"}}
-{"id":"k0100","title":"Scene 100","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x05","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c13","order":4,"date":{"calendar":"main","year":2020,"month":7,"day":19}}
+{"id":"k0100","title":"Scene 100","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x05","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c13","order":4,"date":{"calendar":"main","year":2020,"month":7,"day":19},"endDate":{"calendar":"main","year":2020,"month":8,"day":9}}
 {"id":"k0101","title":"Scene 101","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x06","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p8","chapter":"c13","order":5,"date":{"calendar":"main","year":2020,"month":7,"day":21,"minutes":617}}
 {"id":"k0102","title":"Scene 102","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x07","role":"pov"},{"id":"x15","role":"present"},{"id":"x14","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c13","order":6,"date":{"calendar":"main","year":2020,"month":7,"day":24,"dayPart":"afternoon"}}
 {"id":"k0103","title":"Scene 103","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x08","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p6","chapter":"c13","order":7,"date":{"calendar":"main","year":2020,"month":7,"day":28,"dayPart":"evening"}}
@@ -1495,7 +1521,7 @@ storyplanner-data
 {"id":"k0122","title":"Scene 122","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x11","role":"pov"},{"id":"x03","role":"present"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c16","order":2,"date":{"calendar":"main","year":2020,"month":9,"day":2,"dayPart":"afternoon"}}
 {"id":"k0123","title":"Scene 123","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x12","role":"pov"},{"id":"x01","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c16","order":3,"date":{"calendar":"main","year":2020,"month":9,"day":6,"dayPart":"evening"}}
 {"id":"k0124","title":"Scene 124","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x13","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c16","order":4,"date":{"calendar":"main","year":2020,"month":9,"day":7}}
-{"id":"k0125","title":"Scene 125","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x14","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p8","chapter":"c16","order":5,"date":{"calendar":"main","year":2020,"month":9,"day":7,"minutes":785}}
+{"id":"k0125","title":"Scene 125","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x14","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p8","chapter":"c16","order":5,"date":{"calendar":"main","year":2020,"month":9,"day":7,"minutes":785},"endDate":{"calendar":"main","year":2020,"month":9,"day":28}}
 {"id":"k0126","title":"Scene 126","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p4"],"characters":[{"id":"x15","role":"pov"},{"id":"x07","role":"present"},{"id":"x06","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c16","order":6,"date":{"calendar":"main","year":2020,"month":9,"day":10,"dayPart":"morning"}}
 {"id":"k0127","title":"Scene 127","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x16","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p6","chapter":"c16","order":7,"date":{"calendar":"main","year":2020,"month":9,"day":14,"dayPart":"afternoon"}}
 {"id":"k0128","title":"Scene 128","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x01","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":"c16","order":8,"date":{"calendar":"main","year":2020,"month":9,"day":15}}
@@ -1520,7 +1546,7 @@ storyplanner-data
 {"id":"k0147","title":"Scene 147","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p3"],"characters":[{"id":"x04","role":"pov"},{"id":"x09","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c19","order":3,"date":{"calendar":"main","year":2020,"month":10,"day":24,"dayPart":"afternoon"}}
 {"id":"k0148","title":"Scene 148","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x05","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c19","order":4,"date":{"calendar":"main","year":2020,"month":10,"day":25}}
 {"id":"k0149","title":"Scene 149","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x06","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p8","chapter":"c19","order":5,"date":{"calendar":"main","year":2020,"month":10,"day":27,"minutes":953}}
-{"id":"k0150","title":"Scene 150","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x07","role":"pov"},{"id":"x15","role":"present"},{"id":"x14","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c19","order":6,"date":{"calendar":"main","year":2020,"month":10,"day":27,"dayPart":"dawn"}}
+{"id":"k0150","title":"Scene 150","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x07","role":"pov"},{"id":"x15","role":"present"},{"id":"x14","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c19","order":6,"date":{"calendar":"main","year":2020,"month":10,"day":27,"dayPart":"dawn"},"endDate":{"calendar":"main","year":2020,"month":11,"day":17}}
 {"id":"k0151","title":"Scene 151","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x08","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p6","chapter":"c19","order":7,"date":{"calendar":"main","year":2020,"month":10,"day":31,"dayPart":"morning"}}
 {"id":"k0152","title":"Scene 152","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x09","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":"c19","order":8,"date":{"calendar":"main","year":2020,"month":11,"day":1}}
 {"id":"k0153","title":"Scene 153","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x10","role":"pov"},{"id":"x03","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c20","order":1,"date":{"calendar":"main","year":2020,"month":11,"day":3,"minutes":1101}}
@@ -1545,7 +1571,7 @@ storyplanner-data
 {"id":"k0172","title":"Scene 172","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x13","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c22","order":4,"date":{"calendar":"main","year":2020,"month":12,"day":11}}
 {"id":"k0173","title":"Scene 173","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x14","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p8","chapter":"c22","order":5,"date":{"calendar":"main","year":2020,"month":12,"day":13,"minutes":1121}}
 {"id":"k0174","title":"Scene 174","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x15","role":"pov"},{"id":"x07","role":"present"},{"id":"x06","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c22","order":6,"date":{"calendar":"main","year":2020,"month":12,"day":16,"dayPart":"night"}}
-{"id":"k0175","title":"Scene 175","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p7"],"characters":[{"id":"x16","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p6","chapter":"c22","order":7,"date":{"calendar":"main","year":2020,"month":12,"day":16,"dayPart":"dawn"}}
+{"id":"k0175","title":"Scene 175","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p7"],"characters":[{"id":"x16","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p6","chapter":"c22","order":7,"date":{"calendar":"main","year":2020,"month":12,"day":16,"dayPart":"dawn"},"endDate":{"calendar":"main","year":2021,"month":1,"day":6}}
 {"id":"k0176","title":"Scene 176","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x01","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":"c22","order":8,"date":{"calendar":"main","year":2020,"month":1,"day":1}}
 {"id":"k0177","title":"Scene 177","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x02","role":"pov"},{"id":"x11","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c23","order":1,"date":{"calendar":"main","year":2020,"month":12,"day":19,"minutes":549}}
 {"id":"k0178","title":"Scene 178","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x03","role":"pov"},{"id":"x11","role":"present"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c23","order":2,"date":{"calendar":"main","year":2020,"month":12,"day":22,"dayPart":"evening"}}
@@ -1570,7 +1596,7 @@ storyplanner-data
 {"id":"k0197","title":"Scene 197","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x06","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p8","chapter":"c25","order":5,"date":{"calendar":"main","year":2021,"month":1,"day":28,"minutes":569}}
 {"id":"k0198","title":"Scene 198","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x07","role":"pov"},{"id":"x15","role":"present"},{"id":"x14","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c25","order":6,"date":{"calendar":"main","year":2020,"month":2,"day":1,"dayPart":"evening"}}
 {"id":"k0199","title":"Scene 199","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x08","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p6","chapter":"c25","order":7,"date":{"calendar":"main","year":2021,"month":2,"day":4,"dayPart":"night"}}
-{"id":"k0200","title":"Scene 200","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x09","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":"c25","order":8,"date":{"calendar":"main","year":2021,"month":2,"day":4}}
+{"id":"k0200","title":"Scene 200","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x09","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":"c25","order":8,"date":{"calendar":"main","year":2021,"month":2,"day":4},"endDate":{"calendar":"main","year":2021,"month":2,"day":25}}
 {"id":"k0201","title":"Scene 201","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x10","role":"pov"},{"id":"x03","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c26","order":1,"date":{"calendar":"main","year":2021,"month":2,"day":6,"minutes":717}}
 {"id":"k0202","title":"Scene 202","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x11","role":"pov"},{"id":"x03","role":"present"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c26","order":2,"date":{"calendar":"main","year":2021,"month":2,"day":9,"dayPart":"afternoon"}}
 {"id":"k0203","title":"Scene 203","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p3"],"characters":[{"id":"x12","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c26","order":3,"date":{"calendar":"main","year":2021,"month":2,"day":13,"dayPart":"evening"}}
@@ -1595,7 +1621,7 @@ storyplanner-data
 {"id":"k0222","title":"Scene 222","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x15","role":"pov"},{"id":"x07","role":"present"},{"id":"x06","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c28","order":6,"date":{"calendar":"main","year":2021,"month":3,"day":21,"dayPart":"afternoon"}}
 {"id":"k0223","title":"Scene 223","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x16","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p6","chapter":"c28","order":7,"date":{"calendar":"main","year":2021,"month":3,"day":25,"dayPart":"evening"}}
 {"id":"k0224","title":"Scene 224","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p2"],"characters":[{"id":"x01","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":"c28","order":8,"date":{"calendar":"main","year":2021,"month":3,"day":26}}
-{"id":"k0225","title":"Scene 225","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x02","role":"pov"},{"id":"x11","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c29","order":1,"date":{"calendar":"main","year":2021,"month":3,"day":26,"minutes":885}}
+{"id":"k0225","title":"Scene 225","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x02","role":"pov"},{"id":"x11","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c29","order":1,"date":{"calendar":"main","year":2021,"month":3,"day":26,"minutes":885},"endDate":{"calendar":"main","year":2021,"month":4,"day":16}}
 {"id":"k0226","title":"Scene 226","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x03","role":"pov"},{"id":"x11","role":"present"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c29","order":2,"date":{"calendar":"main","year":2021,"month":3,"day":29,"dayPart":"morning"}}
 {"id":"k0227","title":"Scene 227","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x04","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c29","order":3,"date":{"calendar":"main","year":2021,"month":4,"day":2,"dayPart":"afternoon"}}
 {"id":"k0228","title":"Scene 228","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x05","role":"pov"},{"id":"x16","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c29","order":4,"date":{"calendar":"main","year":2021,"month":4,"day":3}}
@@ -1620,7 +1646,7 @@ storyplanner-data
 {"id":"k0247","title":"Scene 247","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x08","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p6","chapter":"c31","order":7}
 {"id":"k0248","title":"Scene 248","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x09","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":"c31","order":8,"date":{"calendar":"main","year":2021,"month":5,"day":13}}
 {"id":"k0249","title":"Scene 249","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x10","role":"pov"},{"id":"x03","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c32","order":1,"date":{"calendar":"main","year":2021,"month":5,"day":15,"minutes":1053}}
-{"id":"k0250","title":"Scene 250","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x11","role":"pov"},{"id":"x03","role":"present"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c32","order":2,"date":{"calendar":"main","year":2021,"month":5,"day":15,"dayPart":"dawn"}}
+{"id":"k0250","title":"Scene 250","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x11","role":"pov"},{"id":"x03","role":"present"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c32","order":2,"date":{"calendar":"main","year":2021,"month":5,"day":15,"dayPart":"dawn"},"endDate":{"calendar":"main","year":2021,"month":6,"day":5}}
 {"id":"k0251","title":"Scene 251","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x12","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c32","order":3,"date":{"calendar":"main","year":2021,"month":5,"day":19,"dayPart":"morning"}}
 {"id":"k0252","title":"Scene 252","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p6"],"characters":[{"id":"x13","role":"pov"},{"id":"x08","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c32","order":4,"date":{"calendar":"main","year":2021,"month":5,"day":20}}
 {"id":"k0253","title":"Scene 253","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x14","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p8","chapter":"c32","order":5,"date":{"calendar":"main","year":2020,"month":5,"day":22,"minutes":481}}
@@ -1645,7 +1671,7 @@ storyplanner-data
 {"id":"k0272","title":"Scene 272","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x01","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p1","chapter":"c34","order":8,"date":{"calendar":"main","year":2021,"month":6,"day":29}}
 {"id":"k0273","title":"Scene 273","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p5"],"characters":[{"id":"x02","role":"pov"},{"id":"x11","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c35","order":1}
 {"id":"k0274","title":"Scene 274","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x03","role":"pov"},{"id":"x11","role":"present"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c35","order":2,"date":{"calendar":"main","year":2021,"month":7,"day":4,"dayPart":"night"}}
-{"id":"k0275","title":"Scene 275","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x04","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c35","order":3,"date":{"calendar":"main","year":2020,"month":7,"day":4,"dayPart":"dawn"}}
+{"id":"k0275","title":"Scene 275","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x04","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c35","order":3,"date":{"calendar":"main","year":2020,"month":7,"day":4,"dayPart":"dawn"},"endDate":{"calendar":"main","year":2021,"month":7,"day":25}}
 {"id":"k0276","title":"Scene 276","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x05","role":"pov"},{"id":"x16","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c35","order":4,"date":{"calendar":"main","year":2021,"month":7,"day":5}}
 {"id":"k0277","title":"Scene 277","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x06","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p8","chapter":"c35","order":5,"date":{"calendar":"main","year":2021,"month":7,"day":7,"minutes":649}}
 {"id":"k0278","title":"Scene 278","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x07","role":"pov"},{"id":"x15","role":"present"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c35","order":6,"date":{"calendar":"main","year":2021,"month":7,"day":10,"dayPart":"evening"}}
@@ -1670,7 +1696,7 @@ storyplanner-data
 {"id":"k0297","title":"Scene 297","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x10","role":"pov"},{"id":"x03","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p4","chapter":"c38","order":1,"date":{"calendar":"main","year":2020,"month":8,"day":16,"minutes":669}}
 {"id":"k0298","title":"Scene 298","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x11","role":"pov"},{"id":"x03","role":"present"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p7","chapter":"c38","order":2,"date":{"calendar":"main","year":2021,"month":8,"day":19,"dayPart":"evening"}}
 {"id":"k0299","title":"Scene 299","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x12","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p2","chapter":"c38","order":3}
-{"id":"k0300","title":"Scene 300","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x13","role":"pov"},{"id":"x08","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c38","order":4,"date":{"calendar":"main","year":2021,"month":8,"day":23}}
+{"id":"k0300","title":"Scene 300","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x13","role":"pov"},{"id":"x08","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p5","chapter":"c38","order":4,"date":{"calendar":"main","year":2021,"month":8,"day":23},"endDate":{"calendar":"main","year":2021,"month":9,"day":13}}
 {"id":"k0301","title":"Scene 301","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":["p1"],"characters":[{"id":"x14","role":"pov"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p8","chapter":"c38","order":5,"date":{"calendar":"main","year":2021,"month":8,"day":25,"minutes":817}}
 {"id":"k0302","title":"Scene 302","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x15","role":"pov"},{"id":"x07","role":"present"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p3","chapter":"c38","order":6,"date":{"calendar":"main","year":2021,"month":8,"day":28,"dayPart":"afternoon"}}
 {"id":"k0303","title":"Scene 303","synopsis":"A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.","alsoIn":[],"characters":[{"id":"x16","role":"pov"},{"id":"x13","role":"mentioned"}],"written":false,"tags":[],"notes":[],"modified":"2026-10-18T00:00:00.000Z","plotLine":"p6","chapter":"c38","order":7,"date":{"calendar":"main","year":2021,"month":9,"day":1,"dayPart":"evening"}}

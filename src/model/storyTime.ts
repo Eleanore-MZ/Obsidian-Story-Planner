@@ -17,6 +17,12 @@ export function referenceDate(story: Story, card: Card): StoryDate | undefined {
   return date;
 }
 
+/** A card's end date seen in the reference zone, like referenceDate. */
+export function referenceEndDate(story: Story, card: Card): StoryDate | undefined {
+  if (!card.endDate) return undefined;
+  return referenceDate(story, { ...card, date: card.endDate });
+}
+
 /** Story order: by moment, less precise first, then the writer's own order, then reading order. */
 export function timeSorted(story: Story, cards: Card[]): Card[] {
   const reading = readingOrder(story);

@@ -34,12 +34,13 @@ function smallStory(): Story {
   ];
   s.plotLines = [
     { id: "p1", name: "The move", color: "#4a90d9" },
-    { id: "p2", name: "Old friends", color: "#5cb85c", characters: ["x1", "x2"] },
+    { id: "p2", name: "Old friends", color: "#5cb85c" },
   ];
+  // Numbered chapters without titles, as many drafts start.
   s.chapters = [
-    { id: "c1", name: "Chapter 1" },
-    { id: "c2", name: "Chapter 2" },
-    { id: "c3", name: "Chapter 3" },
+    { id: "c1", name: "" },
+    { id: "c2", name: "" },
+    { id: "c3", name: "" },
   ];
   const date = (month: number, day: number, extra: object = {}) => ({ calendar: "main", year: 2024, month, day, ...extra });
   addCards(s, [
@@ -52,7 +53,7 @@ function smallStory(): Story {
     card({
       id: "k02", title: "A letter from Tom", plotLine: "p2", chapter: "c1", order: 2,
       synopsis: "An old friend writes for the first time in years.",
-      date: date(3, 2, { dayPart: "evening" }), location: "l1", relationshipState: "lost touch",
+      date: date(3, 2, { dayPart: "evening" }), location: "l1",
       characters: [{ id: "x1", role: "pov", note: "Reads it twice." }, { id: "x2", role: "mentioned" }],
     }),
     card({
@@ -64,7 +65,7 @@ function smallStory(): Story {
       id: "k04", title: "Coffee with Tom", plotLine: "p2", chapter: "c2", order: 2, alsoIn: ["p1"],
       synopsis: "Tom turns out to live two streets away.",
       date: date(3, 10, { minutes: 14 * 60 + 30 }), endDate: date(3, 10, { minutes: 16 * 60 }),
-      location: "l4", relationshipState: "friends again",
+      location: "l4",
       characters: [{ id: "x1", role: "pov" }, { id: "x2", role: "present", note: "Pretends it's a coincidence." }],
     }),
     card({
@@ -138,12 +139,18 @@ function harbourStory(): Story {
   ];
   s.plotLines = [
     { id: "p1", name: "Investigation", color: "#4a90d9", category: "pc1" },
-    { id: "p2", name: "Mara and Ilse", color: "#d9534f", characters: ["x1", "x2"], category: "pc2" },
+    { id: "p2", name: "Mara and Ilse", color: "#d9534f", category: "pc2" },
     { id: "p3", name: "The eastern letters", color: "#f0ad4e", category: "pc1" },
   ];
+  // Two acts of one chapter each, with titles and synopses, after a prologue.
+  s.acts = [
+    { id: "a1", title: "The body", summary: "A death at the harbour, and a stranger arrives." },
+    { id: "a2", title: "The letters", summary: "The trail leads east, to Vell Manor." },
+  ];
   s.chapters = [
-    { id: "c1", name: "Chapter 1: The Pier" },
-    { id: "c2", name: "Chapter 2: Letters" },
+    { id: "c0", name: "", label: "Prologue", summary: "The ring changes hands, the year before." },
+    { id: "c1", name: "The Pier", act: "a1", summary: "Mara finds the harbourmaster dead; Ilse comes asking for him." },
+    { id: "c2", name: "Letters", act: "a2", summary: "A ledger page is missing, and Ilse's letters tell another story." },
   ];
   s.tags = [
     { id: "g1", name: "clue", color: "#e67e22" },
@@ -161,7 +168,7 @@ function harbourStory(): Story {
     card({
       id: "k02", title: "Ilse arrives", plotLine: "p2", chapter: "c1", order: 2, alsoIn: ["p3"], written: true,
       synopsis: "A courier from the east asks for the harbourmaster by name.",
-      date: date(5, 4, { dayPart: "dusk" }), location: "l1", relationshipState: "strangers",
+      date: date(5, 4, { dayPart: "dusk" }), location: "l1",
       characters: [{ id: "x2", role: "pov", note: "Lies about why she came." }, { id: "x1", role: "present" }],
     }),
     card({
@@ -188,7 +195,7 @@ function harbourStory(): Story {
       // place, so the character view flags a clash for Mara.
       id: "k06", title: "Mara at Vell Manor?", plotLine: "p2", chapter: "c2", order: 3,
       synopsis: "A servant swears Mara was at the manor the morning the ledger page went missing.",
-      date: date(5, 5, { minutes: 6 * 50 + 25 + 150, zone: "z2" }), location: "l5", relationshipState: "suspicion",
+      date: date(5, 5, { minutes: 6 * 50 + 25 + 150, zone: "z2" }), location: "l5",
       characters: [{ id: "x1", role: "present", note: "Seen here, by one account." }, { id: "x2", role: "pov", note: "Starts to doubt Mara." }],
     }),
     card({
@@ -223,13 +230,25 @@ function largeStory(): Story {
   // Three categories, and the board coloured by them.
   s.plotLineCategories = [
     { id: "pc1", name: "Main story lines", color: "#4a90d9" },
-    { id: "pc2", name: "Relationship development", color: "#d9534f" },
+    { id: "pc2", name: "Subplots", color: "#d9534f" },
     { id: "pc3", name: "Background", color: "#7f8c8d" },
   ];
   s.colorByCategory = true;
   const categoryOf = (i: number) => (i < 3 ? "pc1" : i < 6 ? "pc2" : "pc3");
   s.plotLines = colors.map((color, i) => ({ id: `p${i + 1}`, name: `Plot line ${i + 1}`, color, category: categoryOf(i) }));
-  s.chapters = Array.from({ length: 40 }, (_, i) => ({ id: `c${String(i + 1).padStart(2, "0")}`, name: `Chapter ${i + 1}` }));
+  // Four acts of ten chapters; every fifth chapter has a title and a synopsis.
+  s.acts = [
+    { id: "a1", title: "Setup" },
+    { id: "a2", title: "Rising action", summary: "Everything gets harder." },
+    { id: "a3", title: "Crisis" },
+    { id: "a4", title: "Resolution" },
+  ];
+  s.chapters = Array.from({ length: 40 }, (_, i) => ({
+    id: `c${String(i + 1).padStart(2, "0")}`,
+    name: i % 5 === 0 ? `Part ${i / 5 + 1} begins` : "",
+    act: `a${Math.floor(i / 10) + 1}`,
+    ...(i % 5 === 0 ? { summary: "A chapter synopsis: what happens, in a sentence or two, so the outline reads well." } : {}),
+  }));
   s.characters = Array.from({ length: 16 }, (_, i) => ({
     id: `x${String(i + 1).padStart(2, "0")}`, name: `Character ${i + 1}`, color: colors[i % colors.length]!,
   }));
@@ -256,12 +275,15 @@ function largeStory(): Story {
         if (n % 4 === 1) date.minutes = 8 * 60 + ((n * 37) % (12 * 60));
         else if (n % 4 !== 0) date.dayPart = dayParts[n % dayParts.length];
       }
+      // Every twenty-fifth scene runs for three weeks, to show long cards in story time.
+      const endDate: StoryDate | undefined =
+        date && n % 25 === 0 ? { calendar: calendar.id, ...dayFromNumber(calendar, start + day + 21) } : undefined;
       addCards(s, [
         card({
           id: `k${String(n).padStart(4, "0")}`, title: `Scene ${n}`, plotLine, chapter: chapter.id, order: scene,
           synopsis: "A short synopsis of a few sentences, roughly the length a real card would have. Something happens, and it matters later.",
           alsoIn: n % 7 === 0 ? [s.plotLines[(n * 3 + 1) % s.plotLines.length]!.id] : [],
-          characters: unique, date,
+          characters: unique, date, ...(endDate ? { endDate } : {}),
           // The first chapters are written, as in a story part way through.
           written: n <= 60 && n % 4 !== 3,
         }),

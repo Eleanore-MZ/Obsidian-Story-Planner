@@ -41,7 +41,7 @@ export class Minimap {
     private board: HTMLElement,
   ) {
     this.el = container.createDiv({ cls: "story-planner-minimap" });
-    this.el.setAttr("aria-label", "Overview of the board. Click or drag to scroll there.");
+    this.el.setAttr("aria-label", "Minimap");
     this.el.hidden = true;
     this.canvas = this.el.createEl("canvas");
 

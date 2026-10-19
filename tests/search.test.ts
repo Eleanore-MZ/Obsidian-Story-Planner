@@ -58,12 +58,6 @@ describe("board search", () => {
     expect(ids(s, "letters")).toEqual(["k2", "k3", "k5"]);
   });
 
-  it("ignores tags when story tags are switched off", () => {
-    const s = story();
-    s.tagsEnabled = false;
-    expect(ids(s, "clue")).toEqual([]);
-  });
-
   it("finds nothing for an empty query", () => {
     expect(queryTerms("   ")).toEqual([]);
     expect(ids(story(), "  ")).toEqual([]);

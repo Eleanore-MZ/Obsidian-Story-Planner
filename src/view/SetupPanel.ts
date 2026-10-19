@@ -1,4 +1,5 @@
-import { Menu, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
+import { reorderHandle } from "./reorder";
 import { formatOffset, formatStoryDate, parseOffset } from "../model/calendar";
 import { DATE_TOKENS, defaultFormats, TIME_TOKENS } from "../model/dateFormat";
 import { CALENDAR_PRESETS } from "../model/defaults";
@@ -22,7 +23,6 @@ import {
   deleteZone,
   cardsAtLocation,
   cardsWithTag,
-  finalRelationshipState,
   locationTree,
   nestLocation,
   shiftLocation,
@@ -39,8 +39,20 @@ import {
   movedIndex,
 } from "../model/setup";
 import { noteName, setEntityNote } from "../model/links";
+import {
+  actHeading,
+  chapterHeading,
+  chapterNumbers,
+  chaptersInAct,
+  chapterTitle,
+  deleteAct,
+  moveOutlineEntry,
+  outlineEntries,
+  startActAt,
+} from "../model/chapters";
+import { newId } from "../model/defaults";
 import { SnapshotInfo } from "../model/snapshots";
-import { Calendar, Id, Story } from "../model/types";
+import { Act, Calendar, Id, Story } from "../model/types";
 import type { NoteHost } from "./CardPanel";
 
 /** A choice offered before an edit that affects cards, such as deleting a plot line that has cards. */
@@ -65,23 +77,30 @@ export interface SetupPanelHost {
   listSnapshots(): Promise<SnapshotInfo[]>;
   restore(snapshot: SnapshotInfo): void;
   notes: NoteHost;
+  /** Opens the editor for a chapter's title, number label and synopsis, or an act's. */
+  editChapter(chapterId: Id): void;
+  editAct(actId: Id): void;
   /** The section of setup last open for this story, kept with the board's view state. */
   section(): SetupSection | undefined;
   setSection(section: SetupSection): void;
 }
 
 /** The parts of story setup, each a page of its own. */
-export type SetupSection = "story" | "cast" | "time" | "safety";
+export type SetupSection = "story" | "chapters" | "characters" | "time" | "safety";
 
 const SECTIONS: [SetupSection, string, string][] = [
   ["story", "Story", "book-open"],
-  ["cast", "Cast & places", "users"],
-  ["time", "Time", "calendar-clock"],
+  ["chapters", "Acts & chapters", "list-ordered"],
+  ["characters", "Characters", "users"],
+  ["time", "Time & location", "map-pin"],
   ["safety", "Safety", "shield-check"],
 ];
 
+/** Sections remembered from before the sections were split up. */
+const OLD_SECTIONS: Record<string, SetupSection> = { cast: "characters" };
+
 /** Icons for the actions kept in each row's "⋯" menu. */
-const ACTION_ICONS: Record<string, string> = { "×": "trash-2", "⇥": "indent", "⇤": "outdent", "\u{1F517}": "link", "⊘": "unlink" };
+const ACTION_ICONS: Record<string, string> = { "✎": "pencil", "⚑": "milestone", "➕": "text", "×": "trash-2", "⇥": "indent", "⇤": "outdent", "\u{1F517}": "link", "⊘": "unlink" };
 
 const DELETE_CARDS = "\u0000delete";
 
@@ -97,10 +116,10 @@ export class SetupPanel {
   private calendarSnapshotTaken = false;
   /** The scrolling column the sections are drawn in. */
   private body: HTMLElement | null = null;
-  /** The "⋯" actions of each row, gathered while the row is drawn. */
-  private rowActions = new WeakMap<HTMLElement, { label: string; icon: string; enabled: boolean; run: () => void }[]>();
   /** The list whose "+ New …" row is open as a text box, so it stays open after each add. */
   private adding: string | null = null;
+  /** Chapters whose synopsis line is shown while still empty, after "Add a synopsis". */
+  private synopsisOpen = new Set<string>();
   /** Folded parts of the calendar that are open, for as long as setup is. */
   private openFolds = new Set<string>(["calendar:Date format"]);
 
@@ -145,7 +164,8 @@ export class SetupPanel {
   private build(story: Story): void {
     const el = this.el;
     el.empty();
-    const current = this.host.section() ?? "story";
+    const saved = this.host.section() as string | undefined;
+    const current: SetupSection = SECTIONS.some(([key]) => key === saved) ? (saved as SetupSection) : (saved && OLD_SECTIONS[saved]) || "story";
 
     const nav = el.createDiv({ cls: "story-planner-setup-nav" });
     nav.setAttr("role", "tablist");
@@ -177,15 +197,15 @@ export class SetupPanel {
       });
       this.buildPlotLines(story);
       this.buildCategories(story);
-      this.buildChapters(story);
       this.buildTags(story);
-    } else if (current === "cast") {
+    } else if (current === "chapters") {
+      this.buildChapters(story);
+    } else if (current === "characters") {
       this.buildCharacters(story);
-      this.buildRelationships(story);
-      this.buildLocations(story);
     } else if (current === "time") {
       this.buildCalendar(story);
       this.buildZones(story);
+      this.buildLocations(story);
     } else {
       this.buildSnapshots();
     }
@@ -227,7 +247,7 @@ export class SetupPanel {
       );
       if (byCategory) {
         color.disabled = true;
-        color.setAttr("title", "Coloured by its category. Turn off \"Colour plot lines by category\" to use its own colour.");
+        color.setAttr("title", "Category colour");
       }
       const name = this.textInput(row, plotLine.name, `plotline:${plotLine.id}`);
       name.addEventListener("input", () => {
@@ -254,7 +274,7 @@ export class SetupPanel {
   private buildCategories(story: Story): void {
     const section = this.section(
       "Plot line categories",
-      "Group plot lines, such as \"Main story lines\" or \"Relationship development\". Choose each plot line's category above. The number is how many plot lines are in each.",
+      "Group plot lines, such as \"Main story lines\" or \"Subplots\". Choose each plot line's category above. The number is how many plot lines are in each.",
     );
     const toggle = section.createDiv({ cls: "story-planner-setup-row" });
     this.checkbox(toggle, "Colour plot lines by category", story.colorByCategory, (on) =>
@@ -284,25 +304,118 @@ export class SetupPanel {
     this.addRow(section, "New category", "add-category", (name) => this.host.edit((s) => void addCategory(s, name)));
   }
 
+  /**
+   * Acts and chapters as one list: each act's row sits just above its first
+   * chapter. Dragging an act's row moves where the act begins; a chapter
+   * belongs to the act above it, so dragging a chapter past an act's row moves
+   * it into that act. Chapters above the first act's row are in no act.
+   */
   private buildChapters(story: Story): void {
-    const section = this.section("Chapters", "In reading order. The number is how many scenes each has.");
-    story.chapters.forEach((chapter, i) => {
+    const section = this.section(
+      "Acts and chapters",
+      "In reading order, numbered automatically. Drag an act's row to move where it begins; a chapter belongs to the act above it. The number on the right is how many scenes each chapter has.",
+    );
+    // Acts can be switched off for a story; they are kept, and come back when switched on.
+    const useActs = section.createDiv({ cls: "story-planner-setup-row" });
+    this.checkbox(useActs, "Use acts", story.actsEnabled !== false, (on) => this.host.edit((s) => void (s.actsEnabled = on))).dataset.field = "use-acts";
+    const showActs = story.actsEnabled !== false;
+    if (!showActs && story.acts.length > 0) {
+      useActs.createSpan({ cls: "story-planner-panel-hint", text: `${story.acts.length} ${story.acts.length === 1 ? "act is" : "acts are"} kept, hidden.` });
+    }
+    const numbers = chapterNumbers(story);
+    // Without acts, the list is just the chapters, and dragging reorders them.
+    const entries = showActs ? outlineEntries(story) : story.chapters.map((c) => ({ kind: "chapter" as const, id: c.id }));
+    const move = (from: number) => (to: number) =>
+      this.host.edit((s) => (showActs ? moveOutlineEntry(s, from, to) : moveIndex(s.chapters, from, to)));
+    entries.forEach((entry, i) => {
+      if (entry.kind === "act") {
+        const act = story.acts.find((a) => a.id === entry.id)!;
+        const row = section.createDiv({ cls: "story-planner-setup-row story-planner-setup-act" });
+        row.createSpan({ cls: "story-planner-setup-tag is-act", text: actHeading(story, act) });
+        const title = this.textInput(row, act.title ?? "", `act:${act.id}`);
+        title.placeholder = "Act title";
+        title.addEventListener("input", () =>
+          this.host.edit((s) => {
+            const target = s.acts.find((a) => a.id === act.id)!;
+            const value = title.value.trim();
+            if ((target.title ?? "") === value) return false;
+            if (value) target.title = value;
+            else delete target.title;
+          }, `act:${act.id}`),
+        );
+        const n = chaptersInAct(story, act.id).length;
+        const count = row.createSpan({ cls: "story-planner-setup-count", text: String(n) });
+        count.setAttr("title", `${n} ${n === 1 ? "chapter" : "chapters"}`);
+        this.dragHandle(row, "outline", i, move(i));
+        this.iconButton(row, "✎", "Edit title and synopsis…", true, () => this.host.editAct(act.id));
+        this.iconButton(row, "×", `Delete ${actHeading(story, act)} (its chapters are kept)`, true, () => {
+          this.host.edit((s) => deleteAct(s, act.id));
+          this.host.notice(`Deleted ${actHeading(story, act)}; its chapters are kept. Press Ctrl+Z to undo.`);
+        });
+        // The act's synopsis, as a quiet line under its title.
+        this.synopsisLine(section, act.summary ?? "", "What happens in this act", `act-summary:${act.id}`, (value) =>
+          this.host.edit((s) => {
+            const target = s.acts.find((a) => a.id === act.id)!;
+            if ((target.summary ?? "") === value) return false;
+            if (value.trim()) target.summary = value;
+            else delete target.summary;
+          }, `act-summary:${act.id}`),
+        );
+        return;
+      }
+      const chapter = story.chapters.find((c) => c.id === entry.id)!;
       const row = section.createDiv({ cls: "story-planner-setup-row" });
+      row.toggleClass("is-in-act", !!chapter.act);
+      row.createSpan({ cls: "story-planner-setup-tag", text: chapterHeading(story, chapter, numbers).replace(/^Chapter /, "") });
       const name = this.textInput(row, chapter.name, `chapter:${chapter.id}`);
+      name.placeholder = "No title";
       name.addEventListener("input", () => {
         const value = name.value.trim();
-        if (value) this.host.edit((s) => void (s.chapters.find((c) => c.id === chapter.id)!.name = value), `chapter:${chapter.id}`);
+        this.host.edit((s) => {
+          const target = s.chapters.find((c) => c.id === chapter.id)!;
+          if (target.name === value) return false;
+          target.name = value;
+        }, `chapter:${chapter.id}`);
       });
       this.count(row, cardsInChapter(story, chapter.id).length);
-      this.dragHandle(row, "chapters", i, (to) => this.host.edit((s) => moveIndex(s.chapters, i, to)));
-      this.iconButton(row, "×", `Delete ${chapter.name}`, story.chapters.length > 1, () => this.removeChapter(story, chapter.id));
+      this.dragHandle(row, "outline", i, move(i));
+      this.iconButton(row, "✎", "Edit title, number and synopsis…", true, () => this.host.editChapter(chapter.id));
+      if (!chapter.summary?.trim() && !this.synopsisOpen.has(chapter.id)) {
+        this.iconButton(row, "➕", "Add a synopsis", true, () => {
+          this.synopsisOpen.add(chapter.id);
+          this.refresh(this.story);
+          this.el.querySelector<HTMLElement>(`[data-field="${CSS.escape(`chapter-summary:${chapter.id}`)}"]`)?.focus();
+        });
+      }
+      if (showActs) this.iconButton(row, "⚑", "Start a new act here", true, () => this.host.edit((s) => startActAt(s, chapter.id) !== null));
+      this.iconButton(row, "×", `Delete ${chapterTitle(story, chapter, numbers)}`, story.chapters.length > 1, () => this.removeChapter(story, chapter.id));
+      // A chapter's synopsis shows as a quiet line under it once it has one (or is being written).
+      if (chapter.summary?.trim() || this.synopsisOpen.has(chapter.id)) {
+        this.synopsisLine(section, chapter.summary ?? "", "What happens in this chapter", `chapter-summary:${chapter.id}`, (value) =>
+          this.host.edit((s) => {
+            const target = s.chapters.find((c) => c.id === chapter.id)!;
+            if ((target.summary ?? "") === value) return false;
+            if (value.trim()) target.summary = value;
+            else delete target.summary;
+          }, `chapter-summary:${chapter.id}`),
+        );
+      }
     });
-    // An empty name takes the suggested one.
-    this.addRow(section, `Chapter ${story.chapters.length + 1}`, "add-chapter", (name) => this.host.edit((s) => void addChapter(s, name)), true);
+    this.addRow(section, "New chapter (title optional)", "add-chapter", (name) => this.host.edit((s) => void addChapter(s, name.trim())), true);
+    if (showActs) this.addRow(section, "New act", "add-act", (name) =>
+      this.host.edit((s) => {
+        const act: Act = { id: newId("a") };
+        if (name.trim()) act.title = name.trim();
+        s.acts.push(act);
+      }),
+    );
   }
 
   private buildCharacters(story: Story): void {
-    const section = this.section("Characters", "Characters added on cards appear here too. ⇥ merges a duplicate into another character.");
+    const section = this.section(
+      "Characters",
+      "Characters added on cards appear here too.",
+    );
     story.characters.forEach((character, i) => {
       const row = section.createDiv({ cls: "story-planner-setup-row" });
       this.colorInput(row, character.color, (color) =>
@@ -345,40 +458,6 @@ export class SetupPanel {
       });
     });
     this.addRow(section, "New character", "add-character", (name) => this.host.edit((s) => void addCharacter(s, name)));
-  }
-
-  private buildRelationships(story: Story): void {
-    const section = this.section(
-      "Relationships",
-      "A plot line that names its characters follows their relationship. Its cards can then carry a state, such as \"allies\" or \"trust broken\".",
-    );
-    if (story.characters.length === 0) {
-      section.createDiv({ cls: "story-planner-panel-hint", text: "Add characters first." });
-      return;
-    }
-    for (const plotLine of story.plotLines) {
-      const block = section.createDiv({ cls: "story-planner-setup-relationship" });
-      const head = block.createDiv({ cls: "story-planner-setup-row" });
-      head.createSpan({ cls: "story-planner-setup-dot" }).style.setProperty("--dot-color", plotLineColor(story, plotLine) ?? plotLine.color);
-      head.createSpan({ cls: "story-planner-setup-name", text: plotLine.name });
-      const names = plotLine.characters ?? [];
-      if (names.length > 0) {
-        const end = finalRelationshipState(story, plotLine.id);
-        head.createSpan({ cls: "story-planner-panel-hint", text: end ? `Ends: ${end}` : "No states yet" });
-      }
-      const people = block.createDiv({ cls: "story-planner-setup-chips" });
-      for (const character of story.characters) {
-        this.checkbox(people, character.name, names.includes(character.id), (on) =>
-          this.host.edit((s) => {
-            const p = s.plotLines.find((x) => x.id === plotLine.id)!;
-            const list = (p.characters ?? []).filter((c) => c !== character.id);
-            if (on) list.push(character.id);
-            if (list.length > 0) p.characters = list;
-            else delete p.characters;
-          }),
-        );
-      }
-    }
   }
 
   private buildLocations(story: Story): void {
@@ -430,13 +509,7 @@ export class SetupPanel {
   }
 
   private buildTags(story: Story): void {
-    const section = this.section(
-      "Story tags",
-      "Labels such as \"clue\" or \"flashback\" for this story only. They never become Obsidian #tags.",
-    );
-    const on = this.checkbox(section, "Use story tags", story.tagsEnabled, (value) => this.host.edit((s) => void (s.tagsEnabled = value)));
-    on.dataset.field = "tags-enabled";
-    if (!story.tagsEnabled) return;
+    const section = this.section("Scene tags");
     story.tags.forEach((tag, i) => {
       const row = section.createDiv({ cls: "story-planner-setup-row" });
       this.colorInput(row, tag.color, (color) => this.host.edit((s) => void (s.tags.find((t) => t.id === tag.id)!.color = color)));
@@ -553,7 +626,6 @@ export class SetupPanel {
         this.calendarEdit((_, c) => void (c.leap!.extraDays = n), "leap-days"),
       );
     } else {
-      leapRow.createSpan({ cls: "story-planner-panel-hint", text: "…years, a month gets extra days. Off: no leap years." });
     }
 
     this.subheading(section, "Week");
@@ -608,7 +680,6 @@ export class SetupPanel {
     );
 
     this.subheading(section, "Parts of the day");
-    section.createDiv({ cls: "story-planner-panel-hint", text: "Named times such as dawn or evening, each covering a span of hours, so they sort among clock times." });
     (calendar.dayParts ?? []).forEach((part, i) => {
       const row = section.createDiv({ cls: "story-planner-setup-row story-planner-setup-sentence" });
       const partName = this.textInput(row, part.name, `daypart:${part.id}`);
@@ -664,7 +735,6 @@ export class SetupPanel {
     this.foldSubsections(section, "calendar");
 
     const sample = Object.values(story.cards).find((c) => c.date);
-    if (sample?.date) section.createDiv({ cls: "story-planner-panel-hint", text: `For example, "${sample.title}" is dated ${formatStoryDate(story, sample.date)}.` });
   }
 
   private buildZones(story: Story): void {
@@ -701,7 +771,6 @@ export class SetupPanel {
       this.count(row, zoneUses(story, zone.id));
       this.iconButton(row, "×", `Delete ${zone.name}`, true, () => this.calendarEdit((s) => deleteZone(s, zone.id)));
     }
-    if (story.zones.length > 0) section.createDiv({ cls: "story-planner-panel-hint", text: "The dot marks the reference zone." });
     this.addRow(section, story.zones.length === 0 ? "Reference zone, e.g. Harbour Time" : "New zone", "add-zone", (n) =>
       this.calendarEdit((s) => void addZone(s, n)),
     );
@@ -740,18 +809,18 @@ export class SetupPanel {
       return;
     }
     this.host.choose({
-      title: `Delete "${chapter.name}"`,
+      title: `Delete ${chapterTitle(story, chapter)}`,
       message: `This chapter has ${count} ${count === 1 ? "scene" : "scenes"}. Where should ${count === 1 ? "it" : "they"} go?`,
       options: [
         ...story.chapters
           .filter((c) => c.id !== id)
-          .map((c) => ({ value: c.id, label: `Move to the end of ${c.name}` })),
+          .map((c) => ({ value: c.id, label: `Move to the end of ${chapterTitle(story, c)}` })),
         { value: "off-page", label: "Move off-page" },
         { value: DELETE_CARDS, label: `Delete ${count === 1 ? "the scene" : `all ${count} scenes`}` },
       ],
       confirm: "Delete chapter",
       onChoose: (value) => {
-        this.host.snapshot(`Before deleting chapter ${chapter.name}`);
+        this.host.snapshot(`Before deleting ${chapterTitle(story, chapter)}`);
         this.host.edit((s) => deleteChapter(s, id, value === DELETE_CARDS ? null : value));
       },
     });
@@ -778,10 +847,6 @@ export class SetupPanel {
   private buildFormats(section: HTMLElement, story: Story): void {
     this.subheading(section, "Date format");
     const fallback = defaultFormats();
-    section.createDiv({
-      cls: "story-planner-panel-hint",
-      text: `Leave empty to use the format from the plugin settings (${fallback.date}, ${fallback.time}). ${DATE_TOKENS.map(([t]) => t).join(" ")} for dates; ${TIME_TOKENS.map(([t]) => t).join(" ")} for times.`,
-    });
     // A date from the story, or the first day of the calendar, to show the format on.
     const calendar = story.calendars[0]!;
     const sample = cardsWithDates(story)[0]?.date ?? {
@@ -873,7 +938,6 @@ export class SetupPanel {
   private section(label: string, hint?: string): HTMLElement {
     const section = (this.column ?? this.el).createDiv({ cls: "story-planner-setup-section" });
     section.createEl("h3", { cls: "story-planner-setup-heading", text: label });
-    if (hint) section.createDiv({ cls: "story-planner-panel-hint", text: hint });
     return section;
   }
 
@@ -902,62 +966,9 @@ export class SetupPanel {
     el.setAttr("title", `${n} ${n === 1 ? "card" : "cards"}`);
   }
 
-  /**
-   * A grip at the start of a row for dragging it up or down its list. Rows
-   * with the same `group` reorder among themselves; a bar shows where the row
-   * will go, and `moveTo` gets its new index when it is let go (one undo step).
-   */
+  /** A grip for dragging a row up or down its list; see reorderHandle. */
   private dragHandle(row: HTMLElement, group: string, index: number, moveTo: (to: number) => void): void {
-    row.dataset.reorderGroup = group;
-    const handle = createSpan({ cls: "story-planner-drag-handle" });
-    setIcon(handle, "grip-vertical");
-    handle.setAttr("aria-label", "Drag to reorder");
-    handle.setAttr("title", "Drag to reorder");
-    row.prepend(handle);
-    handle.addEventListener("pointerdown", (down) => {
-      if (down.button !== 0) return;
-      down.preventDefault();
-      const rows = Array.from(row.parentElement?.querySelectorAll<HTMLElement>(":scope > [data-reorder-group]") ?? []).filter(
-        (r) => r.dataset.reorderGroup === group,
-      );
-      let to = index;
-      const clear = () => rows.forEach((r) => r.removeClass("is-drop-before", "is-drop-after"));
-      row.addClass("is-dragging");
-      document.body.addClass("story-planner-reordering");
-
-      const move = (e: PointerEvent) => {
-        // The row nearest the pointer, and which half of it.
-        let best: { i: number; after: boolean; distance: number } | null = null;
-        rows.forEach((r, i) => {
-          const rect = r.getBoundingClientRect();
-          const middle = rect.top + rect.height / 2;
-          const distance = Math.abs(e.clientY - middle);
-          if (!best || distance < best.distance) best = { i, after: e.clientY > middle, distance };
-        });
-        clear();
-        if (!best) return;
-        const { i, after } = best as { i: number; after: boolean };
-        const slot = i + (after ? 1 : 0);
-        to = slot > index ? slot - 1 : slot;
-        if (to !== index) rows[i]!.addClass(after ? "is-drop-after" : "is-drop-before");
-      };
-      const up = () => {
-        window.removeEventListener("pointermove", move, true);
-        window.removeEventListener("pointerup", up, true);
-        window.removeEventListener("pointercancel", cancel, true);
-        clear();
-        row.removeClass("is-dragging");
-        document.body.removeClass("story-planner-reordering");
-        if (to !== index) moveTo(to);
-      };
-      const cancel = () => {
-        to = index;
-        up();
-      };
-      window.addEventListener("pointermove", move, true);
-      window.addEventListener("pointerup", up, true);
-      window.addEventListener("pointercancel", cancel, true);
-    });
+    reorderHandle(row, group, index, moveTo);
   }
 
   /** Links a character or place to a note of its own, or opens and unlinks the one it has. */
@@ -983,34 +994,23 @@ export class SetupPanel {
   }
 
   /**
-   * An action for a row, such as delete, merge or nest. Actions go into the
-   * row's "⋯" menu rather than each getting a button, so rows stay quiet.
+   * An action for a row, such as delete, merge or nest: a small icon on the
+   * row itself, one click away. They show when the row is hovered or has the
+   * keyboard focus, to keep the list quiet.
    */
   private iconButton(parent: HTMLElement, text: string, label: string, enabled: boolean, onClick: () => void): void {
-    let actions = this.rowActions.get(parent);
-    if (!actions) {
-      actions = [];
-      this.rowActions.set(parent, actions);
-      const more = parent.createEl("button", { cls: "clickable-icon story-planner-row-menu" });
-      setIcon(more, "more-horizontal");
-      more.setAttr("aria-label", "More actions");
-      more.setAttr("aria-haspopup", "menu");
-      const list = actions;
-      more.addEventListener("click", (e) => {
-        const menu = new Menu();
-        for (const action of list) {
-          menu.addItem((item) => {
-            item.setTitle(action.label).setIcon(action.icon).onClick(action.run);
-            if (!action.enabled) item.setDisabled(true);
-            if (action.icon === "trash-2") item.setWarning?.(true);
-          });
-        }
-        const rect = more.getBoundingClientRect();
-        menu.showAtPosition({ x: rect.right, y: rect.bottom });
-        e.stopPropagation();
-      });
-    }
-    actions.push({ label, icon: ACTION_ICONS[text] ?? "circle", enabled, run: onClick });
+    let actions = parent.querySelector<HTMLElement>(":scope > .story-planner-row-actions");
+    if (!actions) actions = parent.createDiv({ cls: "story-planner-row-actions" });
+    const icon = ACTION_ICONS[text] ?? "circle";
+    const button = actions.createEl("button", { cls: "clickable-icon story-planner-row-action" });
+    setIcon(button, icon);
+    button.setAttr("aria-label", label);
+    button.toggleClass("is-danger", icon === "trash-2");
+    button.disabled = !enabled;
+    button.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onClick();
+    });
   }
 
   /**
@@ -1063,6 +1063,24 @@ export class SetupPanel {
       }, 0),
     );
     return input;
+  }
+
+  /** A borderless line of text under a row's title that grows as it is written in. */
+  private synopsisLine(parent: HTMLElement, value: string, placeholder: string, field: string, onChange: (value: string) => void): void {
+    const line = parent.createEl("textarea", { cls: "story-planner-setup-synopsis" });
+    line.rows = 1;
+    line.placeholder = placeholder;
+    line.value = value;
+    line.dataset.field = field;
+    const grow = () => {
+      line.style.height = "auto";
+      line.style.height = `${line.scrollHeight}px`;
+    };
+    line.addEventListener("input", () => {
+      grow();
+      onChange(line.value);
+    });
+    window.requestAnimationFrame(grow);
   }
 
   /**

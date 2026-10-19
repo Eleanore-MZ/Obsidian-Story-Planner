@@ -8,8 +8,9 @@ import {
   updateCardCharacter,
 } from "../model/edits";
 import { compareDates, effectiveZone, ZoneSource } from "../model/calendar";
-import { setCardDate, setCardLocation, setCardTag, setRelationshipState } from "../model/edits";
-import { locationTree, plotLineColor, relationshipOf } from "../model/setup";
+import { setCardDate, setCardLocation, setCardTag } from "../model/edits";
+import { locationTree, plotLineColor } from "../model/setup";
+import { chapterTitle } from "../model/chapters";
 import { CharacterRole, Id, Story } from "../model/types";
 import { DateEditor } from "./DateEditor";
 import { addCardNote, noteName, removeCardNote } from "../model/links";
@@ -120,7 +121,6 @@ export class CardPanel {
       const field = el.dataset.field!;
       if (field === "title") el.value = card.title;
       else if (field === "synopsis") el.value = card.synopsis;
-      else if (field === "relationship") el.value = card.relationshipState ?? "";
       else if (field.startsWith("note:")) {
         el.value = card.characters.find((c) => `note:${c.id}` === field)?.note ?? "";
       }
@@ -183,6 +183,7 @@ export class CardPanel {
     synopsis.addEventListener("input", () =>
       this.host.edit((s) => updateCard(s, id, { synopsis: synopsis.value }), `synopsis:${id}`),
     );
+    this.buildTagsAndState();
 
     // Where the card sits on the board.
     const plotLines = Object.fromEntries(story.plotLines.map((p) => [p.id, p.name]));
@@ -194,7 +195,7 @@ export class CardPanel {
     this.buildEchoes(plotLineField);
 
     const chapterIds = new Set(story.chapters.map((c) => c.id));
-    const chapters: Record<string, string> = Object.fromEntries(story.chapters.map((c) => [c.id, c.name]));
+    const chapters: Record<string, string> = Object.fromEntries(story.chapters.map((c) => [c.id, chapterTitle(story, c)]));
     chapters[OFF_PAGE] = "Off-page";
     const currentChapter = card.chapter && chapterIds.has(card.chapter) ? card.chapter : OFF_PAGE;
     this.select(this.field("Chapter"), chapters, currentChapter, (value) =>
@@ -208,7 +209,6 @@ export class CardPanel {
     this.buildPlace();
 
     this.buildCharacters(this.field("Characters"));
-    this.buildTagsAndState();
     this.buildNotes();
 
     const footer = el.createDiv({ cls: "story-planner-panel-footer" });
@@ -234,7 +234,6 @@ export class CardPanel {
     details.addEventListener("toggle", () => (this.echoesOpen = details.open));
     const names = others.filter((p) => card.alsoIn.includes(p.id)).map((p) => p.name);
     details.createEl("summary", { text: names.length > 0 ? `Also in: ${names.join(", ")}` : "Also in other plot lines" });
-    details.createDiv({ cls: "story-planner-panel-hint", text: "Shows a title-only echo of the card in these plot lines." });
     for (const plotLine of others) {
       const label = details.createEl("label", { cls: "story-planner-panel-check" });
       const box = label.createEl("input");
@@ -256,8 +255,8 @@ export class CardPanel {
     const when = this.field(card.chapter === null ? "When (off-page event)" : "When");
     new DateEditor(when, story, card.date, "date", defaultZone, (date) => {
       const hadDate = !!this.story!.cards[id]?.date;
-      // Typing a date is one undo step, from the first digit of the year on.
-      this.host.edit((s) => setCardDate(s, id, "date", date), date ? `date:${id}` : undefined);
+      // Each saved date (Enter, or leaving the field) is one undo step.
+      this.host.edit((s) => setCardDate(s, id, "date", date));
       // A first date brings the end-date button, so the panel is rebuilt around the cursor.
       if (!hadDate && date && this.story) this.show(this.story, id);
     });
@@ -271,11 +270,12 @@ export class CardPanel {
         card.endDate,
         "end",
         defaultZone,
-        (date) => this.host.edit((s) => setCardDate(s, id, "endDate", date), date ? `end:${id}` : undefined),
+        (date) => this.host.edit((s) => setCardDate(s, id, "endDate", date)),
         (date) => {
           const start = this.story?.cards[id]?.date;
           return start && compareDates(this.story!, date, start) < 0 ? "The end is before the start." : null;
         },
+        () => this.story?.cards[id]?.date,
       );
     } else {
       const add = when.createEl("button", { cls: "story-planner-date-add", text: "Add an end date" });
@@ -299,8 +299,8 @@ export class CardPanel {
     const card = this.card!;
     const story = this.story!;
     const id = card.id;
-    if (story.tagsEnabled && story.tags.length > 0) {
-      const field = this.field("Story tags");
+    if (story.tags.length > 0) {
+      const field = this.field("Scene tags");
       const chips = field.createDiv({ cls: "story-planner-tag-chips" });
       for (const tag of story.tags) {
         const on = card.tags.includes(tag.id);
@@ -310,22 +310,6 @@ export class CardPanel {
         chip.setAttr("aria-pressed", String(on));
         chip.addEventListener("click", () => this.host.edit((s) => setCardTag(s, id, tag.id, !on)));
       }
-    }
-    const relationship = relationshipOf(story, card);
-    if (relationship) {
-      const field = this.field("Relationship", `How things stand in "${relationship.name}" after this scene.`);
-      const input = field.createEl("input");
-      input.type = "text";
-      input.placeholder = "e.g. allies, trust broken";
-      input.value = card.relationshipState ?? "";
-      input.dataset.field = "relationship";
-      const listId = `story-planner-states-${id}`;
-      input.setAttr("list", listId);
-      const list = field.createEl("datalist");
-      list.id = listId;
-      const states = new Set(Object.values(story.cards).map((c) => c.relationshipState?.trim()).filter((x): x is string => !!x));
-      for (const state of states) list.createEl("option").value = state;
-      input.addEventListener("input", () => this.host.edit((s) => setRelationshipState(s, id, input.value), `relationship:${id}`));
     }
   }
 
@@ -423,7 +407,6 @@ export class CardPanel {
   private field(label: string, hint?: string): HTMLElement {
     const field = this.el.createDiv({ cls: "story-planner-panel-field" });
     field.createDiv({ cls: "story-planner-panel-label", text: label });
-    if (hint) field.createDiv({ cls: "story-planner-panel-hint", text: hint });
     return field;
   }
 

@@ -1,4 +1,5 @@
 import { formatDateRange } from "../model/calendar";
+import { actOf, actsShown, actTitle, chapterHeading, chapterNumbers, chapterTitle } from "../model/chapters";
 import { noteName } from "../model/links";
 import { cardsInReadingOrder } from "../model/search";
 import { locationPath } from "../model/setup";
@@ -25,15 +26,18 @@ function facts(story: Story, card: Card) {
       return name ? { name, role: ROLE_NAMES[entry.role], note: entry.note ?? "" } : null;
     })
     .filter((c): c is { name: string; role: string; note: string } => c !== null);
+  const numbers = chapterNumbers(story);
   return {
-    chapter: chapter?.name ?? "Off-page",
+    chapter: chapterTitle(story, chapter, numbers),
+    chapterNumber: chapter ? chapterHeading(story, chapter, numbers).replace(/^Chapter /, "") : "",
+    chapterName: chapter?.name.trim() ?? "",
+    act: actsShown(story) ? actTitle(story, actOf(story, card.chapter)) : "",
     plotLine: story.plotLines.find((p) => p.id === card.plotLine)?.name ?? "",
     alsoIn: card.alsoIn.map((id) => story.plotLines.find((p) => p.id === id)?.name).filter((n): n is string => !!n),
     date: card.date ? formatDateRange(story, card.date, card.endDate) : "",
     place: card.location && story.locations.some((l) => l.id === card.location) ? locationPath(story, card.location) : "",
     characters,
     tags: story.tagsEnabled ? card.tags.map((id) => story.tags.find((t) => t.id === id)?.name).filter((n): n is string => !!n) : [],
-    relationship: card.relationshipState?.trim() ?? "",
     notes: card.notes.map(noteName),
   };
 }
@@ -46,17 +50,19 @@ function facts(story: Story, card: Card) {
 export function exportMarkdown(story: Story, order: ExportOrder): string {
   const out: string[] = [`# ${escapeText(story.title)}`, ""];
 
+  // With acts in reading order, acts are headings, chapters one level down and scenes one more.
+  const withActs = order === "reading" && actsShown(story);
+  const sceneLevel = withActs ? "####" : "###";
   const writeCard = (card: Card, showChapter: boolean) => {
     const f = facts(story, card);
-    out.push(`### ${escapeText(card.title)}`, "");
+    out.push(`${sceneLevel} ${escapeText(card.title)}`, "");
     const details = [f.plotLine, showChapter ? f.chapter : "", order === "reading" ? f.date : "", f.place].filter(Boolean);
     if (details.length > 0) out.push(`*${details.map(escapeText).join(" · ")}*`, "");
     if (f.characters.length > 0) {
       const people = f.characters.map((c) => `${c.name} (${c.role}${c.note ? `: ${c.note}` : ""})`);
       out.push(`**Characters:** ${people.map(escapeText).join(", ")}`, "");
     }
-    if (f.tags.length > 0) out.push(`**Story tags:** ${f.tags.map(escapeText).join(", ")}`, "");
-    if (f.relationship) out.push(`**Relationship:** ${escapeText(f.relationship)}`, "");
+    if (f.tags.length > 0) out.push(`**Scene tags:** ${f.tags.map(escapeText).join(", ")}`, "");
     if (card.synopsis.trim()) {
       for (const line of card.synopsis.trim().split(/\n+/)) out.push(escapeLine(line));
       out.push("");
@@ -66,8 +72,16 @@ export function exportMarkdown(story: Story, order: ExportOrder): string {
   if (order === "reading") {
     const cards = cardsInReadingOrder(story);
     const chapterIds = new Set(story.chapters.map((c) => c.id));
+    const numbers = chapterNumbers(story);
+    let currentAct: string | undefined;
     for (const chapter of story.chapters) {
-      out.push(`## ${escapeText(chapter.name)}`, "");
+      const act = withActs && chapter.act ? story.acts.find((a) => a.id === chapter.act) : undefined;
+      if (act && act.id !== currentAct) {
+        out.push(`## ${escapeText(actTitle(story, act))}`, "");
+        if (act.summary?.trim()) out.push(escapeLine(act.summary.trim()), "");
+      }
+      currentAct = act?.id;
+      out.push(`${withActs ? "###" : "##"} ${escapeText(chapterTitle(story, chapter, numbers))}`, "");
       if (chapter.summary?.trim()) out.push(escapeLine(chapter.summary.trim()), "");
       for (const card of cards.filter((c) => c.chapter === chapter.id)) writeCard(card, false);
     }
@@ -99,7 +113,9 @@ export function exportMarkdown(story: Story, order: ExportOrder): string {
 }
 
 const CSV_COLUMNS = [
+  "Act",
   "Chapter",
+  "Chapter title",
   "Scene",
   "Title",
   "Plot line",
@@ -108,8 +124,7 @@ const CSV_COLUMNS = [
   "When",
   "Where",
   "Characters",
-  "Story tags",
-  "Relationship",
+  "Scene tags",
   "Synopsis",
   "Linked notes",
 ] as const;
@@ -125,7 +140,9 @@ export function exportCsv(story: Story, order: ExportOrder): string {
   for (const card of cards) {
     const f = facts(story, card);
     rows.push([
-      f.chapter,
+      f.act,
+      f.chapterNumber || f.chapter,
+      f.chapterName,
       String(card.order),
       card.title,
       f.plotLine,
@@ -135,7 +152,6 @@ export function exportCsv(story: Story, order: ExportOrder): string {
       f.place,
       f.characters.map((c) => `${c.name} (${c.role})`).join("; "),
       f.tags.join("; "),
-      f.relationship,
       card.synopsis.trim(),
       f.notes.join("; "),
     ]);

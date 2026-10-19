@@ -18,12 +18,10 @@ import {
   deleteLocation,
   deleteTag,
   deleteZone,
-  finalRelationshipState,
   locationAndInside,
   locationPath,
   locationTree,
   nestLocation,
-  relationshipOf,
   shiftLocation,
   mergeCharacters,
   setReferenceZone,
@@ -37,7 +35,7 @@ function story(): Story {
   const s = createEmptyStory("Setup");
   s.plotLines = [
     { id: "p1", name: "A", color: "#000" },
-    { id: "p2", name: "B", color: "#111", characters: ["tom"] },
+    { id: "p2", name: "B", color: "#111" },
   ];
   s.chapters = [
     { id: "c1", name: "One" },
@@ -124,12 +122,11 @@ describe("chapters", () => {
 });
 
 describe("characters", () => {
-  it("deletes a character from the story, its cards and its plot lines", () => {
+  it("deletes a character from the story and its cards", () => {
     const s = story();
     deleteCharacter(s, "tom", NOW);
     expect(s.characters.map((c) => c.id)).toEqual(["thomas"]);
     expect(s.cards.a!.characters).toEqual([]);
-    expect(s.plotLines[1]!.characters).toEqual([]);
   });
 
   it("merges duplicates, keeping the stronger role and both notes", () => {
@@ -240,7 +237,7 @@ describe("locations", () => {
   });
 });
 
-describe("tags and relationships", () => {
+describe("tags", () => {
   it("deletes a tag from every card", () => {
     const s = story();
     const tag = addTag(s, "clue");
@@ -248,16 +245,6 @@ describe("tags and relationships", () => {
     deleteTag(s, tag, NOW);
     expect(s.tags).toEqual([]);
     expect(s.cards.a!.tags).toEqual([]);
-  });
-
-  it("finds a card's relationship plot line and how it ends", () => {
-    const s = story();
-    // p2 names tom, so it is a relationship; card a echoes into it.
-    expect(relationshipOf(s, s.cards.a!)?.id).toBe("p2");
-    expect(relationshipOf(s, s.cards.c!)).toBeUndefined();
-    s.cards.b!.relationshipState = "strangers";
-    s.cards.d!.relationshipState = "allies";
-    expect(finalRelationshipState(s, "p2")).toBe("allies");
   });
 });
 

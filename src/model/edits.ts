@@ -177,15 +177,3 @@ export function setCardTag(story: Story, cardId: Id, tag: Id, on: boolean, now =
   card.modified = now;
   return true;
 }
-
-/** Sets a card's relationship state, such as "allies"; an empty one is removed. */
-export function setRelationshipState(story: Story, cardId: Id, state: string, now = new Date().toISOString()): boolean {
-  const card = story.cards[cardId];
-  if (!card) return false;
-  const value = state.trim() || undefined;
-  if (card.relationshipState === value) return false;
-  if (value) card.relationshipState = value;
-  else delete card.relationshipState;
-  card.modified = now;
-  return true;
-}

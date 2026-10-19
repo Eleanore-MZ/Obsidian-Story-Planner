@@ -180,7 +180,6 @@ export function deleteCharacter(story: Story, characterId: Id, now = new Date().
     card.modified = now;
   }
   for (const plotLine of story.plotLines) {
-    if (plotLine.characters) plotLine.characters = plotLine.characters.filter((c) => c !== characterId);
   }
   story.characters = story.characters.filter((c) => c.id !== characterId);
   return true;
@@ -208,10 +207,6 @@ export function mergeCharacters(story: Story, fromId: Id, intoId: Id, now = new 
       moved.id = intoId;
     }
     card.modified = now;
-  }
-  for (const plotLine of story.plotLines) {
-    if (!plotLine.characters?.includes(fromId)) continue;
-    plotLine.characters = [...new Set(plotLine.characters.map((c) => (c === fromId ? intoId : c)))];
   }
   if (!into.description && from.description) into.description = from.description;
   story.characters = story.characters.filter((c) => c.id !== fromId);
@@ -448,7 +443,7 @@ export function deleteLocation(story: Story, id: Id, now = new Date().toISOStrin
 }
 
 // ---------------------------------------------------------------------------
-// Story tags, kept apart from Obsidian's own #tags
+// Scene tags, kept apart from Obsidian's own #tags
 
 export function addTag(story: Story, name: string): Id {
   const id = newId("g");
@@ -468,30 +463,4 @@ export function deleteTag(story: Story, id: Id, now = new Date().toISOString()):
   }
   story.tags = story.tags.filter((t) => t.id !== id);
   return true;
-}
-
-// ---------------------------------------------------------------------------
-// Relationships: a plot line that names the characters it is about
-
-/** Plot lines that name characters, so their cards can carry a relationship state. */
-export function relationshipPlotLines(story: Story): PlotLine[] {
-  return story.plotLines.filter((p) => (p.characters ?? []).length > 0);
-}
-
-/** The relationship plot line a card belongs to, primarily or as an echo, if any. */
-export function relationshipOf(story: Story, card: Card): PlotLine | undefined {
-  const lines = relationshipPlotLines(story);
-  return lines.find((p) => p.id === card.plotLine) ?? lines.find((p) => card.alsoIn.includes(p.id));
-}
-
-/**
- * How a relationship stands at the end of the story: the state on its last
- * card in reading order that has one.
- */
-export function finalRelationshipState(story: Story, plotLineId: Id): string | undefined {
-  const chapterIndex = new Map(story.chapters.map((c, i) => [c.id, i]));
-  const cards = Object.values(story.cards)
-    .filter((c) => (c.plotLine === plotLineId || c.alsoIn.includes(plotLineId)) && c.relationshipState?.trim() && c.chapter && chapterIndex.has(c.chapter))
-    .sort((a, b) => chapterIndex.get(a.chapter!)! - chapterIndex.get(b.chapter!)! || a.order - b.order);
-  return cards.at(-1)?.relationshipState?.trim();
 }

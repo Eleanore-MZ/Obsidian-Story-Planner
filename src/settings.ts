@@ -19,7 +19,7 @@ export interface StoryViewState {
   /** The view story setup was opened from, to go back to when it closes. */
   lastView?: StoryTab;
   /** The section of story setup last open. */
-  setupSection?: "story" | "cast" | "time" | "safety";
+  setupSection?: "story" | "chapters" | "characters" | "time" | "safety";
   /** Story time: layout, zoom, and which zone times are shown in ("" for each card's own local time). */
   timeOrientation?: Orientation;
   zoom?: Zoom;
@@ -120,7 +120,6 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Default layout")
-      .setDesc("How new boards are laid out in chapter view. Each story remembers its own choice after that.")
       .addDropdown((d) =>
         d
           .addOptions(orientationOptions)
@@ -133,7 +132,6 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Default layout for story time")
-      .setDesc("How boards are laid out when switched to story time.")
       .addDropdown((d) =>
         d
           .addOptions(timeOrientationOptions)
@@ -146,9 +144,7 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Key for dropping an echo")
-      .setDesc(
-        "Hold this key while dropping a card on another plot line to show the card there as an echo, instead of moving it. On Windows, Ctrl is the usual key for copying while dragging.",
-      )
+      .setDesc("Hold while dropping a card on another plot line.")
       .addDropdown((d) =>
         d
           .addOptions({ alt: "Alt", ctrl: "Ctrl (Cmd on Mac)", shift: "Shift", off: "Off" })
@@ -177,7 +173,7 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
     };
     const dateSetting = new Setting(containerEl)
       .setName("Date format")
-      .setDesc(`How story dates are shown. ${tokenHelp(DATE_TOKENS)}. Parts a date does not have are left out. Text in [brackets] is kept as it is. A story can set its own in Setup.`)
+      .setDesc(`Tokens: ${DATE_TOKENS.map(([t]) => t).join(" ")}`)
       .addText((t) =>
         t
           .setPlaceholder(DEFAULT_DATE_FORMAT)
@@ -191,7 +187,7 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
     const datePreview = dateSetting.descEl.createDiv({ cls: "story-planner-format-preview", text: preview() });
     new Setting(containerEl)
       .setName("Time format")
-      .setDesc(`How clock times are shown after the date. ${tokenHelp(TIME_TOKENS)}. Named parts of the day, such as Morning, are shown by name.`)
+      .setDesc(`Tokens: ${TIME_TOKENS.map(([t]) => t).join(" ")}`)
       .addText((t) =>
         t
           .setPlaceholder(DEFAULT_TIME_FORMAT)
@@ -207,7 +203,6 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Folder for new stories")
-      .setDesc("Where the \"Create new story\" command puts new story notes. Leave empty for the vault root. You can also right-click any folder and choose \"New story here\".")
       .addText((t) =>
         t
           .setPlaceholder("Stories")
@@ -220,7 +215,6 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Folder for notes made from cards")
-      .setDesc("Where \"Create note from card\" puts new notes. Leave empty to put them beside the story note.")
       .addText((t) =>
         t
           .setPlaceholder("Drafts")
@@ -233,9 +227,7 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Template for notes made from cards")
-      .setDesc(
-        "Path of a note to copy into each new note, such as Templates/Scene.md. It can use {{title}}, {{synopsis}}, {{story}}, {{plotLine}}, {{chapter}}, {{date}}, {{location}}, {{characters}} and {{written}}. Leave empty for a short built-in template. The template is used once, when the note is made; after that the note is yours.",
-      )
+      .setDesc("Uses {{title}}, {{synopsis}}, {{chapter}}, {{date}}, {{location}}, {{characters}} and similar.")
       .addText((t) =>
         t
           .setPlaceholder("Templates/Scene.md")
@@ -248,7 +240,6 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Open stories as boards")
-      .setDesc("Open story notes as boards automatically. When off, use \"Open as story board\" from the command palette or the file menu.")
       .addToggle((t) =>
         t.setValue(this.plugin.settings.autoOpenStories).onChange(async (value) => {
           this.plugin.settings.autoOpenStories = value;
@@ -260,9 +251,6 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Safety snapshots")
-      .setDesc(
-        "Before deleting a plot line, chapter or character that cards use, or merging characters, keep a copy of the whole story in the plugin's folder. Restore one from the story's Setup tab or with the \"Restore story from a snapshot\" command.",
-      )
       .addToggle((t) =>
         t.setValue(this.plugin.settings.snapshotsEnabled).onChange(async (value) => {
           this.plugin.settings.snapshotsEnabled = value;
@@ -272,7 +260,6 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Snapshots kept per story")
-      .setDesc("Older snapshots are removed once a story has more than this.")
       .addSlider((s) =>
         s
           .setLimits(1, 50, 1)

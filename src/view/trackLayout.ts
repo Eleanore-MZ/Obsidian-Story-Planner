@@ -1,4 +1,5 @@
 import { dateSpan, formatStoryDate, mainCalendar } from "../model/calendar";
+import { actsShown, chapterNumbers, chapterTitle } from "../model/chapters";
 import { chapterRows } from "../model/moves";
 import { findClashes, readingOrder, referenceDate, timeSorted } from "../model/storyTime";
 import { Card, CharacterRole, Id, Story } from "../model/types";
@@ -46,8 +47,7 @@ export interface TrackLayout {
 /**
  * Lays out the character track for the chosen characters, in the order given.
  * With `sharedOnly`, only cards that have every chosen character show: with two
- * characters chosen, their shared scenes, which with relationship states read
- * as how the two stand at each point of the story.
+ * characters chosen, the scenes they share.
  */
 export function computeTrackLayout(
   story: Story,
@@ -175,7 +175,12 @@ export function computeTrackLayout(
 
 export interface MatrixColumn {
   id: string;
+  /** Short, to keep columns narrow: a chapter's number (or label, such as "Prologue"), or a date. */
   label: string;
+  /** In full, for the tooltip: "Chapter 3: The Pier". */
+  title?: string;
+  /** The act a chapter column is in, when the story shows acts; null for a chapter in no act. */
+  act?: string | null;
 }
 
 export interface MatrixCell {
@@ -201,9 +206,18 @@ export function computeMatrix(story: Story, axis: TrackAxis, zoom: Zoom): Matrix
   const columns: MatrixColumn[] = [];
   if (axis === "chapters") {
     const ids = new Set(story.chapters.map((c) => c.id));
-    for (const chapter of story.chapters) columns.push({ id: chapter.id, label: chapter.name });
+    const numbers = chapterNumbers(story);
+    const withActs = actsShown(story);
+    for (const chapter of story.chapters) {
+      columns.push({
+        id: chapter.id,
+        label: chapter.label?.trim() || String(numbers.get(chapter.id) ?? "?"),
+        title: chapterTitle(story, chapter, numbers),
+        ...(withActs ? { act: chapter.act && story.acts.some((a) => a.id === chapter.act) ? chapter.act : null } : {}),
+      });
+    }
     const offPage = Object.values(story.cards).filter((c) => c.chapter === null || !ids.has(c.chapter));
-    if (offPage.length > 0) columns.push({ id: "", label: "Off-page" });
+    if (offPage.length > 0) columns.push({ id: "", label: "Off-page", ...(withActs ? { act: null } : {}) });
     for (const card of Object.values(story.cards)) columnOf.set(card.id, card.chapter && ids.has(card.chapter) ? card.chapter : "");
   } else {
     const calendar = mainCalendar(story);

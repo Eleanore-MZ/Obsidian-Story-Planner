@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createCard, createEmptyStory } from "../src/model/defaults";
 import { reorderInTime, timeSorted } from "../src/model/storyTime";
 import { Card, Story, StoryDate } from "../src/model/types";
-import { bucketDate, computeTimeLayout, describeGap, spanOf } from "../src/view/timeLayout";
+import { dateSpan } from "../src/model/calendar";
+import { bucketDate, computeTimeLayout, describeGap } from "../src/view/timeLayout";
 
 const NOW = "2026-10-19T03:00:00.000Z";
 const d = (year: number, month?: number, day?: number, extra: Partial<StoryDate> = {}): StoryDate => ({
@@ -91,9 +92,9 @@ describe("story-time layout", () => {
 
   it("places spans on the line of minutes", () => {
     const cal = story().calendars[0]!;
-    const [start, end] = spanOf(cal, d(1532, 2));
+    const [start, end] = dateSpan(cal, d(1532, 2));
     expect((end - start) / (24 * 60)).toBe(29);
-    const [dawnStart, dawnEnd] = spanOf(cal, d(1532, 2, 3, { dayPart: "dawn" }));
+    const [dawnStart, dawnEnd] = dateSpan(cal, d(1532, 2, 3, { dayPart: "dawn" }));
     expect(dawnEnd - dawnStart).toBe(2 * 60);
   });
 
@@ -112,7 +113,7 @@ describe("story-time layout", () => {
 
   it("describes gaps in words", () => {
     const cal = story().calendars[0]!;
-    const at = (date: StoryDate) => spanOf(cal, date)[0];
+    const at = (date: StoryDate) => dateSpan(cal, date)[0];
     expect(describeGap(cal, at(d(1531, 12, 4)), at(d(1534, 12, 3)))).toBe("2 years later");
     expect(describeGap(cal, at(d(1531, 12, 4)), at(d(1532, 1, 4)))).toBe("1 month later");
     expect(describeGap(cal, at(d(1531, 12, 4)), at(d(1531, 12, 6)))).toBe("2 days later");

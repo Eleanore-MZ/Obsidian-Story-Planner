@@ -1,4 +1,5 @@
-import { cardMoment, dateInZone, effectiveZone, precisionOf } from "./calendar";
+import { cardMoment, dateInZone, dateSpan, effectiveZone, mainCalendar, precisionOf } from "./calendar";
+import { locationAndInside } from "./setup";
 import { Card, Id, Story, StoryDate } from "./types";
 
 // Story order: where cards fall in the story's own time, as opposed to the
@@ -72,4 +73,72 @@ export function reorderInTime(story: Story, cardId: Id, targetId: Id, after: boo
     }
   });
   return true;
+}
+
+/**
+ * The stretch of time a card covers on the story's line of minutes, for
+ * spotting clashes: a clock time covers its hour, a part of the day its
+ * hours, and a card with an end date runs to the end of that date. A card
+ * known only to the day (or less) with no end date covers no definite
+ * stretch, since a day has room for a journey, so it never clashes.
+ */
+export function cardInterval(story: Story, card: Card): [number, number] | undefined {
+  if (!card.date) return undefined;
+  const calendar = mainCalendar(story);
+  const start = referenceDate(story, card)!;
+  const precision = precisionOf(card.date);
+  if (card.endDate) {
+    const zone = effectiveZone(story, card).zone?.id;
+    const endPrecision = precisionOf(card.endDate);
+    const shifted = (endPrecision === "time" || endPrecision === "dayPart") && zone && zone !== story.referenceZone;
+    const end = shifted ? dateInZone(story, card.endDate, zone, story.referenceZone) : { ...card.endDate };
+    delete end.zone;
+    if (start.day === undefined || end.day === undefined) return undefined;
+    return [dateSpan(calendar, start)[0], dateSpan(calendar, end)[1]];
+  }
+  if (precision !== "time" && precision !== "dayPart") return undefined;
+  if (precision === "time") {
+    const startKey = dateSpan(calendar, { ...start, minutes: start.minutes ?? 0 })[0];
+    return [startKey, startKey + calendar.minutesPerHour];
+  }
+  return dateSpan(calendar, start);
+}
+
+export interface Clash {
+  characterId: Id;
+  /** Two cards with this character whose times overlap in places that are not one inside the other. */
+  cards: [Id, Id];
+}
+
+/**
+ * Finds characters who are in two places at once: two of their cards
+ * overlap in time while their locations differ, after converting to the
+ * reference zone. A place inside another (a room in a house) is not a
+ * different place. Advisory only, since a story may mean it (a twin, a lie).
+ * A mentioned character is not there, so mentions never clash.
+ */
+export function findClashes(story: Story): Clash[] {
+  const clashes: Clash[] = [];
+  const placed = Object.values(story.cards)
+    .filter((c) => c.location && story.locations.some((l) => l.id === c.location))
+    .map((card) => ({ card, interval: cardInterval(story, card) }))
+    .filter((x): x is { card: Card; interval: [number, number] } => !!x.interval)
+    .sort((a, b) => a.interval[0] - b.interval[0] || a.card.id.localeCompare(b.card.id));
+  const inside = new Map<Id, Set<Id>>();
+  const within = (id: Id) => inside.get(id) ?? inside.set(id, locationAndInside(story, id)).get(id)!;
+  for (const character of story.characters) {
+    const theirs = placed.filter(({ card }) => card.characters.some((c) => c.id === character.id && c.role !== "mentioned"));
+    for (let i = 0; i < theirs.length; i++) {
+      for (let j = i + 1; j < theirs.length; j++) {
+        const a = theirs[i]!;
+        const b = theirs[j]!;
+        if (b.interval[0] >= a.interval[1]) break;
+        const la = a.card.location!;
+        const lb = b.card.location!;
+        if (within(la).has(lb) || within(lb).has(la)) continue;
+        clashes.push({ characterId: character.id, cards: [a.card.id, b.card.id] });
+      }
+    }
+  }
+  return clashes;
 }

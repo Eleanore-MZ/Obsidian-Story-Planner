@@ -1,10 +1,11 @@
 import type { Zoom } from "./view/timeLayout";
+import type { TrackAxis } from "./view/trackLayout";
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type StoryPlannerPlugin from "./main";
 import { Orientation } from "./view/layout";
 
 /** The views of a story, shown as tabs above it. */
-export type StoryTab = "board" | "time" | "setup";
+export type StoryTab = "board" | "time" | "characters" | "setup";
 
 /** Per-story view preferences. Kept in data.json so viewing never changes the story note. */
 export interface StoryViewState {
@@ -18,6 +19,13 @@ export interface StoryViewState {
   timeZoneView?: string;
   /** A character, tag or place to make stand out, as "character:id", "tag:id" or "location:id". */
   highlight?: string;
+  /** Character view: track or matrix, the characters chosen as lanes (in order), axis and layout. */
+  characterMode?: "track" | "matrix";
+  characterLanes?: string[];
+  characterAxis?: TrackAxis;
+  characterOrientation?: Orientation;
+  /** With two or more lanes, show only the scenes they share. */
+  sharedOnly?: boolean;
 }
 
 export interface StoryPlannerSettings {

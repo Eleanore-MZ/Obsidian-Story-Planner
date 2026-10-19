@@ -7,10 +7,12 @@ import {
   lineYear,
   mainCalendar,
   minutesPerDay,
+  dateSpan,
 } from "../model/calendar";
 import { readingOrder, referenceDate, timeSorted } from "../model/storyTime";
 import { Calendar, Card, Id, Story, StoryDate } from "../model/types";
 import { Orientation } from "./layout";
+
 
 // Pure layout of the story-time view, free of Obsidian and the DOM like
 // layout.ts. Lanes are plot lines, as on the board; along the other axis run
@@ -84,24 +86,6 @@ export function bucketDate(calendar: Calendar, date: StoryDate, zoom: Zoom): Sto
   return out;
 }
 
-/** First and last-plus-one minute of the span a bucket date covers. */
-export function spanOf(calendar: Calendar, date: StoryDate): [number, number] {
-  const perDay = minutesPerDay(calendar);
-  const line = lineYear(calendar, date.era, date.year);
-  if (date.month === undefined) return [daysBeforeYear(calendar, line) * perDay, daysBeforeYear(calendar, line + 1) * perDay];
-  if (date.day === undefined) {
-    const first = dayNumber(calendar, line, date.month, 1);
-    return [first * perDay, (first + daysInMonth(calendar, line, date.month)) * perDay];
-  }
-  const day = dayNumber(calendar, line, date.month, date.day) * perDay;
-  if (date.dayPart !== undefined) {
-    const part = calendar.dayParts?.find((p) => p.id === date.dayPart);
-    if (part) return [day + part.startHour * calendar.minutesPerHour, day + part.endHour * calendar.minutesPerHour];
-  }
-  if (date.minutes !== undefined) return [day + date.minutes, day + date.minutes + calendar.minutesPerHour];
-  return [day, day + perDay];
-}
-
 /** How much time passes from one moment to a later one, in words: "3 years later", "2 days later". */
 export function describeGap(calendar: Calendar, from: number, to: number): string {
   const perDay = minutesPerDay(calendar);
@@ -143,7 +127,7 @@ export function computeTimeLayout(story: Story, zoom: Zoom, orientation: Orienta
     const id = JSON.stringify(date);
     let entry = buckets.get(id);
     if (!entry) {
-      const [start, end] = spanOf(calendar, date);
+      const [start, end] = dateSpan(calendar, date);
       entry = { bucket: { id, date, label: formatStoryDate(story, date), start, end }, cards: [] };
       buckets.set(id, entry);
     }

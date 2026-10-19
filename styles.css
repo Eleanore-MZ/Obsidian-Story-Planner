@@ -802,3 +802,168 @@
   gap: 0 var(--size-4-3);
   padding-left: var(--size-4-4, 16px);
 }
+
+/* Character view: the track, the presence matrix and the clash list. */
+
+.story-planner-tab-actions button.is-active {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.story-planner-segmented {
+  display: flex;
+}
+
+.story-planner-segmented button {
+  border-radius: 0;
+}
+
+.story-planner-segmented button:first-child {
+  border-radius: var(--button-radius, var(--radius-s)) 0 0 var(--button-radius, var(--radius-s));
+}
+
+.story-planner-segmented button:last-child {
+  border-radius: 0 var(--button-radius, var(--radius-s)) var(--button-radius, var(--radius-s)) 0;
+}
+
+.story-planner-lane-header.is-character {
+  cursor: grab;
+}
+
+.story-planner-appearance-role {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.story-planner-role-mark {
+  line-height: 1;
+}
+
+.story-planner-appearance.role-pov .story-planner-appearance-role,
+.story-planner-matrix td.role-pov {
+  color: var(--text-accent);
+  font-weight: var(--font-semibold);
+}
+
+.story-planner-appearance.role-mentioned {
+  border-style: dotted;
+  opacity: 0.85;
+}
+
+.story-planner-appearance.has-clash,
+.story-planner-matrix td.has-clash {
+  box-shadow: inset 0 0 0 2px var(--text-warning);
+}
+
+.story-planner-clash-mark {
+  margin-top: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-warning);
+}
+
+.story-planner-clash-summary {
+  margin-bottom: var(--size-4-3);
+  padding: var(--size-4-2) var(--size-4-3);
+  border-left: 3px solid var(--text-warning);
+  background: var(--background-secondary);
+  font-size: var(--font-ui-small);
+}
+
+.story-planner-clash-summary a,
+.story-planner-clashes a {
+  cursor: pointer;
+}
+
+.story-planner-track-note {
+  margin-top: var(--size-4-4);
+}
+
+.story-planner-matrix-wrap {
+  min-height: 100%;
+}
+
+.story-planner-matrix-legend {
+  margin-bottom: var(--size-4-2);
+  white-space: pre;
+}
+
+.story-planner-matrix {
+  border-collapse: collapse;
+  font-size: var(--font-ui-small);
+}
+
+.story-planner-matrix th,
+.story-planner-matrix td {
+  border: 1px solid var(--background-modifier-border);
+  padding: var(--size-4-1) var(--size-4-2);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.story-planner-matrix thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  max-width: 9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--background-primary);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+}
+
+.story-planner-matrix th.story-planner-matrix-name {
+  position: sticky;
+  left: 0;
+  text-align: left;
+  background: var(--background-primary);
+  border-left: 3px solid var(--lane-color);
+  cursor: pointer;
+}
+
+.story-planner-matrix td {
+  min-width: 2.5em;
+  cursor: default;
+}
+
+.story-planner-matrix td[class*="role-"] {
+  cursor: pointer;
+}
+
+.story-planner-matrix td[class*="role-"]:hover {
+  background: var(--background-modifier-hover);
+}
+
+.story-planner-matrix-count {
+  margin-left: 2px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  vertical-align: super;
+}
+
+.story-planner-matrix-total {
+  color: var(--text-muted);
+}
+
+.story-planner-matrix tr.is-absent th {
+  color: var(--text-faint);
+}
+
+.story-planner-clashes {
+  margin-top: var(--size-4-6);
+  padding: var(--size-4-3);
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: var(--radius-m);
+}
+
+.story-planner-clashes ul {
+  margin: var(--size-4-2) 0 0;
+}
+
+.story-planner-clash-detail {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}

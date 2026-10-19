@@ -1,25 +1,26 @@
 import { Notice, Scope, setIcon, TextFileView, WorkspaceLeaf } from "obsidian";
 import type StoryPlannerPlugin from "../main";
 import type { StoryTab } from "../settings";
-import { addCardAt, setCardDate } from "../model/edits";
+import { addCardAt, addCharacterByName, setCardDate } from "../model/edits";
 import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
 import { compareDates, dateInZone, effectiveZone, formatDateRange, formatStoryDate, precisionOf } from "../model/calendar";
-import { reorderInTime, referenceDate } from "../model/storyTime";
-import { Card, Id, Story } from "../model/types";
+import { Clash, findClashes, reorderInTime, referenceDate } from "../model/storyTime";
+import { Card, CharacterRole, Id, Story } from "../model/types";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree } from "../model/setup";
 import { CardPanel } from "./CardPanel";
 import { SetupPanel } from "./SetupPanel";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
-import { ChoiceModal, DateModal, TextPromptModal } from "./modals";
+import { ChoiceModal, DateModal, LaneModal, TextPromptModal } from "./modals";
 import { Bucket, bucketDate, computeTimeLayout, TimeItem, Zoom, ZOOM_LABELS } from "./timeLayout";
+import { computeMatrix, computeTrackLayout, TrackAxis, TrackItem } from "./trackLayout";
 
 export const STORY_BOARD_VIEW = "story-planner-board";
 
 /** What is being dragged. */
-type Dragged = { kind: "card" | "plotLine" | "chapter"; id: string };
+type Dragged = { kind: "card" | "plotLine" | "chapter" | "character"; id: string };
 
 /** Where a drop lands relative to its target. */
 type DropPlace = "before" | "after" | "on";
@@ -36,12 +37,17 @@ interface DropTargetSpec {
 const TABS: [StoryTab, string, string][] = [
   ["board", "Board", "layout-dashboard"],
   ["time", "Story time", "calendar-clock"],
+  ["characters", "Characters", "users"],
   ["setup", "Setup", "settings-2"],
 ];
 
 /** Board elements that count as empty space: clicking them clears the selection. */
 const EMPTY_SPACE =
-  ".story-planner-grid, .story-planner-corner, .story-planner-cell, .story-planner-chapter-end, .story-planner-tray, .story-planner-time-empty";
+  ".story-planner-grid, .story-planner-corner, .story-planner-cell, .story-planner-chapter-end, .story-planner-tray, .story-planner-time-empty, .story-planner-matrix-wrap, .story-planner-track-note";
+
+const ROLE_LABELS: Record<CharacterRole, string> = { pov: "Point of view", present: "Present", mentioned: "Mentioned" };
+/** Marks for the presence matrix and appearances: filled for point of view, solid for present, hollow for mentioned. */
+const ROLE_MARKS: Record<CharacterRole, string> = { pov: "\u25C9", present: "\u25CF", mentioned: "\u25CB" };
 
 /** Pixels the pointer must move before a press becomes a drag. */
 const DRAG_THRESHOLD = 5;
@@ -373,6 +379,7 @@ export class StoryBoardView extends TextFileView {
   private get orientation(): Orientation {
     const state = this.file ? this.plugin.settings.viewState[this.file.path] : undefined;
     if (this.tab === "time") return state?.timeOrientation ?? this.plugin.settings.defaultStoryTimeOrientation;
+    if (this.tab === "characters") return state?.characterOrientation ?? this.plugin.settings.defaultOrientation;
     return state?.orientation ?? this.plugin.settings.defaultOrientation;
   }
 
@@ -413,7 +420,7 @@ export class StoryBoardView extends TextFileView {
     const path = this.file?.path;
     if (!path) return;
     const next: Orientation = this.orientation === "vertical" ? "horizontal" : "vertical";
-    const key = this.tab === "time" ? "timeOrientation" : "orientation";
+    const key = this.tab === "time" ? "timeOrientation" : this.tab === "characters" ? "characterOrientation" : "orientation";
     this.plugin.settings.viewState[path] = { ...this.plugin.settings.viewState[path], [key]: next };
     void this.plugin.saveSettings();
     this.render();
@@ -479,9 +486,12 @@ export class StoryBoardView extends TextFileView {
 
     const onBoard = tab === "board";
     const onTime = tab === "time";
-    this.bodyEl.hidden = !onBoard && !onTime;
+    const onCharacters = tab === "characters";
+    const withPanel = onBoard || onTime || onCharacters;
+    this.bodyEl.hidden = !withPanel;
     this.setup.setOpen(tab === "setup", story);
     if (onTime) this.timeActions(tabsRow.createDiv({ cls: "story-planner-tab-actions" }), story);
+    if (onCharacters) this.characterActions(tabsRow.createDiv({ cls: "story-planner-tab-actions" }), story);
     if (onBoard) {
       const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
       this.button(actions, "Add plot line", () =>
@@ -500,9 +510,9 @@ export class StoryBoardView extends TextFileView {
     }
 
     // Keep the panel on the selected card; it closes if the card is gone (after an undo, say).
-    this.panel.show(story, onBoard || onTime ? this.panel.selected : null, typing);
+    this.panel.show(story, withPanel ? this.panel.selected : null, typing);
     this.setup.refresh(story, typing);
-    if (onBoard || onTime) this.renderBoard(story);
+    if (withPanel) this.renderBoard(story);
   }
 
   /**
@@ -513,6 +523,7 @@ export class StoryBoardView extends TextFileView {
     const { scrollTop, scrollLeft } = this.boardEl;
     const content = document.createElement("div");
     if (this.tab === "time") this.fillTime(content, story);
+    else if (this.tab === "characters") this.fillCharacters(content, story);
     else this.fillBoard(content, story);
     this.boardEl.replaceChildren(...Array.from(content.childNodes));
     this.boardEl.scrollTop = scrollTop;
@@ -717,7 +728,7 @@ export class StoryBoardView extends TextFileView {
   }
 
   /** What every card shows besides title, date and synopsis: its place, tags, and the highlight. */
-  private cardExtras(el: HTMLElement, card: Card, story: Story): void {
+  private cardExtras(el: HTMLElement, card: Card, story: Story, roleNote = true): void {
     if (card.location && story.locations.some((l) => l.id === card.location)) {
       el.createDiv({ cls: "story-planner-card-place", text: locationPath(story, card.location) });
     }
@@ -733,9 +744,9 @@ export class StoryBoardView extends TextFileView {
     if (card.relationshipState) el.createDiv({ cls: "story-planner-card-state", text: card.relationshipState });
     const match = this.highlighted(card, story);
     if (match === false) el.addClass("is-dimmed");
-    if (match && this.highlight.startsWith("character:")) {
+    if (match && roleNote && this.highlight.startsWith("character:")) {
       const entry = card.characters.find((c) => `character:${c.id}` === this.highlight)!;
-      const role = entry.role === "pov" ? "Point of view" : entry.role === "present" ? "Present" : "Mentioned";
+      const role = ROLE_LABELS[entry.role];
       el.createDiv({ cls: "story-planner-card-note", text: entry.note ? `${role}: ${entry.note}` : role });
     }
   }
@@ -776,30 +787,38 @@ export class StoryBoardView extends TextFileView {
         text: "No card has a date yet. Open a card and fill in \"When\" to place it in story time.",
       });
     } else {
-      const grid = parent.createDiv({ cls: `story-planner-grid is-time is-${orientation}` });
-      grid.style.gridTemplateRows = `repeat(${layout.rows}, auto)`;
-      grid.style.gridTemplateColumns =
-        orientation === "vertical"
-          ? `var(--story-planner-header-size) repeat(${layout.columns - 1}, minmax(var(--story-planner-card-width), 1fr))`
-          : `var(--story-planner-header-size) repeat(${layout.columns - 1}, var(--story-planner-card-width))`;
-      if (orientation === "vertical") {
-        grid.style.minWidth = `calc(var(--story-planner-header-size) + ${layout.columns - 1} * (var(--story-planner-card-width) + var(--size-4-2)))`;
-      }
-      const vertical = orientation === "vertical";
-      for (const placed of layout.items) {
-        const el = this.renderTimeItem(grid, placed.item, story);
-        const along = placed.span > 1 ? ` / span ${placed.span}` : "";
-        if (placed.item.kind === "gap") {
-          // A gap marker runs across every plot line.
-          el.style.gridRow = vertical ? String(placed.row) : "1 / -1";
-          el.style.gridColumn = vertical ? "1 / -1" : String(placed.column);
-        } else {
-          el.style.gridRow = String(placed.row) + (vertical ? along : "");
-          el.style.gridColumn = String(placed.column) + (vertical ? "" : along);
-        }
-      }
+      const grid = this.spanGrid(parent, "is-time", layout.rows, layout.columns);
+      for (const placed of layout.items) this.place(placed, this.renderTimeItem(grid, placed.item, story));
     }
     this.renderTray(parent, story, layout.undated);
+  }
+
+  /** A grid for story time or the character track, whose headers can span several slots. */
+  private spanGrid(parent: HTMLElement, cls: string, rows: number, columns: number): HTMLElement {
+    const orientation = this.orientation;
+    const grid = parent.createDiv({ cls: `story-planner-grid ${cls} is-${orientation}` });
+    grid.style.gridTemplateRows = `repeat(${rows}, auto)`;
+    grid.style.gridTemplateColumns =
+      orientation === "vertical"
+        ? `var(--story-planner-header-size) repeat(${columns - 1}, minmax(var(--story-planner-card-width), 1fr))`
+        : `var(--story-planner-header-size) repeat(${columns - 1}, var(--story-planner-card-width))`;
+    if (orientation === "vertical") {
+      grid.style.minWidth = `calc(var(--story-planner-header-size) + ${columns - 1} * (var(--story-planner-card-width) + var(--size-4-2)))`;
+    }
+    return grid;
+  }
+
+  /** Puts an item on a span grid: a header covers its slots, and a gap marker runs across every lane. */
+  private place(placed: { item: { kind: string }; row: number; column: number; span: number }, el: HTMLElement): void {
+    const vertical = this.orientation === "vertical";
+    const along = placed.span > 1 ? ` / span ${placed.span}` : "";
+    if (placed.item.kind === "gap") {
+      el.style.gridRow = vertical ? String(placed.row) : "1 / -1";
+      el.style.gridColumn = vertical ? "1 / -1" : String(placed.column);
+    } else {
+      el.style.gridRow = String(placed.row) + (vertical ? along : "");
+      el.style.gridColumn = String(placed.column) + (vertical ? "" : along);
+    }
   }
 
   private renderTimeItem(grid: HTMLElement, item: TimeItem, story: Story): HTMLElement {
@@ -979,6 +998,368 @@ export class StoryBoardView extends TextFileView {
           reorder(s);
         }),
     ).open();
+  }
+
+  // -------------------------------------------------------------------------
+  // Characters: the character track (the board with characters as lanes) and
+  // the presence matrix, with the list of possible clashes.
+
+  private viewState() {
+    const path = this.file?.path;
+    return path ? this.plugin.settings.viewState[path] : undefined;
+  }
+
+  private get characterMode(): "track" | "matrix" {
+    return this.viewState()?.characterMode ?? "track";
+  }
+
+  private get characterAxis(): TrackAxis {
+    return this.viewState()?.characterAxis ?? "chapters";
+  }
+
+  /** The characters shown as lanes; until the writer chooses, the first eight. */
+  private lanes(story: Story): Id[] {
+    const chosen = this.viewState()?.characterLanes;
+    if (!chosen) return story.characters.slice(0, 8).map((c) => c.id);
+    return chosen.filter((id) => story.characters.some((c) => c.id === id));
+  }
+
+  private characterActions(actions: HTMLElement, story: Story): void {
+    const modes = actions.createDiv({ cls: "story-planner-segmented" });
+    for (const [mode, label] of [
+      ["track", "Track"],
+      ["matrix", "Matrix"],
+    ] as const) {
+      const b = this.button(modes, label, () => this.setViewState({ characterMode: mode }));
+      b.toggleClass("is-active", this.characterMode === mode);
+      b.setAttr("aria-pressed", String(this.characterMode === mode));
+    }
+    const axis = actions.createEl("select", { cls: "dropdown" });
+    axis.setAttr("aria-label", "Order");
+    axis.createEl("option", { text: "By chapter" }).value = "chapters";
+    axis.createEl("option", { text: "By story time" }).value = "time";
+    axis.value = this.characterAxis;
+    axis.addEventListener("change", () => this.setViewState({ characterAxis: axis.value as TrackAxis }));
+    if (this.characterAxis === "time") {
+      const zoom = actions.createEl("select", { cls: "dropdown" });
+      zoom.setAttr("aria-label", "Zoom");
+      for (const [value, label] of Object.entries(ZOOM_LABELS)) zoom.createEl("option", { text: label }).value = value;
+      zoom.value = this.zoom;
+      zoom.addEventListener("change", () => this.setViewState({ zoom: zoom.value as Zoom }));
+    }
+    if (this.characterMode === "track") {
+      const lanes = this.lanes(story);
+      this.button(actions, `Characters (${lanes.length})`, () =>
+        new LaneModal(this.app, story, lanes, (chosen) => this.setViewState({ characterLanes: chosen })).open(),
+      ).setAttr("title", "Choose which characters get a lane, and their order");
+      if (lanes.length >= 2) {
+        const shared = this.button(actions, "Shared scenes", () => this.setViewState({ sharedOnly: !this.viewState()?.sharedOnly }));
+        const on = !!this.viewState()?.sharedOnly;
+        shared.toggleClass("is-active", on);
+        shared.setAttr("aria-pressed", String(on));
+        shared.setAttr("title", "Show only the scenes all these characters are in");
+      }
+      this.highlightPicker(actions, story);
+    }
+  }
+
+  private fillCharacters(parent: HTMLElement, story: Story): void {
+    if (story.characters.length === 0) {
+      parent.createDiv({
+        cls: "story-planner-empty",
+        text: "No characters yet. Add them in Setup, or name them on a card, to follow them here.",
+      });
+      return;
+    }
+    const clashes = findClashes(story);
+    if (this.characterMode === "matrix") {
+      this.fillMatrix(parent, story, clashes);
+      return;
+    }
+    if (clashes.length > 0) {
+      const note = parent.createDiv({ cls: "story-planner-clash-summary" });
+      note.createSpan({ text: `${clashes.length} possible ${clashes.length === 1 ? "clash" : "clashes"}: a character in two places at once. ` });
+      note.createEl("a", { text: "Show in the matrix" }).addEventListener("click", () => this.setViewState({ characterMode: "matrix" }));
+    }
+    this.fillTrack(parent, story, clashes);
+  }
+
+  private fillTrack(parent: HTMLElement, story: Story, clashes: Clash[]): void {
+    const lanes = this.lanes(story);
+    if (lanes.length === 0) {
+      parent.createDiv({ cls: "story-planner-empty", text: "Choose characters to track with the Characters button." });
+      return;
+    }
+    const axis = this.characterAxis;
+    const shared = !!this.viewState()?.sharedOnly && lanes.length >= 2;
+    const layout = computeTrackLayout(story, lanes, axis, this.zoom, this.orientation, shared);
+    this.buckets = new Map(layout.buckets.map((b) => [b.id, b]));
+    const clashing = new Set(clashes.flatMap((c) => c.cards.map((id) => `${c.characterId}:${id}`)));
+
+    if (axis === "time" && layout.buckets.length === 0) {
+      parent.createDiv({
+        cls: "story-planner-empty story-planner-time-empty",
+        text: "None of these characters' scenes has a date yet. Fill in \"When\" on a card to place it in story time.",
+      });
+    } else {
+      const grid = this.spanGrid(parent, "is-track", layout.rows, layout.columns);
+      for (const placed of layout.items) this.place(placed, this.renderTrackItem(grid, placed.item, story, clashing));
+    }
+
+    const notes: string[] = [];
+    if (layout.hidden > 0) {
+      notes.push(
+        shared
+          ? `${layout.hidden} ${layout.hidden === 1 ? "scene does" : "scenes do"} not have all of these characters.`
+          : `${layout.hidden} ${layout.hidden === 1 ? "scene has" : "scenes have"} none of these characters.`,
+      );
+    }
+    if (axis === "time") {
+      const ids = new Set(lanes);
+      const undated = Object.values(story.cards).filter((c) => !c.date && c.characters.some((x) => ids.has(x.id))).length;
+      if (undated > 0) notes.push(`${undated} undated ${undated === 1 ? "scene is" : "scenes are"} left out; give ${undated === 1 ? "it" : "them"} a date to place ${undated === 1 ? "it" : "them"} here.`);
+    }
+    if (notes.length > 0) parent.createDiv({ cls: "story-planner-panel-hint story-planner-track-note", text: notes.join(" ") });
+  }
+
+  private renderTrackItem(grid: HTMLElement, item: TrackItem, story: Story, clashing: Set<string>): HTMLElement {
+    switch (item.kind) {
+      case "corner":
+        return grid.createDiv({ cls: "story-planner-corner" });
+
+      case "character-header": {
+        const character = story.characters.find((c) => c.id === item.characterId);
+        const el = grid.createDiv({ cls: "story-planner-lane-header is-character", text: character?.name ?? "" });
+        el.style.setProperty("--lane-color", character?.color ?? "var(--interactive-accent)");
+        el.setAttr("title", "Drag to reorder the lanes");
+        this.makeDraggable(el, { kind: "character", id: item.characterId });
+        this.makeDropTarget(el, "character", "lane", (place) => {
+          const lanes = this.lanes(story).filter((id) => id !== this.dragged!.id);
+          const index = lanes.indexOf(item.characterId);
+          lanes.splice(place === "after" ? index + 1 : index, 0, this.dragged!.id);
+          this.setViewState({ characterLanes: lanes });
+        });
+        return el;
+      }
+
+      case "chapter-header": {
+        const chapter = story.chapters.find((c) => c.id === item.chapterId);
+        const el = grid.createDiv({ cls: "story-planner-chapter-header", text: chapter?.name ?? "Off-page" });
+        if (!chapter) el.addClass("is-off-page");
+        return el;
+      }
+
+      case "time-header":
+        return grid.createDiv({ cls: "story-planner-time-header", text: item.bucket.label });
+
+      case "gap":
+        return grid.createDiv({ cls: "story-planner-time-gap", text: `— ${item.text} —` });
+
+      case "track-cell": {
+        const el = grid.createDiv({ cls: "story-planner-cell" });
+        this.makeDropTarget(
+          el,
+          "card",
+          item.cardId ? "slot" : null,
+          (place) => this.dropInTrack(item.characterId, { cardId: item.cardId, chapterId: item.chapterId, bucketId: item.bucketId, beside: true }, place),
+          !!item.cardId,
+        );
+        el.addEventListener("dblclick", () => this.addCardForCharacter(item.characterId, item));
+        return el;
+      }
+
+      case "appearance": {
+        const card = story.cards[item.cardId]!;
+        const el = this.appearance(grid, card, item.characterId, story, clashing.has(`${item.characterId}:${card.id}`));
+        this.makeDropTarget(el, "card", "slot", (place) =>
+          this.dropInTrack(item.characterId, { cardId: card.id, chapterId: card.chapter, bucketId: item.bucketId, beside: false }, place),
+        );
+        return el;
+      }
+    }
+  }
+
+  /** A card in one character's lane: what this character does there, in what role, and where. */
+  private appearance(parent: HTMLElement, card: Card, characterId: Id, story: Story, clash: boolean): HTMLElement {
+    const entry = card.characters.find((c) => c.id === characterId)!;
+    const plotLine = story.plotLines.find((p) => p.id === card.plotLine);
+    const chapter = story.chapters.find((c) => c.id === card.chapter);
+    const el = parent.createDiv({ cls: `story-planner-card story-planner-appearance status-${card.status} role-${entry.role}` });
+    if (!chapter) el.addClass("is-off-page");
+    el.style.setProperty("--lane-color", plotLine?.color ?? "var(--interactive-accent)");
+    if (this.characterAxis === "time") el.createDiv({ cls: "story-planner-card-badge", text: chapter?.name ?? "Off-page" });
+    const role = el.createDiv({ cls: "story-planner-appearance-role" });
+    role.createSpan({ cls: "story-planner-role-mark", text: ROLE_MARKS[entry.role] });
+    role.createSpan({ text: ROLE_LABELS[entry.role] });
+    el.createDiv({ cls: "story-planner-card-title", text: card.title });
+    if (entry.note) el.createDiv({ cls: "story-planner-card-note", text: entry.note });
+    if (card.date) el.createDiv({ cls: "story-planner-card-date", text: formatDateRange(story, card.date, card.endDate) });
+    this.cardExtras(el, card, story, false);
+    if (clash) {
+      el.addClass("has-clash");
+      el.createDiv({ cls: "story-planner-clash-mark", text: "In two places at once?" });
+    }
+    el.dataset.cardId = card.id;
+    if (card.id === this.panel.selected) el.addClass("is-selected");
+    el.addEventListener("click", () => this.select(card.id));
+    el.addEventListener("dblclick", () => this.editTitleInPlace(el, card));
+    this.makeDraggable(el, { kind: "card", id: card.id });
+    return el;
+  }
+
+  /**
+   * A card dropped in the character track. In a lane whose character is not
+   * in the scene, it offers to add them; otherwise the card moves along the
+   * axis as on the board (or in story time), keeping its plot line.
+   */
+  private dropInTrack(
+    characterId: Id,
+    target: { cardId?: Id; chapterId?: Id | null; bucketId?: string; beside: boolean },
+    place: DropPlace,
+  ): void {
+    const story = this.story;
+    const card = story && this.dragged ? story.cards[this.dragged.id] : undefined;
+    if (!story || !card) return;
+    const character = story.characters.find((c) => c.id === characterId);
+    if (!character) return;
+
+    if (!card.characters.some((c) => c.id === characterId)) {
+      new ChoiceModal(this.app, {
+        title: `Add ${character.name} to "${card.title}"?`,
+        message: `Dropping a scene in ${character.name}'s lane adds ${character.name} to it. How do they take part?`,
+        options: (["present", "pov", "mentioned"] as CharacterRole[]).map((role) => ({ value: role, label: ROLE_LABELS[role] })),
+        confirm: "Add",
+        safe: true,
+        onChoose: (role) => this.mutate((s) => void addCharacterByName(s, card.id, character.name, role as CharacterRole)),
+      }).open();
+      return;
+    }
+
+    if (this.characterAxis === "time") {
+      if (!target.bucketId) return;
+      const targetCard = target.cardId && !target.beside ? story.cards[target.cardId] ?? null : null;
+      this.dropInTime(target.bucketId, card.plotLine, targetCard, targetCard ? place : "on");
+      return;
+    }
+    if (target.cardId === card.id) return;
+    const anchor = target.cardId ? story.cards[target.cardId] : undefined;
+    if (!anchor) {
+      this.mutate((s) => moveCard(s, card.id, { chapter: target.chapterId ?? null, plotLine: card.plotLine }));
+      return;
+    }
+    // Beside a scene of the same plot line would put two cards in one cell, so that lands after it.
+    const besideOk = place === "on" && anchor.plotLine !== card.plotLine;
+    const where = besideOk
+      ? { besideCardId: anchor.id }
+      : place === "before"
+        ? { beforeCardId: anchor.id }
+        : { afterCardId: anchor.id };
+    this.mutate((s) => moveCard(s, card.id, { chapter: anchor.chapter, plotLine: card.plotLine, ...where }));
+  }
+
+  /** Double-clicking empty space in a lane makes a new scene with that character there. */
+  private addCardForCharacter(characterId: Id, cell: { cardId?: Id; chapterId?: Id | null; bucketId?: string }): void {
+    const story = this.story;
+    const character = story?.characters.find((c) => c.id === characterId);
+    if (!story || !character) return;
+    const row = cell.cardId ? story.cards[cell.cardId] : undefined;
+    const plotLine = row?.plotLine ?? story.plotLines[0]?.id;
+    if (!plotLine) {
+      new Notice("Add a plot line first: every scene belongs to one.");
+      return;
+    }
+    const bucket = cell.bucketId ? this.buckets.get(cell.bucketId) : undefined;
+    let id: Id | null = null;
+    this.mutate((s) => {
+      if (bucket) {
+        id = addCardAt(s, { chapter: null, plotLine }, "New event");
+        setCardDate(s, id, "date", { ...bucket.date });
+      } else {
+        // The new scene gets its own row, just after the row it was made in.
+        id = addCardAt(s, row ? { chapter: row.chapter, plotLine, afterCardId: row.id } : { chapter: cell.chapterId ?? null, plotLine });
+      }
+      addCharacterByName(s, id, character.name, "present");
+    });
+    if (id) {
+      this.select(id);
+      this.panel.focusTitle();
+    }
+  }
+
+  private fillMatrix(parent: HTMLElement, story: Story, clashes: Clash[]): void {
+    const axis = this.characterAxis;
+    const matrix = computeMatrix(story, axis, this.zoom);
+    const wrap = parent.createDiv({ cls: "story-planner-matrix-wrap" });
+    if (matrix.columns.length === 0) {
+      wrap.createDiv({
+        cls: "story-planner-empty",
+        text: axis === "time" ? "No scene has a date yet, so there is nothing to show in story time." : "Add a chapter to start.",
+      });
+    } else {
+      const legend = wrap.createDiv({ cls: "story-planner-panel-hint story-planner-matrix-legend" });
+      legend.setText(`${ROLE_MARKS.pov} point of view   ${ROLE_MARKS.present} present   ${ROLE_MARKS.mentioned} mentioned   A number counts the scenes.`);
+      const table = wrap.createEl("table", { cls: "story-planner-matrix" });
+      const head = table.createEl("thead").createEl("tr");
+      head.createEl("th", { cls: "story-planner-matrix-corner" });
+      for (const column of matrix.columns) head.createEl("th", { text: column.label, attr: { title: column.label } });
+      head.createEl("th", { text: "Scenes" });
+      const body = table.createEl("tbody");
+      for (const row of matrix.rows) {
+        const character = story.characters.find((c) => c.id === row.characterId)!;
+        const tr = body.createEl("tr");
+        if (row.total === 0) tr.addClass("is-absent");
+        const name = tr.createEl("th", { cls: "story-planner-matrix-name", text: character.name });
+        name.style.setProperty("--lane-color", character.color);
+        name.setAttr("title", `Follow ${character.name} in the track`);
+        name.addEventListener("click", () => {
+          const lanes = this.lanes(story);
+          this.setViewState({ characterMode: "track", characterLanes: lanes.includes(character.id) ? lanes : [...lanes, character.id] });
+        });
+        row.cells.forEach((cell, i) => {
+          const td = tr.createEl("td");
+          if (!cell.role) return;
+          td.addClass(`role-${cell.role}`);
+          td.createSpan({ cls: "story-planner-role-mark", text: ROLE_MARKS[cell.role] });
+          if (cell.cards.length > 1) td.createSpan({ cls: "story-planner-matrix-count", text: String(cell.cards.length) });
+          const titles = cell.cards.map((id) => story.cards[id]?.title ?? "").join(", ");
+          const clash = cell.clashes.length > 0 ? ". Possibly in two places at once." : "";
+          td.setAttr("title", `${character.name} in ${matrix.columns[i]!.label}: ${titles}${clash}`);
+          if (clash) td.addClass("has-clash");
+          // A click opens the first scene, or the first one with a clash.
+          td.addEventListener("click", () => this.select(cell.clashes[0] ?? cell.cards[0]!));
+        });
+        tr.createEl("td", { cls: "story-planner-matrix-total", text: String(row.total) });
+      }
+    }
+    this.renderClashes(wrap, story, clashes);
+  }
+
+  /** The list of possible clashes, under the matrix. Advisory only: a story may mean it. */
+  private renderClashes(parent: HTMLElement, story: Story, clashes: Clash[]): void {
+    const box = parent.createDiv({ cls: "story-planner-clashes" });
+    box.createDiv({ cls: "story-planner-tray-heading", text: clashes.length > 0 ? `Possible clashes (${clashes.length})` : "No clashes" });
+    box.createDiv({
+      cls: "story-planner-panel-hint",
+      text:
+        clashes.length > 0
+          ? "A character is in two scenes whose times overlap, in places that are not one inside the other. This is only a warning; a twin, a disguise or a lie can explain it."
+          : "No character is in two places at once. Scenes need a place and a time of day (or an end date) to be checked.",
+    });
+    const list = box.createEl("ul");
+    for (const clash of clashes) {
+      const character = story.characters.find((c) => c.id === clash.characterId);
+      const item = list.createEl("li");
+      item.createSpan({ text: `${character?.name ?? "Someone"}: ` });
+      clash.cards.forEach((id, i) => {
+        const card = story.cards[id]!;
+        if (i > 0) item.createSpan({ text: " and " });
+        const link = item.createEl("a", { text: card.title });
+        link.addEventListener("click", () => this.select(id));
+        const where = card.location ? locationPath(story, card.location) : "";
+        const when = card.date ? formatDateRange(story, card.date, card.endDate) : "";
+        item.createSpan({ cls: "story-planner-clash-detail", text: ` (${[where, when].filter(Boolean).join(", ")})` });
+      });
+    }
   }
 
   private button(parent: HTMLElement, text: string, onClick: () => void, disabled = false): HTMLButtonElement {

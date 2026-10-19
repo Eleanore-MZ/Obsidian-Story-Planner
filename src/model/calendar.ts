@@ -329,6 +329,24 @@ export function daysBetween(story: Story, a: StoryDate, b: StoryDate): number | 
   );
 }
 
+/** First and last-plus-one minute of the span of time a date covers at its own precision (a year, a month, a day, a part of the day or an hour of the clock), in the reference zone. */
+export function dateSpan(calendar: Calendar, date: StoryDate): [number, number] {
+  const perDay = minutesPerDay(calendar);
+  const line = lineYear(calendar, date.era, date.year);
+  if (date.month === undefined) return [daysBeforeYear(calendar, line) * perDay, daysBeforeYear(calendar, line + 1) * perDay];
+  if (date.day === undefined) {
+    const first = dayNumber(calendar, line, date.month, 1);
+    return [first * perDay, (first + daysInMonth(calendar, line, date.month)) * perDay];
+  }
+  const day = dayNumber(calendar, line, date.month, date.day) * perDay;
+  if (date.dayPart !== undefined) {
+    const part = calendar.dayParts?.find((p) => p.id === date.dayPart);
+    if (part) return [day + part.startHour * calendar.minutesPerHour, day + part.endHour * calendar.minutesPerHour];
+  }
+  if (date.minutes !== undefined) return [day + date.minutes, day + date.minutes + calendar.minutesPerHour];
+  return [day, day + perDay];
+}
+
 // ---------------------------------------------------------------------------
 // Formatting
 

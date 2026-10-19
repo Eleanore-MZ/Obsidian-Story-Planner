@@ -1026,3 +1026,22 @@
   gap: var(--size-4-2);
   margin-top: var(--size-4-1);
 }
+
+/* Board search. */
+
+.story-planner-search-box {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+
+.story-planner-search {
+  width: 14em;
+  max-width: 40vw;
+}
+
+.story-planner-search-count {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  white-space: nowrap;
+}

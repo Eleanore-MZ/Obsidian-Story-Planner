@@ -11,6 +11,7 @@ import { Card, CharacterRole, Id, Story } from "../model/types";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree } from "../model/setup";
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
+import { cardMatches, queryTerms, searchCards } from "../model/search";
 import { CardPanel, NoteHost } from "./CardPanel";
 import { SetupPanel } from "./SetupPanel";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
@@ -81,6 +82,14 @@ export class StoryBoardView extends TextFileView {
   private setup: SetupPanel;
   /** The spans of the story-time view as last drawn, by id, for drops. */
   private buckets = new Map<string, Bucket>();
+  /** Board search: cards that do not match are dimmed. Not saved; it lasts while the board is open. */
+  private query = "";
+  private searchTerms: string[] = [];
+  /** Which match Enter last went to. */
+  private matchIndex = -1;
+  private searchCount: HTMLElement | null = null;
+  /** A card to show once the story has loaded, for "Jump to card" on a board that is still opening. */
+  private pendingReveal: Id | null = null;
 
   constructor(leaf: WorkspaceLeaf, private plugin: StoryPlannerPlugin) {
     super(leaf);
@@ -95,6 +104,13 @@ export class StoryBoardView extends TextFileView {
     });
     this.scope.register(["Mod"], "y", () => {
       this.redo();
+      return false;
+    });
+    this.scope.register(["Mod"], "f", () => {
+      const input = this.headerEl.querySelector<HTMLInputElement>("input.story-planner-search");
+      if (!input) return true;
+      input.focus();
+      input.select();
       return false;
     });
     this.scope.register([], "Escape", () => {
@@ -190,6 +206,11 @@ export class StoryBoardView extends TextFileView {
     }
     this.lastCoalesce = null;
     this.render();
+    if (this.pendingReveal) {
+      const id = this.pendingReveal;
+      this.pendingReveal = null;
+      this.revealCard(id);
+    }
   }
 
   async onClose(): Promise<void> {
@@ -270,6 +291,90 @@ export class StoryBoardView extends TextFileView {
     for (const el of Array.from(this.boardEl.querySelectorAll<HTMLElement>("[data-card-id]"))) {
       el.classList.toggle("is-selected", el.dataset.cardId === this.panel.selected);
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Search and jumping to cards
+
+  private searchBox(parent: HTMLElement, story: Story): HTMLInputElement {
+    const box = parent.createDiv({ cls: "story-planner-search-box" });
+    const input = box.createEl("input", { cls: "story-planner-search" });
+    input.type = "search";
+    input.placeholder = "Search cards";
+    input.value = this.query;
+    input.setAttr("aria-label", "Search cards. Enter goes to the next match, Shift+Enter to the previous one.");
+    this.searchCount = box.createSpan({ cls: "story-planner-search-count" });
+    this.updateSearchCount(story);
+    input.addEventListener("input", () => {
+      this.query = input.value;
+      this.searchTerms = queryTerms(this.query);
+      this.matchIndex = -1;
+      if (this.story) {
+        this.updateSearchCount(this.story);
+        this.renderBoard(this.story);
+      }
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        this.stepMatch(e.shiftKey ? -1 : 1);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (input.value) {
+          input.value = "";
+          input.dispatchEvent(new Event("input"));
+        } else {
+          input.blur();
+        }
+      }
+    });
+    return input;
+  }
+
+  private updateSearchCount(story: Story): void {
+    if (!this.searchCount) return;
+    if (this.searchTerms.length === 0) {
+      this.searchCount.setText("");
+      return;
+    }
+    const total = searchCards(story, this.query).length;
+    this.searchCount.setText(
+      total === 0 ? "No cards" : this.matchIndex >= 0 ? `${this.matchIndex + 1} of ${total}` : `${total} ${total === 1 ? "card" : "cards"}`,
+    );
+  }
+
+  /** Selects the next (or previous) matching card and scrolls to it. */
+  private stepMatch(by: 1 | -1): void {
+    if (!this.story) return;
+    const matches = searchCards(this.story, this.query);
+    if (matches.length === 0) return;
+    this.matchIndex = (this.matchIndex + by + matches.length) % matches.length;
+    this.revealCard(matches[this.matchIndex]!.id);
+    this.updateSearchCount(this.story);
+  }
+
+  /** The story as the board has it, with edits not yet saved; null when the note could not be read. */
+  get currentStory(): Story | null {
+    return this.loadError ? null : this.story;
+  }
+
+  /** Shows a card: switches away from the setup page if needed, selects it and scrolls to it. */
+  revealCard(cardId: Id): void {
+    if (!this.story) {
+      this.pendingReveal = cardId;
+      return;
+    }
+    if (!this.story.cards[cardId]) return;
+    if (this.tab === "setup") this.showTab("board");
+    let el = this.boardEl.querySelector<HTMLElement>(`.story-planner-card[data-card-id="${CSS.escape(cardId)}"]`);
+    // Not every view shows every card (undated cards, characters not tracked); fall back to the board.
+    if (!el && this.tab !== "board") {
+      this.showTab("board");
+      el = this.boardEl.querySelector<HTMLElement>(`.story-planner-card[data-card-id="${CSS.escape(cardId)}"]`);
+    }
+    this.select(cardId);
+    el?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
   }
 
   // -------------------------------------------------------------------------
@@ -478,6 +583,10 @@ export class StoryBoardView extends TextFileView {
   private render(typing = false): void {
     const root = this.headerEl;
     this.dropTargets.clear();
+    // The search box is redrawn with the toolbar; keep the cursor in it.
+    const active = document.activeElement;
+    const searching = active instanceof HTMLInputElement && active.matches("input.story-planner-search") && root.contains(active);
+    const caret = searching ? [active.selectionStart, active.selectionEnd] : null;
     root.empty();
 
     if (this.loadError || !this.story) {
@@ -515,6 +624,13 @@ export class StoryBoardView extends TextFileView {
     toolbar.createEl("h2", { text: story.title, cls: "story-planner-title" });
     this.button(toolbar, "Undo", () => this.undo(), !this.history.canUndo);
     this.button(toolbar, "Redo", () => this.redo(), !this.history.canRedo);
+    if (this.tab !== "setup") {
+      const input = this.searchBox(toolbar, story);
+      if (caret) {
+        input.focus({ preventScroll: true });
+        input.setSelectionRange(caret[0] ?? null, caret[1] ?? null);
+      }
+    }
 
     // View tabs, like the views of a Notion database. More views (story
     // time, characters) join this row later.
@@ -764,6 +880,7 @@ export class StoryBoardView extends TextFileView {
 
   /** Whether a card matches the highlight; undefined when nothing is highlighted. */
   private highlighted(card: Card, story: Story): boolean | undefined {
+    if (this.searchTerms.length > 0 && !cardMatches(story, card, this.searchTerms)) return false;
     const [kind, id] = this.highlight.split(":");
     if (!kind || !id) return undefined;
     if (kind === "character") return story.characters.some((c) => c.id === id) ? card.characters.some((c) => c.id === id) : undefined;

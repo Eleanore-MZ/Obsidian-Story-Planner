@@ -2,6 +2,7 @@ import { FuzzySuggestModal, MarkdownView, normalizePath, Notice, Plugin, TAbstra
 import { FRONTMATTER_KEY, FRONTMATTER_VALUE, parseStory, serializeStory } from "./format/storyFile";
 import { createEmptyStory } from "./model/defaults";
 import { DEFAULT_NOTE_TEMPLATE, fillTemplate, noteFileName, noteValues, renameLinkedPath } from "./model/links";
+import { cardsInReadingOrder } from "./model/search";
 import { Card, Story } from "./model/types";
 import { SnapshotInfo } from "./model/snapshots";
 import { SnapshotStore } from "./snapshotStore";
@@ -37,6 +38,12 @@ export default class StoryPlannerPlugin extends Plugin {
       id: "open-story",
       name: "Open story",
       callback: () => new StoryPickerModal(this).open(),
+    });
+
+    this.addCommand({
+      id: "jump-to-card",
+      name: "Jump to card",
+      callback: () => void this.jumpToCard(),
     });
 
     this.addCommand({
@@ -143,6 +150,52 @@ export default class StoryPlannerPlugin extends Plugin {
         return serializeStory(parsed.story, parsed.frontmatter);
       });
     }
+  }
+
+  /**
+   * Lets the writer pick a card and shows it on its board. From a board, the
+   * cards of that story come first; the cards of every other story follow.
+   */
+  private async jumpToCard(): Promise<void> {
+    const active = this.app.workspace.getActiveViewOfType(StoryBoardView);
+    const items: CardChoice[] = [];
+    const add = (file: TFile, story: Story) => {
+      const chapters = new Map(story.chapters.map((c) => [c.id, c.name]));
+      for (const card of cardsInReadingOrder(story)) {
+        const where = (card.chapter !== null && chapters.get(card.chapter)) || "Off-page";
+        items.push({ file, cardId: card.id, text: `${card.title} · ${where} · ${story.title}` });
+      }
+    };
+    const open = new Map(this.boards().filter((v) => v.file).map((v) => [v.file!.path, v]));
+    if (active?.file && active.currentStory) add(active.file, active.currentStory);
+    for (const file of this.storyFiles()) {
+      if (file === active?.file) continue;
+      const inMemory = open.get(file.path)?.currentStory;
+      if (inMemory) {
+        add(file, inMemory);
+        continue;
+      }
+      const parsed = parseStory(await this.app.vault.cachedRead(file));
+      if (parsed.ok) add(file, parsed.story);
+    }
+    if (items.length === 0) {
+      new Notice("There are no cards to jump to yet.");
+      return;
+    }
+    new CardPickerModal(this, items, (item) => void this.showCard(item.file, item.cardId)).open();
+  }
+
+  /** Opens a story's board (or uses the one already open) and shows a card on it. */
+  async showCard(file: TFile, cardId: string): Promise<void> {
+    let view = this.boards().find((v) => v.file === file);
+    if (view) {
+      this.app.workspace.setActiveLeaf(view.leaf, { focus: true });
+    } else {
+      const leaf = this.app.workspace.getLeaf(false);
+      await this.openAsBoard(leaf, file);
+      view = leaf.view instanceof StoryBoardView ? leaf.view : undefined;
+    }
+    view?.revealCard(cardId);
   }
 
   /** True when a linked note exists in the vault. */
@@ -270,6 +323,35 @@ class StoryPickerModal extends FuzzySuggestModal<TFile> {
 
   onChooseItem(file: TFile): void {
     void this.plugin.openAsBoard(this.app.workspace.getLeaf(false), file);
+  }
+}
+
+interface CardChoice {
+  file: TFile;
+  cardId: string;
+  text: string;
+}
+
+class CardPickerModal extends FuzzySuggestModal<CardChoice> {
+  constructor(
+    plugin: StoryPlannerPlugin,
+    private items: CardChoice[],
+    private onPick: (item: CardChoice) => void,
+  ) {
+    super(plugin.app);
+    this.setPlaceholder("Jump to card…");
+  }
+
+  getItems(): CardChoice[] {
+    return this.items;
+  }
+
+  getItemText(item: CardChoice): string {
+    return item.text;
+  }
+
+  onChooseItem(item: CardChoice): void {
+    this.onPick(item);
   }
 }
 

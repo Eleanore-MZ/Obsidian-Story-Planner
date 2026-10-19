@@ -3,6 +3,7 @@ import { EXPORT_EXTENSIONS, ExportFormat, ExportOrder } from "../format/export";
 import { Story, StoryDate } from "../model/types";
 import { DateEditor } from "./DateEditor";
 import { reorderHandle } from "./reorder";
+import { guardComposition } from "./composition";
 
 /** Asks for a single line of text, such as a story or chapter name. */
 export class TextPromptModal extends Modal {
@@ -19,6 +20,7 @@ export class TextPromptModal extends Modal {
   }
 
   onOpen(): void {
+    guardComposition(this.modalEl);
     this.titleEl.setText(this.heading);
     new Setting(this.contentEl).addText((t) => {
       t.setValue(this.value).onChange((v) => (this.value = v));
@@ -67,6 +69,7 @@ export class ChoiceModal extends Modal {
   }
 
   onOpen(): void {
+    guardComposition(this.modalEl);
     this.titleEl.setText(this.choice.title);
     this.contentEl.createEl("p", { text: this.choice.message });
     new Setting(this.contentEl).addDropdown((d) => {
@@ -107,6 +110,7 @@ export class DateModal extends Modal {
   }
 
   onOpen(): void {
+    guardComposition(this.modalEl);
     this.titleEl.setText(this.heading);
     this.contentEl.addClass("story-planner-date-modal");
     this.contentEl.createEl("p", { text: this.message });
@@ -151,6 +155,7 @@ export class LaneModal extends Modal {
   }
 
   onOpen(): void {
+    guardComposition(this.modalEl);
     this.titleEl.setText("Characters to track");
     this.draw();
   }
@@ -245,6 +250,7 @@ export class FormModal extends Modal {
   }
 
   onOpen(): void {
+    guardComposition(this.modalEl);
     this.titleEl.setText(this.heading);
     this.modalEl.addClass("story-planner-form-modal");
     const inputs: HTMLElement[] = [];
@@ -326,6 +332,7 @@ export class ExportModal extends Modal {
   }
 
   onOpen(): void {
+    guardComposition(this.modalEl);
     this.titleEl.setText("Export story");
     this.contentEl.createEl("p", {
       text: "The export is written to a new file. The story note is not changed, and an existing file is never overwritten.",

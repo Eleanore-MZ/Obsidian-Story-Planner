@@ -132,10 +132,17 @@ export class SetupPanel {
     return this.open;
   }
 
+  /**
+   * Shows or hides the page. It is called on every redraw of the board, so it
+   * redraws the page only when it opens or closes: rebuilding it while someone
+   * types would replace the field under the cursor (and break input methods).
+   */
   setOpen(open: boolean, story: Story | null): void {
-    if (open && !this.open) this.calendarSnapshotTaken = false;
+    const opening = open && !this.open;
+    if (opening) this.calendarSnapshotTaken = false;
+    const was = this.open;
     this.open = open && !!story;
-    this.refresh(story);
+    if (this.open !== was || !this.open) this.refresh(story);
   }
 
   /** Redraws the panel for the current story. `soft` (typing in the panel) leaves it as it is. */

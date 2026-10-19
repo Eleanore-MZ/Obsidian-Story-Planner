@@ -14,6 +14,7 @@ import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
 import { cardMatches, queryTerms, searchCards } from "../model/search";
 import { CardPanel, NoteHost } from "./CardPanel";
 import { Minimap } from "./Minimap";
+import { guardComposition } from "./composition";
 import { STORY_ICON } from "../icon";
 import { SetupPanel } from "./SetupPanel";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
@@ -157,6 +158,8 @@ export class StoryBoardView extends TextFileView {
     });
 
     this.contentEl.addClass("story-planner");
+    // Fields on the board, in the card panel and in setup work with input methods.
+    guardComposition(this.contentEl);
     this.headerEl = this.contentEl.createDiv({ cls: "story-planner-header" });
     this.bodyEl = this.contentEl.createDiv({ cls: "story-planner-body" });
     this.boardEl = this.bodyEl.createDiv({ cls: "story-planner-board" });

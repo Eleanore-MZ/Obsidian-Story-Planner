@@ -2,8 +2,10 @@ import { Card, Story } from "../model/types";
 
 // Pure layout of the plot line board, kept free of Obsidian and the DOM so it
 // can be unit tested. The board is a grid of lanes (plot lines) and slots.
-// Each chapter contributes a header slot followed by one slot per scene, in
-// scene order, so reading along the slots gives the order of the book.
+// Each chapter contributes a header slot, one slot per scene in scene order,
+// and a thin drop-zone slot at its end, so reading along the slots gives the
+// order of the book. Every lane has an item in every content slot (a card, an
+// echo or an empty cell), so there is somewhere to drop anywhere on the board.
 // Orientation only decides whether lanes are columns or rows.
 
 export type Orientation = "vertical" | "horizontal";
@@ -14,7 +16,11 @@ export type BoardItem =
   | { kind: "chapter-header"; chapterId: string | null }
   | { kind: "card"; cardId: string }
   | { kind: "echo"; cardId: string; plotLineId: string }
-  | { kind: "add-card"; chapterId: string | null; plotLineId: string };
+  | { kind: "add-card"; chapterId: string | null; plotLineId: string }
+  /** Empty space beside a scene in another plot line; a drop lands next to that scene. */
+  | { kind: "empty"; cardId: string; plotLineId: string }
+  /** Drop zone after a chapter's last scene, so cards can be dropped at the end. */
+  | { kind: "chapter-end"; chapterId: string | null; plotLineId: string };
 
 export interface PlacedItem {
   item: BoardItem;
@@ -59,17 +65,30 @@ export function computeBoardLayout(story: Story, orientation: Orientation): Boar
       items.push({ item: { kind: "add-card", chapterId: group.chapterId, plotLineId: p.id }, slot, lane: i + 1 });
     });
     slot++;
-    for (const card of group.cards) {
-      const lane = laneIndex.get(card.plotLine);
-      if (lane === undefined) continue; // its plot line no longer exists
-      items.push({ item: { kind: "card", cardId: card.id }, slot, lane: lane + 1 });
-      for (const other of card.alsoIn) {
-        const echoLane = laneIndex.get(other);
-        if (echoLane === undefined || echoLane === lane) continue;
-        items.push({ item: { kind: "echo", cardId: card.id, plotLineId: other }, slot, lane: echoLane + 1 });
+    for (const row of sceneRows(group.cards, laneIndex)) {
+      const filled = new Set<number>();
+      for (const card of row) {
+        const lane = laneIndex.get(card.plotLine)!;
+        filled.add(lane);
+        items.push({ item: { kind: "card", cardId: card.id }, slot, lane: lane + 1 });
+        for (const other of card.alsoIn) {
+          const echoLane = laneIndex.get(other);
+          if (echoLane === undefined || filled.has(echoLane)) continue;
+          filled.add(echoLane);
+          items.push({ item: { kind: "echo", cardId: card.id, plotLineId: other }, slot, lane: echoLane + 1 });
+        }
       }
+      // Every other lane gets an empty cell, so the whole row accepts drops.
+      // It refers to the row's first card, which stands for the row.
+      story.plotLines.forEach((p, i) => {
+        if (!filled.has(i)) items.push({ item: { kind: "empty", cardId: row[0]!.id, plotLineId: p.id }, slot, lane: i + 1 });
+      });
       slot++;
     }
+    story.plotLines.forEach((p, i) => {
+      items.push({ item: { kind: "chapter-end", chapterId: group.chapterId, plotLineId: p.id }, slot, lane: i + 1 });
+    });
+    slot++;
   }
 
   const vertical = orientation === "vertical";
@@ -82,4 +101,35 @@ export function computeBoardLayout(story: Story, orientation: Orientation): Boar
       column: (vertical ? lane : slot) + 1,
     })),
   };
+}
+
+/**
+ * Splits a chapter's cards into board rows. Cards that share an order share a
+ * row, left to right by plot line. If two of them would need the same cell
+ * (the same plot line, or one's echo where the other sits), the later one
+ * starts another row with the same order.
+ */
+function sceneRows(cards: Card[], laneIndex: Map<string, number>): Card[][] {
+  const rows: Card[][] = [];
+  let lastOrder: number | null = null;
+  let open: { cards: Card[]; lanes: Set<number> }[] = [];
+  const placed = cards
+    .filter((c) => laneIndex.has(c.plotLine)) // its plot line no longer exists
+    .sort((a, b) => a.order - b.order || laneIndex.get(a.plotLine)! - laneIndex.get(b.plotLine)! || a.id.localeCompare(b.id));
+  for (const card of placed) {
+    if (card.order !== lastOrder) {
+      open = [];
+      lastOrder = card.order;
+    }
+    const lanes = [card.plotLine, ...card.alsoIn].map((p) => laneIndex.get(p)).filter((l): l is number => l !== undefined);
+    let row = open.find((r) => lanes.every((l) => !r.lanes.has(l)));
+    if (!row) {
+      row = { cards: [], lanes: new Set() };
+      open.push(row);
+      rows.push(row.cards);
+    }
+    row.cards.push(card);
+    lanes.forEach((l) => row!.lanes.add(l));
+  }
+  return rows;
 }

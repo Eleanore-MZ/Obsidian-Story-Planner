@@ -142,3 +142,90 @@
 .story-planner-wide-input {
   width: 100%;
 }
+
+/* Drag and drop */
+
+.story-planner-toolbar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.story-planner-card,
+.story-planner-lane-header,
+.story-planner-chapter-header:not(.is-off-page) {
+  cursor: grab;
+}
+
+.story-planner .is-dragging {
+  opacity: 0.4;
+}
+
+/* Empty cells, the add-card cells and the chapter-end strips fill their whole
+   grid cell, so a card can be dropped anywhere in a plot line. */
+.story-planner-cell,
+.story-planner-add-card,
+.story-planner-chapter-end {
+  align-self: stretch;
+  justify-self: stretch;
+}
+
+.story-planner-cell {
+  min-height: var(--size-4-6);
+  border-radius: var(--radius-m);
+}
+
+.story-planner.is-drag-active .story-planner-cell {
+  outline: 1px dashed var(--background-modifier-border);
+  outline-offset: -1px;
+}
+
+.story-planner-chapter-end {
+  min-height: var(--size-4-2);
+  border-radius: var(--radius-s);
+}
+
+.story-planner.is-drag-active .story-planner-chapter-end {
+  min-height: var(--size-4-6);
+  border: 1px dashed var(--background-modifier-border);
+}
+
+.story-planner .is-drop-target {
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent);
+}
+
+.story-planner-grid.is-vertical .is-drop-before {
+  box-shadow: 0 -3px 0 0 var(--interactive-accent);
+}
+
+.story-planner-grid.is-vertical .is-drop-after {
+  box-shadow: 0 3px 0 0 var(--interactive-accent);
+}
+
+.story-planner-grid.is-horizontal .is-drop-before {
+  box-shadow: -3px 0 0 0 var(--interactive-accent);
+}
+
+.story-planner-grid.is-horizontal .is-drop-after {
+  box-shadow: 3px 0 0 0 var(--interactive-accent);
+}
+
+.story-planner-grid {
+  user-select: none;
+}
+
+.story-planner-drag-ghost {
+  position: fixed;
+  z-index: var(--layer-popover, 30);
+  pointer-events: none;
+  padding: var(--size-4-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  border: 1px solid var(--interactive-accent);
+  box-shadow: var(--shadow-s);
+  font-size: var(--font-ui-small);
+  max-width: 16rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

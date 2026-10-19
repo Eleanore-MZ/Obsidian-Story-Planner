@@ -149,7 +149,10 @@ export function renderOutline(story: Story): string {
     out.push("");
   };
 
-  const byOrder = (a: Card, b: Card) => a.order - b.order || a.id.localeCompare(b.id);
+  // Cards that share an order share a row on the board, read left to right by plot line.
+  const lane = new Map(story.plotLines.map((p, i) => [p.id, i]));
+  const laneOf = (c: Card) => lane.get(c.plotLine) ?? story.plotLines.length;
+  const byOrder = (a: Card, b: Card) => a.order - b.order || laneOf(a) - laneOf(b) || a.id.localeCompare(b.id);
 
   for (const chapter of story.chapters) {
     out.push(`## ${escapeText(chapter.name)}`);

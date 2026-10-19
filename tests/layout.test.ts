@@ -54,4 +54,43 @@ describe("board layout", () => {
     story.cards[offPage.id] = offPage;
     expect(headers()).toHaveLength(2);
   });
+
+  it("ends every chapter with a drop zone in each plot line", () => {
+    const { story, second } = storyWithTwoPlotLines();
+    const layout = computeBoardLayout(story, "vertical");
+    const ends = layout.items.filter((p) => p.item.kind === "chapter-end");
+    expect(ends).toHaveLength(2);
+    const last = layout.items.find((p) => p.item.kind === "card" && p.item.cardId === second.id)!;
+    expect(ends.every((e) => e.row === last.row + 1)).toBe(true);
+  });
+
+  it("fills every plot line in every scene row, so any empty spot accepts a drop", () => {
+    const { story, first, second } = storyWithTwoPlotLines();
+    story.plotLines.push({ id: "p3", name: "Mystery", color: "#5cb85c" });
+    const layout = computeBoardLayout(story, "vertical");
+    for (const card of [first, second]) {
+      const row = layout.items.find((p) => p.item.kind === "card" && p.item.cardId === card.id)!.row;
+      const columns = layout.items.filter((p) => p.row === row && p.column > 1).map((p) => p.column);
+      expect(columns.sort()).toEqual([2, 3, 4]);
+    }
+    const empties = layout.items.filter((p) => p.item.kind === "empty");
+    // First: card in p1, echo in p2, empty in p3. Second: card in p2, empty in p1 and p3.
+    expect(empties).toHaveLength(3);
+    expect(empties.every((p) => p.item.kind === "empty" && story.cards[p.item.cardId])).toBe(true);
+  });
+
+  it("puts cards that share an order on one row, and splits them if they would need the same cell", () => {
+    const { story, first, second } = storyWithTwoPlotLines();
+    const rowOf = (layout: ReturnType<typeof computeBoardLayout>, id: string) =>
+      layout.items.find((p) => p.item.kind === "card" && p.item.cardId === id)!.row;
+    // "First" has an echo in p2, where "Second" lives, so they cannot share a row.
+    second.order = first.order;
+    let layout = computeBoardLayout(story, "vertical");
+    expect(rowOf(layout, second.id)).toBe(rowOf(layout, first.id) + 1);
+    // Without the echo they sit side by side.
+    first.alsoIn = [];
+    layout = computeBoardLayout(story, "vertical");
+    expect(rowOf(layout, second.id)).toBe(rowOf(layout, first.id));
+    expect(layout.items.filter((p) => p.row === rowOf(layout, first.id) && p.item.kind === "empty")).toHaveLength(0);
+  });
 });

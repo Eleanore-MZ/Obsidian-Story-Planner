@@ -1,12 +1,31 @@
-import { Notice, TextFileView, WorkspaceLeaf } from "obsidian";
+import { Notice, Scope, TextFileView, WorkspaceLeaf } from "obsidian";
 import type StoryPlannerPlugin from "../main";
 import { createCard, newId } from "../model/defaults";
+import { History } from "../model/history";
+import { chapterCards, moveCard, moveInList } from "../model/moves";
 import { Card, Story } from "../model/types";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
 import { CardEditModal, TextPromptModal } from "./modals";
 
 export const STORY_BOARD_VIEW = "story-planner-board";
+
+/** What is being dragged. */
+type Dragged = { kind: "card" | "plotLine" | "chapter"; id: string };
+
+/** Where a drop lands relative to its target. */
+type DropPlace = "before" | "after" | "on";
+
+interface DropTargetSpec {
+  accepts: Dragged["kind"];
+  axis: "slot" | "lane" | null;
+  /** With an axis, the middle half of the target means "on" rather than before or after. */
+  middle: boolean;
+  onDrop: (place: DropPlace) => void;
+}
+
+/** Pixels the pointer must move before a press becomes a drag. */
+const DRAG_THRESHOLD = 5;
 
 /**
  * Shows a story note as a board. The note stays the source of truth: Obsidian
@@ -20,9 +39,35 @@ export class StoryBoardView extends TextFileView {
   private loadError: string | null = null;
   private warnings: string[] = [];
   private outlineEdited = false;
+  private history = new History();
+  /** The text we last produced, to tell our own saves apart from outside changes such as a sync. */
+  private lastWritten: string | null = null;
+  private dragged: Dragged | null = null;
+  private dropTargets = new Map<HTMLElement, DropTargetSpec>();
+  private suppressClick = false;
 
   constructor(leaf: WorkspaceLeaf, private plugin: StoryPlannerPlugin) {
     super(leaf);
+    this.scope = new Scope(this.app.scope);
+    this.scope.register(["Mod"], "z", () => {
+      this.undo();
+      return false;
+    });
+    this.scope.register(["Mod", "Shift"], "z", () => {
+      this.redo();
+      return false;
+    });
+    this.scope.register(["Mod"], "y", () => {
+      this.redo();
+      return false;
+    });
+    this.contentEl.addEventListener(
+      "click",
+      (e) => {
+        if (this.suppressClick) e.stopPropagation();
+      },
+      true,
+    );
   }
 
   getViewType(): string {
@@ -47,10 +92,14 @@ export class StoryBoardView extends TextFileView {
   getViewData(): string {
     // Never rewrite a note we could not read.
     if (this.loadError || !this.story) return this.data;
-    return serializeStory(this.story, this.frontmatter);
+    this.lastWritten = serializeStory(this.story, this.frontmatter);
+    return this.lastWritten;
   }
 
   setViewData(data: string, clear: boolean): void {
+    // A change that did not come from this board (another file, a sync)
+    // makes the undo history meaningless.
+    if (clear || data !== this.lastWritten) this.history.clear();
     this.data = data;
     const result = parseStory(data);
     if (result.ok) {
@@ -69,10 +118,82 @@ export class StoryBoardView extends TextFileView {
     this.render();
   }
 
+  async onClose(): Promise<void> {
+    this.cancelDrag();
+  }
+
   clear(): void {
+    this.cancelDrag();
     this.story = null;
     this.loadError = null;
+    this.history.clear();
     this.contentEl.empty();
+  }
+
+  // -------------------------------------------------------------------------
+  // Editing, undo and redo
+
+  /** Applies a change with undo support. The change returns false when it turned out to change nothing. */
+  private mutate(change: (story: Story) => boolean | void): void {
+    if (!this.story) return;
+    const before = JSON.stringify(this.story);
+    const draft = JSON.parse(before) as Story;
+    if (change(draft) === false || JSON.stringify(draft) === before) return;
+    this.history.record(this.story);
+    this.story = draft;
+    this.changed();
+  }
+
+  undo(): void {
+    if (!this.story) return;
+    const previous = this.history.undo(this.story);
+    if (!previous) return;
+    this.story = previous;
+    this.changed();
+  }
+
+  redo(): void {
+    if (!this.story) return;
+    const next = this.history.redo(this.story);
+    if (!next) return;
+    this.story = next;
+    this.changed();
+  }
+
+  private changed(): void {
+    this.outlineEdited = false;
+    this.requestSave();
+    this.render();
+  }
+
+  private addCard(chapterId: string | null, plotLineId: string): void {
+    const draft = { title: "", synopsis: "", status: "idea" as const };
+    new CardEditModal(this.app, draft, (edit) => {
+      this.mutate((story) => {
+        const order = chapterCards(story, chapterId).reduce((max, c) => Math.max(max, c.order), 0) + 1;
+        const card = createCard({ ...edit, plotLine: plotLineId, chapter: chapterId, order });
+        story.cards[card.id] = card;
+      });
+    }).open();
+  }
+
+  private editCard(cardId: string): void {
+    const card = this.story?.cards[cardId];
+    if (!card) return;
+    new CardEditModal(
+      this.app,
+      card,
+      (edit) =>
+        this.mutate((story) => {
+          Object.assign(story.cards[cardId]!, edit, { modified: new Date().toISOString() });
+        }),
+      () => {
+        this.mutate((story) => {
+          delete story.cards[cardId];
+        });
+        new Notice(`Deleted "${card.title}". Press Ctrl+Z to undo.`);
+      },
+    ).open();
   }
 
   // -------------------------------------------------------------------------
@@ -95,6 +216,7 @@ export class StoryBoardView extends TextFileView {
 
   private render(): void {
     const root = this.contentEl;
+    this.dropTargets.clear();
     root.empty();
     root.addClass("story-planner");
 
@@ -121,17 +243,21 @@ export class StoryBoardView extends TextFileView {
 
     const toolbar = root.createDiv({ cls: "story-planner-toolbar" });
     toolbar.createEl("h2", { text: story.title, cls: "story-planner-title" });
+    this.button(toolbar, "Undo", () => this.undo(), !this.history.canUndo);
+    this.button(toolbar, "Redo", () => this.redo(), !this.history.canRedo);
     this.button(toolbar, "Add plot line", () =>
-      new TextPromptModal(this.app, "New plot line", "", (name) => {
-        story.plotLines.push({ id: newId("p"), name, color: PALETTE[story.plotLines.length % PALETTE.length]! });
-        this.changed();
-      }).open(),
+      new TextPromptModal(this.app, "New plot line", "", (name) =>
+        this.mutate((s) => {
+          s.plotLines.push({ id: newId("p"), name, color: PALETTE[s.plotLines.length % PALETTE.length]! });
+        }),
+      ).open(),
     );
     this.button(toolbar, "Add chapter", () =>
-      new TextPromptModal(this.app, "New chapter", `Chapter ${story.chapters.length + 1}`, (name) => {
-        story.chapters.push({ id: newId("c"), name });
-        this.changed();
-      }).open(),
+      new TextPromptModal(this.app, "New chapter", `Chapter ${story.chapters.length + 1}`, (name) =>
+        this.mutate((s) => {
+          s.chapters.push({ id: newId("c"), name });
+        }),
+      ).open(),
     );
 
     if (story.plotLines.length === 0) {
@@ -165,11 +291,18 @@ export class StoryBoardView extends TextFileView {
         el.style.setProperty("--lane-color", plotLine?.color ?? "var(--interactive-accent)");
         el.addEventListener("dblclick", () => {
           if (!plotLine) return;
-          new TextPromptModal(this.app, "Rename plot line", plotLine.name, (name) => {
-            plotLine.name = name;
-            this.changed();
-          }).open();
+          new TextPromptModal(this.app, "Rename plot line", plotLine.name, (name) =>
+            this.mutate((s) => {
+              s.plotLines.find((p) => p.id === plotLine.id)!.name = name;
+            }),
+          ).open();
         });
+        this.makeDraggable(el, { kind: "plotLine", id: item.plotLineId });
+        this.makeDropTarget(el, "plotLine", "lane", (place) =>
+          this.mutate((s) =>
+            moveInList(s.plotLines, this.dragged!.id, neighbour(s.plotLines, item.plotLineId, place === "after")),
+          ),
+        );
         return el;
       }
 
@@ -181,11 +314,16 @@ export class StoryBoardView extends TextFileView {
         });
         if (chapter) {
           el.addEventListener("dblclick", () => {
-            new TextPromptModal(this.app, "Rename chapter", chapter.name, (name) => {
-              chapter.name = name;
-              this.changed();
-            }).open();
+            new TextPromptModal(this.app, "Rename chapter", chapter.name, (name) =>
+              this.mutate((s) => {
+                s.chapters.find((c) => c.id === chapter.id)!.name = name;
+              }),
+            ).open();
           });
+          this.makeDraggable(el, { kind: "chapter", id: chapter.id });
+          this.makeDropTarget(el, "chapter", "slot", (place) =>
+            this.mutate((s) => moveInList(s.chapters, this.dragged!.id, neighbour(s.chapters, chapter.id, place === "after"))),
+          );
         } else {
           el.addClass("is-off-page");
         }
@@ -195,7 +333,35 @@ export class StoryBoardView extends TextFileView {
       case "add-card": {
         const el = grid.createDiv({ cls: "story-planner-add-card", text: "+" });
         el.setAttr("aria-label", "Add card");
-        el.addEventListener("click", () => this.addCard(story, item.chapterId, item.plotLineId));
+        el.addEventListener("click", () => this.addCard(item.chapterId, item.plotLineId));
+        // Dropping here puts the card first in the chapter.
+        this.makeDropTarget(el, "card", null, () =>
+          this.mutate((s) =>
+            moveCard(s, this.dragged!.id, {
+              chapter: item.chapterId,
+              plotLine: item.plotLineId,
+              beforeCardId: chapterCards(s, item.chapterId).find((c) => c.id !== this.dragged!.id)?.id ?? null,
+            }),
+          ),
+        );
+        return el;
+      }
+
+      case "empty": {
+        // Empty space in a plot line, in the row of a scene in another plot
+        // line: the middle puts the dropped card in that row, beside the scene;
+        // the edges put it in a new row just before or after.
+        const el = grid.createDiv({ cls: "story-planner-cell" });
+        const card = story.cards[item.cardId]!;
+        this.makeCardDropTarget(el, card, item.plotLineId, true);
+        return el;
+      }
+
+      case "chapter-end": {
+        const el = grid.createDiv({ cls: "story-planner-chapter-end" });
+        this.makeDropTarget(el, "card", null, () =>
+          this.mutate((s) => moveCard(s, this.dragged!.id, { chapter: item.chapterId, plotLine: item.plotLineId })),
+        );
         return el;
       }
 
@@ -206,7 +372,9 @@ export class StoryBoardView extends TextFileView {
         el.style.setProperty("--lane-color", plotLine?.color ?? "var(--interactive-accent)");
         el.createDiv({ cls: "story-planner-card-title", text: card.title });
         if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
-        el.addEventListener("click", () => this.editCard(story, card));
+        el.addEventListener("click", () => this.editCard(card.id));
+        this.makeDraggable(el, { kind: "card", id: card.id });
+        this.makeCardDropTarget(el, card, card.plotLine);
         return el;
       }
 
@@ -216,51 +384,169 @@ export class StoryBoardView extends TextFileView {
         const el = grid.createDiv({ cls: "story-planner-echo", text: card.title });
         el.style.setProperty("--lane-color", home?.color ?? "var(--interactive-accent)");
         el.setAttr("aria-label", `Also in ${home?.name ?? "another plot line"}`);
-        el.addEventListener("click", () => this.editCard(story, card));
+        el.addEventListener("click", () => this.editCard(card.id));
+        this.makeCardDropTarget(el, card, item.plotLineId);
         return el;
       }
     }
   }
 
-  private button(parent: HTMLElement, text: string, onClick: () => void): void {
-    parent.createEl("button", { text }).addEventListener("click", onClick);
+  private button(parent: HTMLElement, text: string, onClick: () => void, disabled = false): void {
+    const el = parent.createEl("button", { text });
+    el.disabled = disabled;
+    el.addEventListener("click", onClick);
   }
 
   // -------------------------------------------------------------------------
-  // Editing
+  // Drag and drop. This uses plain pointer events rather than the browser's
+  // HTML5 drag and drop, which Obsidian's own drag handling interferes with.
+  // A press becomes a drag only after the pointer moves a few pixels, so a
+  // plain click still opens the card.
 
-  private addCard(story: Story, chapterId: string | null, plotLineId: string): void {
-    const draft = { title: "", synopsis: "", status: "idea" as const };
-    new CardEditModal(this.app, draft, (edit) => {
-      const siblings = Object.values(story.cards).filter((c) => c.chapter === chapterId);
-      const order = siblings.reduce((max, c) => Math.max(max, c.order), 0) + 1;
-      const card = createCard({ ...edit, plotLine: plotLineId, chapter: chapterId, order });
-      story.cards[card.id] = card;
-      this.changed();
-    }).open();
+  private makeDraggable(el: HTMLElement, dragged: Dragged): void {
+    el.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      this.cancelDrag();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      let ghost: HTMLElement | null = null;
+      let target: { el: HTMLElement; spec: DropTargetSpec } | null = null;
+      let place: DropPlace = "on";
+
+      const clearMark = () => target?.el.removeClass("is-drop-target", "is-drop-before", "is-drop-after");
+
+      const onMove = (ev: PointerEvent) => {
+        if (!ghost) {
+          if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
+          this.dragged = dragged;
+          ghost = document.body.createDiv({ cls: "story-planner-drag-ghost", text: el.innerText.split("\n")[0] ?? "" });
+          el.addClass("is-dragging");
+          this.contentEl.addClass("is-drag-active");
+        }
+        ev.preventDefault();
+        ghost.style.left = `${ev.clientX + 12}px`;
+        ghost.style.top = `${ev.clientY + 12}px`;
+
+        clearMark();
+        target = this.dropTargetAt(ev.clientX, ev.clientY, dragged.kind);
+        if (target) {
+          place = this.dropPlace(ev, target.el, target.spec);
+          target.el.addClass(place === "on" ? "is-drop-target" : place === "after" ? "is-drop-after" : "is-drop-before");
+        }
+      };
+
+      const finish = (drop: boolean) => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("keydown", onKey, true);
+        this.cancelDrag = () => {};
+        clearMark();
+        el.removeClass("is-dragging");
+        this.contentEl.removeClass("is-drag-active");
+        if (ghost) {
+          ghost.remove();
+          // The click that follows a drag must not open the card editor.
+          this.suppressClick = true;
+          window.setTimeout(() => (this.suppressClick = false), 0);
+          if (drop && target) target.spec.onDrop(place);
+        }
+        this.dragged = null;
+      };
+      const onUp = () => finish(true);
+      const onKey = (ev: KeyboardEvent) => {
+        if (ev.key === "Escape") {
+          ev.stopPropagation();
+          finish(false);
+        }
+      };
+
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+      window.addEventListener("keydown", onKey, true);
+      this.cancelDrag = () => finish(false);
+    });
   }
 
-  private editCard(story: Story, card: Card): void {
-    new CardEditModal(
-      this.app,
-      card,
-      (edit) => {
-        Object.assign(card, edit, { modified: new Date().toISOString() });
-        this.changed();
-      },
-      () => {
-        delete story.cards[card.id];
-        this.changed();
-        new Notice(`Deleted "${card.title}"`);
-      },
-    ).open();
+  /** Ends any drag in progress without dropping; replaced while a drag is running. */
+  private cancelDrag: () => void = () => {};
+
+  /**
+   * Registers a drop target for one kind of dragged item. With an axis, the
+   * drop lands before or after the target depending on which half the pointer
+   * is in: "slot" is the axis scenes run along, "lane" the axis plot lines run along.
+   */
+  private makeDropTarget(
+    el: HTMLElement,
+    accepts: Dragged["kind"],
+    axis: "slot" | "lane" | null,
+    onDrop: (place: DropPlace) => void,
+    middle = false,
+  ): void {
+    this.dropTargets.set(el, { accepts, axis, middle, onDrop });
   }
 
-  private changed(): void {
-    this.outlineEdited = false;
-    this.requestSave();
-    this.render();
+  private dropTargetAt(x: number, y: number, kind: Dragged["kind"]): { el: HTMLElement; spec: DropTargetSpec } | null {
+    // The pointer can sit in the gap between grid cells; look a few pixels
+    // around it so there is no dead space between targets.
+    for (const [dx, dy] of GAP_PROBES) {
+      for (let node = document.elementFromPoint(x + dx, y + dy); node && node !== this.contentEl; node = node.parentElement) {
+        const spec = this.dropTargets.get(node as HTMLElement);
+        if (spec) {
+          if (spec.accepts === kind) return { el: node as HTMLElement, spec };
+          break;
+        }
+      }
+    }
+    return null;
+  }
+
+  private dropPlace(e: PointerEvent, el: HTMLElement, spec: DropTargetSpec): DropPlace {
+    if (!spec.axis) return "on";
+    const rect = el.getBoundingClientRect();
+    const alongY = (spec.axis === "slot") === (this.orientation === "vertical");
+    // Fraction of the way along the axis, from 0 at the start to 1 at the end.
+    const t = alongY ? (e.clientY - rect.top) / rect.height : (e.clientX - rect.left) / rect.width;
+    if (spec.middle && t > 0.25 && t < 0.75) return "on";
+    return t < 0.5 ? "before" : "after";
+  }
+
+  /**
+   * A card, echo or empty cell as a drop target for cards: the dropped card
+   * goes into a new row before or after the target's row, in `plotLine`. An
+   * empty cell (`beside`) also takes drops in its middle, which put the card
+   * in the target's row.
+   */
+  private makeCardDropTarget(el: HTMLElement, target: Card, plotLine: string, beside = false): void {
+    this.makeDropTarget(
+      el,
+      "card",
+      "slot",
+      (place) =>
+        this.mutate((s) =>
+          moveCard(s, this.dragged!.id, {
+            chapter: target.chapter,
+            plotLine,
+            ...(place === "on" ? { besideCardId: target.id } : place === "after" ? { afterCardId: target.id } : { beforeCardId: target.id }),
+          }),
+        ),
+      beside,
+    );
   }
 }
+
+/** The id to insert before, for a drop on `targetId`: the target itself, or the item after it. */
+function neighbour<T extends { id: string }>(list: T[], targetId: string, after: boolean): string | null {
+  if (!after) return targetId;
+  const index = list.findIndex((x) => x.id === targetId);
+  return list[index + 1]?.id ?? null;
+}
+
+const GAP_PROBES: [number, number][] = [
+  [0, 0],
+  [0, -6],
+  [0, 6],
+  [-6, 0],
+  [6, 0],
+];
 
 const PALETTE = ["#4a90d9", "#d9534f", "#5cb85c", "#f0ad4e", "#9b59b6", "#1abc9c", "#e67e22", "#7f8c8d"];

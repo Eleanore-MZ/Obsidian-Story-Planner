@@ -6,7 +6,8 @@ coverage/
 Thumbs.db
 
 # Test vault: build output and per-device Obsidian state
-test-vault/.obsidian/plugins/
-test-vault/.obsidian/workspace.json
-test-vault/.obsidian/workspace-mobile.json
+# Obsidian rewrites its own settings files when the vault is opened, so only
+# the list of enabled plugins is kept in the repository.
+test-vault/.obsidian/*
+!test-vault/.obsidian/community-plugins.json
 test-vault/.trash/

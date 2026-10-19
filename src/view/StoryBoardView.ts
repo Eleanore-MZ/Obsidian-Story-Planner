@@ -1,18 +1,20 @@
 import { Notice, Scope, setIcon, TextFileView, WorkspaceLeaf } from "obsidian";
 import type StoryPlannerPlugin from "../main";
 import type { StoryTab } from "../settings";
-import { addCardAt } from "../model/edits";
+import { addCardAt, setCardDate } from "../model/edits";
 import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
-import { formatDateRange } from "../model/calendar";
+import { compareDates, dateInZone, effectiveZone, formatDateRange, formatStoryDate, precisionOf } from "../model/calendar";
+import { reorderInTime, referenceDate } from "../model/storyTime";
 import { Card, Id, Story } from "../model/types";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { addChapter, addPlotLine } from "../model/setup";
 import { CardPanel } from "./CardPanel";
 import { SetupPanel } from "./SetupPanel";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
-import { ChoiceModal, TextPromptModal } from "./modals";
+import { ChoiceModal, DateModal, TextPromptModal } from "./modals";
+import { Bucket, bucketDate, computeTimeLayout, TimeItem, Zoom, ZOOM_LABELS } from "./timeLayout";
 
 export const STORY_BOARD_VIEW = "story-planner-board";
 
@@ -33,11 +35,13 @@ interface DropTargetSpec {
 /** The view tabs: id, label and Lucide icon name. */
 const TABS: [StoryTab, string, string][] = [
   ["board", "Board", "layout-dashboard"],
+  ["time", "Story time", "calendar-clock"],
   ["setup", "Setup", "settings-2"],
 ];
 
 /** Board elements that count as empty space: clicking them clears the selection. */
-const EMPTY_SPACE = ".story-planner-grid, .story-planner-corner, .story-planner-cell, .story-planner-chapter-end";
+const EMPTY_SPACE =
+  ".story-planner-grid, .story-planner-corner, .story-planner-cell, .story-planner-chapter-end, .story-planner-tray, .story-planner-time-empty";
 
 /** Pixels the pointer must move before a press becomes a drag. */
 const DRAG_THRESHOLD = 5;
@@ -68,6 +72,8 @@ export class StoryBoardView extends TextFileView {
   private boardEl: HTMLElement;
   private panel: CardPanel;
   private setup: SetupPanel;
+  /** The spans of the story-time view as last drawn, by id, for drops. */
+  private buckets = new Map<string, Bucket>();
 
   constructor(leaf: WorkspaceLeaf, private plugin: StoryPlannerPlugin) {
     super(leaf);
@@ -363,10 +369,31 @@ export class StoryBoardView extends TextFileView {
   // -------------------------------------------------------------------------
   // Rendering
 
+  /** The layout of the current view: the board and story time each remember their own. */
   private get orientation(): Orientation {
+    const state = this.file ? this.plugin.settings.viewState[this.file.path] : undefined;
+    if (this.tab === "time") return state?.timeOrientation ?? this.plugin.settings.defaultStoryTimeOrientation;
+    return state?.orientation ?? this.plugin.settings.defaultOrientation;
+  }
+
+  private get zoom(): Zoom {
     const path = this.file?.path;
-    const saved = path ? this.plugin.settings.viewState[path]?.orientation : undefined;
-    return saved ?? this.plugin.settings.defaultOrientation;
+    return (path ? this.plugin.settings.viewState[path]?.zoom : undefined) ?? "day";
+  }
+
+  /** The zone story-time cards show their times in; "" is each card's own local time. */
+  private get zoneView(): string {
+    const path = this.file?.path;
+    const zone = path ? this.plugin.settings.viewState[path]?.timeZoneView : undefined;
+    return zone && this.story?.zones.some((z) => z.id === zone) ? zone : "";
+  }
+
+  private setViewState(change: Partial<NonNullable<StoryPlannerPlugin["settings"]["viewState"][string]>>): void {
+    const path = this.file?.path;
+    if (!path) return;
+    this.plugin.settings.viewState[path] = { ...this.plugin.settings.viewState[path], ...change };
+    void this.plugin.saveSettings();
+    this.render();
   }
 
   private get compact(): boolean {
@@ -386,7 +413,8 @@ export class StoryBoardView extends TextFileView {
     const path = this.file?.path;
     if (!path) return;
     const next: Orientation = this.orientation === "vertical" ? "horizontal" : "vertical";
-    this.plugin.settings.viewState[path] = { ...this.plugin.settings.viewState[path], orientation: next };
+    const key = this.tab === "time" ? "timeOrientation" : "orientation";
+    this.plugin.settings.viewState[path] = { ...this.plugin.settings.viewState[path], [key]: next };
     void this.plugin.saveSettings();
     this.render();
   }
@@ -450,8 +478,10 @@ export class StoryBoardView extends TextFileView {
     }
 
     const onBoard = tab === "board";
-    this.bodyEl.hidden = !onBoard;
-    this.setup.setOpen(!onBoard, story);
+    const onTime = tab === "time";
+    this.bodyEl.hidden = !onBoard && !onTime;
+    this.setup.setOpen(tab === "setup", story);
+    if (onTime) this.timeActions(tabsRow.createDiv({ cls: "story-planner-tab-actions" }), story);
     if (onBoard) {
       const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
       this.button(actions, "Add plot line", () =>
@@ -469,9 +499,9 @@ export class StoryBoardView extends TextFileView {
     }
 
     // Keep the panel on the selected card; it closes if the card is gone (after an undo, say).
-    this.panel.show(story, onBoard ? this.panel.selected : null, typing);
+    this.panel.show(story, onBoard || onTime ? this.panel.selected : null, typing);
     this.setup.refresh(story, typing);
-    if (onBoard) this.renderBoard(story);
+    if (onBoard || onTime) this.renderBoard(story);
   }
 
   /**
@@ -481,7 +511,8 @@ export class StoryBoardView extends TextFileView {
   private renderBoard(story: Story): void {
     const { scrollTop, scrollLeft } = this.boardEl;
     const content = document.createElement("div");
-    this.fillBoard(content, story);
+    if (this.tab === "time") this.fillTime(content, story);
+    else this.fillBoard(content, story);
     this.boardEl.replaceChildren(...Array.from(content.childNodes));
     this.boardEl.scrollTop = scrollTop;
     this.boardEl.scrollLeft = scrollLeft;
@@ -639,6 +670,244 @@ export class StoryBoardView extends TextFileView {
         return el;
       }
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Story time: the cards in the order things happen, spans of time along one
+  // axis and plot lines along the other, with undated cards in a tray.
+
+  private timeActions(actions: HTMLElement, story: Story): void {
+    const zoom = actions.createEl("select", { cls: "dropdown" });
+    zoom.setAttr("aria-label", "Zoom");
+    for (const [value, label] of Object.entries(ZOOM_LABELS)) zoom.createEl("option", { text: label }).value = value;
+    zoom.value = this.zoom;
+    zoom.addEventListener("change", () => this.setViewState({ zoom: zoom.value as Zoom }));
+    if (story.zones.length > 0) {
+      const zones = actions.createEl("select", { cls: "dropdown" });
+      zones.setAttr("aria-label", "Show times in");
+      zones.createEl("option", { text: "Local times" }).value = "";
+      for (const zone of story.zones) zones.createEl("option", { text: `Times in ${zone.name}` }).value = zone.id;
+      zones.value = this.zoneView;
+      zones.addEventListener("change", () => this.setViewState({ timeZoneView: zones.value }));
+    }
+  }
+
+  private fillTime(parent: HTMLElement, story: Story): void {
+    if (story.plotLines.length === 0) {
+      parent.createDiv({ cls: "story-planner-empty", text: "Add a plot line to start planning." });
+      return;
+    }
+    const orientation = this.orientation;
+    const layout = computeTimeLayout(story, this.zoom, orientation);
+    this.buckets = new Map(layout.buckets.map((b) => [b.id, b]));
+
+    if (layout.buckets.length === 0) {
+      parent.createDiv({
+        cls: "story-planner-empty story-planner-time-empty",
+        text: "No card has a date yet. Open a card and fill in \"When\" to place it in story time.",
+      });
+    } else {
+      const grid = parent.createDiv({ cls: `story-planner-grid is-time is-${orientation}` });
+      grid.style.gridTemplateRows = `repeat(${layout.rows}, auto)`;
+      grid.style.gridTemplateColumns =
+        orientation === "vertical"
+          ? `var(--story-planner-header-size) repeat(${layout.columns - 1}, minmax(var(--story-planner-card-width), 1fr))`
+          : `var(--story-planner-header-size) repeat(${layout.columns - 1}, var(--story-planner-card-width))`;
+      if (orientation === "vertical") {
+        grid.style.minWidth = `calc(var(--story-planner-header-size) + ${layout.columns - 1} * (var(--story-planner-card-width) + var(--size-4-2)))`;
+      }
+      const vertical = orientation === "vertical";
+      for (const placed of layout.items) {
+        const el = this.renderTimeItem(grid, placed.item, story);
+        const along = placed.span > 1 ? ` / span ${placed.span}` : "";
+        if (placed.item.kind === "gap") {
+          // A gap marker runs across every plot line.
+          el.style.gridRow = vertical ? String(placed.row) : "1 / -1";
+          el.style.gridColumn = vertical ? "1 / -1" : String(placed.column);
+        } else {
+          el.style.gridRow = String(placed.row) + (vertical ? along : "");
+          el.style.gridColumn = String(placed.column) + (vertical ? "" : along);
+        }
+      }
+    }
+    this.renderTray(parent, story, layout.undated);
+  }
+
+  private renderTimeItem(grid: HTMLElement, item: TimeItem, story: Story): HTMLElement {
+    switch (item.kind) {
+      case "corner":
+      case "lane-header":
+        return this.renderItem(grid, item, story);
+
+      case "time-header":
+        return grid.createDiv({ cls: "story-planner-time-header", text: item.bucket.label });
+
+      case "gap":
+        return grid.createDiv({ cls: "story-planner-time-gap", text: `— ${item.text} —` });
+
+      case "time-cell": {
+        const el = grid.createDiv({ cls: "story-planner-cell" });
+        this.makeDropTarget(el, "card", null, () => this.dropInTime(item.bucketId, item.plotLineId, null, "on"));
+        // Double-click creates an off-page event at this time; it can be given a chapter later.
+        el.addEventListener("dblclick", () => {
+          const bucket = this.buckets.get(item.bucketId);
+          if (!bucket) return;
+          let id: Id | null = null;
+          this.mutate((s) => {
+            id = addCardAt(s, { chapter: null, plotLine: item.plotLineId }, "New event");
+            setCardDate(s, id, "date", { ...bucket.date });
+          });
+          if (id) {
+            this.select(id);
+            this.panel.focusTitle();
+          }
+        });
+        return el;
+      }
+
+      case "card": {
+        const card = story.cards[item.cardId]!;
+        const el = this.timeCard(grid, card, story);
+        el.addEventListener("dblclick", () => this.editTitleInPlace(el, card));
+        this.makeDropTarget(el, "card", "slot", (place) => this.dropInTime(item.bucketId, card.plotLine, card, place));
+        return el;
+      }
+
+      case "echo": {
+        const card = story.cards[item.cardId]!;
+        const home = story.plotLines.find((p) => p.id === card.plotLine);
+        const el = grid.createDiv({ cls: "story-planner-echo", text: card.title });
+        el.style.setProperty("--lane-color", home?.color ?? "var(--interactive-accent)");
+        el.setAttr("aria-label", `Also in ${home?.name ?? "another plot line"}`);
+        el.addEventListener("click", () => this.select(card.id));
+        this.makeDropTarget(el, "card", null, () => this.dropInTime(item.bucketId, item.plotLineId, null, "on"));
+        return el;
+      }
+    }
+  }
+
+  /** A card as story time shows it: its time, and a badge with its chapter so reading order stays in view. */
+  private timeCard(parent: HTMLElement, card: Card, story: Story): HTMLElement {
+    const plotLine = story.plotLines.find((p) => p.id === card.plotLine);
+    const chapter = story.chapters.find((c) => c.id === card.chapter);
+    const el = parent.createDiv({ cls: `story-planner-card status-${card.status}` });
+    if (!chapter) el.addClass("is-off-page");
+    el.style.setProperty("--lane-color", plotLine?.color ?? "var(--interactive-accent)");
+    el.createDiv({ cls: "story-planner-card-badge", text: chapter?.name ?? "Off-page" });
+    el.createDiv({ cls: "story-planner-card-title", text: card.title });
+    if (card.date) {
+      const when = el.createDiv({ cls: "story-planner-card-date", text: this.timeLabel(card, story) });
+      const local = formatDateRange(story, card.date, card.endDate);
+      if (when.textContent !== local) when.setAttr("title", `Local: ${local}`);
+      if (this.shiftedDay(card, story)) when.addClass("is-shifted");
+    }
+    el.dataset.cardId = card.id;
+    if (card.id === this.panel.selected) el.addClass("is-selected");
+    el.addEventListener("click", () => this.select(card.id));
+    this.makeDraggable(el, { kind: "card", id: card.id });
+    return el;
+  }
+
+  /** A card's time, in its own zone or converted into the zone chosen in the toolbar. */
+  private timeLabel(card: Card, story: Story): string {
+    const converted = this.convertedDate(card, story);
+    return converted ? formatStoryDate(story, converted) : formatDateRange(story, card.date!, card.endDate);
+  }
+
+  private convertedDate(card: Card, story: Story) {
+    const target = this.zoneView;
+    if (!target || !card.date) return undefined;
+    const precision = precisionOf(card.date);
+    if (precision !== "time" && precision !== "dayPart") return undefined;
+    const from = effectiveZone(story, card).zone?.id;
+    if (from === target) return undefined;
+    return dateInZone(story, card.date, from, target);
+  }
+
+  /** True when the converted time falls on another day than the card's local date. */
+  private shiftedDay(card: Card, story: Story): boolean {
+    const converted = this.convertedDate(card, story);
+    const local = card.date!;
+    return !!converted && (converted.year !== local.year || converted.month !== local.month || converted.day !== local.day);
+  }
+
+  /** Cards without a date, so nothing disappears in story time. Dropping a dated card here takes its date off. */
+  private renderTray(parent: HTMLElement, story: Story, undated: Id[]): void {
+    const tray = parent.createDiv({ cls: "story-planner-tray" });
+    tray.createDiv({
+      cls: "story-planner-tray-heading",
+      text: undated.length > 0 ? `Undated (${undated.length})` : "Undated",
+    });
+    tray.createDiv({
+      cls: "story-planner-panel-hint",
+      text:
+        undated.length > 0
+          ? "Drag a card onto a time to give it that date, then refine it in the card panel."
+          : "Every card has a date. Drop a card here to take its date off.",
+    });
+    const list = tray.createDiv({ cls: "story-planner-tray-cards" });
+    for (const id of undated) this.timeCard(list, story.cards[id]!, story);
+    this.makeDropTarget(tray, "card", null, () => {
+      const card = this.story?.cards[this.dragged!.id];
+      if (!card?.date) return;
+      const title = card.title;
+      this.mutate((s) => setCardDate(s, card.id, "date", undefined));
+      new Notice(`Took the date off "${title}". Press Ctrl+Z to undo.`);
+    });
+  }
+
+  /**
+   * A card dropped in story time. Within its own span it only changes plot
+   * line, or its place among cards at the very same moment; an undated card
+   * takes the span's date; a dated card moved to another span gets a new date
+   * only after the writer confirms it.
+   */
+  private dropInTime(bucketId: string, plotLine: Id, target: Card | null, place: DropPlace): void {
+    const story = this.story;
+    const bucket = this.buckets.get(bucketId);
+    const card = story && this.dragged ? story.cards[this.dragged.id] : undefined;
+    if (!story || !bucket || !card || card === target) return;
+
+    const toLane = (s: Story) => {
+      if (s.cards[card.id]!.plotLine !== plotLine) moveCard(s, card.id, { chapter: s.cards[card.id]!.chapter, plotLine, besideCardId: card.id });
+    };
+    const reorder = (s: Story) => {
+      if (target && place !== "on") reorderInTime(s, card.id, target.id, place === "after");
+    };
+
+    if (!card.date) {
+      this.mutate((s) => {
+        setCardDate(s, card.id, "date", { ...bucket.date });
+        toLane(s);
+      });
+      new Notice(`"${card.title}" now happens ${bucket.label}. Refine the date in the card panel.`);
+      return;
+    }
+    const current = bucketDate(story.calendars[0]!, referenceDate(story, card)!, this.zoom);
+    if (JSON.stringify(current) === bucketId) {
+      this.mutate((s) => {
+        toLane(s);
+        reorder(s);
+      });
+      return;
+    }
+    const initial = target?.date ? { ...target.date } : { ...bucket.date };
+    new DateModal(
+      this.app,
+      story,
+      `Move "${card.title}"`,
+      `It is dated ${formatDateRange(story, card.date, card.endDate)}. Moving it here changes its date; check the new one.`,
+      initial,
+      (date) =>
+        this.mutate((s) => {
+          setCardDate(s, card.id, "date", date);
+          const c = s.cards[card.id]!;
+          // An end date that would now come before the start is taken off rather than left wrong.
+          if (c.endDate && compareDates(s, c.endDate, date) < 0) delete c.endDate;
+          toLane(s);
+          reorder(s);
+        }),
+    ).open();
   }
 
   private button(parent: HTMLElement, text: string, onClick: () => void, disabled = false): HTMLButtonElement {

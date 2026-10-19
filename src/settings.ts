@@ -1,9 +1,10 @@
+import type { Zoom } from "./view/timeLayout";
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type StoryPlannerPlugin from "./main";
 import { Orientation } from "./view/layout";
 
 /** The views of a story, shown as tabs above it. */
-export type StoryTab = "board" | "setup";
+export type StoryTab = "board" | "time" | "setup";
 
 /** Per-story view preferences. Kept in data.json so viewing never changes the story note. */
 export interface StoryViewState {
@@ -11,6 +12,10 @@ export interface StoryViewState {
   /** Compact mode: each plot line's cards stack from the top of the chapter. */
   compact?: boolean;
   tab?: StoryTab;
+  /** Story time: layout, zoom, and which zone times are shown in ("" for each card's own local time). */
+  timeOrientation?: Orientation;
+  zoom?: Zoom;
+  timeZoneView?: string;
 }
 
 export interface StoryPlannerSettings {

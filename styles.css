@@ -631,3 +631,94 @@
 .story-planner-setup input.is-problem {
   border-color: var(--text-error);
 }
+
+/* Story time: spans of time instead of chapters, gap markers, and the undated tray. */
+
+.story-planner-time-header {
+  padding: var(--size-4-2);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-grid.is-vertical .story-planner-time-header {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--background-primary);
+  box-shadow: var(--size-4-2) 0 0 var(--background-primary);
+}
+
+.story-planner-grid.is-horizontal .story-planner-time-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--background-primary);
+  border-top: none;
+  border-left: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-time-gap {
+  padding: var(--size-4-1) var(--size-4-2);
+  text-align: center;
+  font-size: var(--font-ui-smaller);
+  font-style: italic;
+  color: var(--text-faint);
+}
+
+.story-planner-grid.is-horizontal .story-planner-time-gap {
+  writing-mode: vertical-rl;
+  align-self: stretch;
+}
+
+.story-planner-card.is-off-page {
+  border-style: dashed;
+  border-left-style: dashed;
+}
+
+.story-planner-card-badge {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.story-planner-tab-actions select {
+  width: auto;
+}
+
+.story-planner-card-date.is-shifted::after {
+  content: " *";
+  color: var(--text-accent);
+}
+
+.story-planner-tray {
+  margin-top: var(--size-4-6);
+  padding: var(--size-4-3);
+  border: 1px dashed var(--background-modifier-border);
+  border-radius: var(--radius-m);
+}
+
+.story-planner-tray.is-drop-target {
+  border-color: var(--interactive-accent);
+}
+
+.story-planner-tray-heading {
+  font-weight: var(--font-semibold);
+  margin-bottom: var(--size-4-1);
+}
+
+.story-planner-tray-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+}
+
+.story-planner-tray-cards .story-planner-card {
+  width: var(--story-planner-card-width);
+}
+
+.story-planner-date-modal button[aria-label="Clear this date"] {
+  display: none;
+}

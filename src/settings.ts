@@ -21,7 +21,7 @@ export interface StoryViewState {
   /** The view story setup was opened from, to go back to when it closes. */
   lastView?: StoryTab;
   /** The section of story setup last open. */
-  setupSection?: "story" | "chapters" | "characters" | "time" | "safety";
+  setupSection?: "story" | "layout" | "chapters" | "characters" | "time" | "safety";
   /** Story time: layout, zoom, and which zone times are shown in ("" for each card's own local time). */
   timeOrientation?: Orientation;
   zoom?: Zoom;

@@ -91,10 +91,11 @@ export interface SetupPanelHost {
 }
 
 /** The parts of story setup, each a page of its own. */
-export type SetupSection = "story" | "chapters" | "characters" | "time" | "safety";
+export type SetupSection = "story" | "layout" | "chapters" | "characters" | "time" | "safety";
 
 const SECTIONS: [SetupSection, string, string][] = [
   ["story", "Story", "book-open"],
+  ["layout", "Layout", "layout-template"],
   ["chapters", "Acts & chapters", "list-ordered"],
   ["characters", "Characters", "users"],
   ["time", "Time & location", "map-pin"],
@@ -210,6 +211,7 @@ export class SetupPanel {
       this.buildPlotLines(story);
       this.buildCategories(story);
       this.buildTags(story);
+    } else if (current === "layout") {
       this.buildCardFields(story);
     } else if (current === "chapters") {
       this.buildChapters(story);

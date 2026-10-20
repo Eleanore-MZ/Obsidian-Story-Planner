@@ -3452,3 +3452,20 @@ body.story-planner-marquee-active * {
   position: relative;
   z-index: 5;
 }
+
+/* The date line wraps rather than squeeze the time of day (or the clear
+   button) out of sight when the side panel is narrow. */
+.story-planner .story-planner-prop-value .story-planner-date-row {
+  flex-wrap: wrap;
+  row-gap: var(--size-2-2);
+}
+
+.story-planner .story-planner-date-row select.story-planner-date-part {
+  flex: 1 1 7em;
+  min-width: 7em;
+  max-width: 12em;
+}
+
+.story-planner .story-planner-date-row .story-planner-date-clear {
+  flex: none;
+}

@@ -479,6 +479,8 @@ export class CardPanel {
         },
         () => this.story?.cards[id]?.date,
       );
+      const remove = (centre ? when : end).createEl("button", { cls: "story-planner-date-add", text: "Remove end date" });
+      remove.addEventListener("click", () => this.host.edit((s) => setCardDate(s, id, "endDate", undefined)));
     } else {
       const add = when.createEl("button", { cls: "story-planner-date-add", text: "Add an end date" });
       add.addEventListener("click", () => this.host.edit((s) => setCardDate(s, id, "endDate", { ...s.cards[id]!.date! })));

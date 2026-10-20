@@ -85,10 +85,10 @@ describe("typed dates", () => {
     expect(read(s, "07.2020")).toEqual(d(2020, 7));
   });
 
-  it("reads approximate dates, times of day, eras and zones", () => {
+  it("reads dates once marked approximate as plain dates, and times of day, eras and zones", () => {
     const s = harbour();
-    expect(read(s, "~2023/03")).toEqual(d(2023, 3, undefined, { approximate: true }));
-    expect(read(s, "around 1531")).toEqual(d(1531, undefined, undefined, { approximate: true }));
+    expect(read(s, "~2023/03")).toEqual(d(2023, 3, undefined));
+    expect(read(s, "around 1531")).toEqual(d(1531, undefined, undefined));
     expect(read(s, "4 Frost 1531 AF dawn")).toEqual(d(1531, 5, 4, { era: "af", dayPart: "dawn" }));
     expect(read(s, "1531/05/04 Dusk (Eastern Provinces)")).toEqual(d(1531, 5, 4, { dayPart: "dusk", zone: "z2" }));
     // Twenty hours of fifty minutes: 19:49 is the last minute of the day.

@@ -221,7 +221,7 @@ export interface Moment {
   /** Minutes since the first moment of year 1 of the anchor era, in the reference zone. */
   key: number;
   precision: Precision;
-  /** True when the position is only roughly right: a part of the day moved to another zone, or an approximate date. */
+  /** True when the position is only roughly right: a part of the day moved to another zone. */
   approximate: boolean;
 }
 
@@ -245,7 +245,7 @@ export function momentOf(story: Story, date: StoryDate, zone: Id | undefined = d
   return {
     key: day * minutesPerDay(calendar) + minute - offset,
     precision,
-    approximate: !!date.approximate || (precision === "dayPart" && offset !== 0),
+    approximate: precision === "dayPart" && offset !== 0,
   };
 }
 
@@ -300,7 +300,7 @@ export function cardMoment(story: Story, card: Card): Moment | undefined {
 /**
  * The same moment as a local date in another zone (undefined for the
  * reference zone). Only dates with a time move; a part of the day moves by
- * its first hour and comes back as an approximate clock time. Day, month
+ * its first hour and comes back as a clock time. Day, month
  * and year boundaries, leap days and eras are all carried over.
  */
 export function dateInZone(story: Story, date: StoryDate, from: Id | undefined, to: Id | undefined): StoryDate {
@@ -315,7 +315,6 @@ export function dateInZone(story: Story, date: StoryDate, from: Id | undefined, 
   const result: StoryDate = { calendar: date.calendar, year: written.year, month, day, minutes: key - n * perDay };
   if (written.era !== undefined && (calendar.eras ?? []).length > 0) result.era = written.era;
   if (to) result.zone = to;
-  if (date.approximate || precision === "dayPart") result.approximate = true;
   return result;
 }
 
@@ -396,7 +395,7 @@ export function formatStoryDate(story: Story, date: StoryDate, options: { zone?:
     if (zone) text += ` (${zone.name})`;
   }
 
-  return date.approximate ? `around ${text}` : text;
+  return text;
 }
 
 /**

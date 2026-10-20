@@ -868,7 +868,7 @@ export class SetupPanel {
     };
     const preview = section.createDiv({ cls: "story-planner-format-preview" });
     const showPreview = (s: Story) => {
-      const shown = { ...sample, approximate: false, zone: undefined };
+      const shown = { ...sample, zone: undefined };
       if (shown.minutes === undefined && shown.dayPart === undefined) shown.minutes = 9 * calendar.minutesPerHour + 30;
       preview.setText(`For example: ${formatStoryDate(s, shown)}`);
     };

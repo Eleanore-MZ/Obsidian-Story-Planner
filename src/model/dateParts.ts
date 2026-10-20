@@ -29,7 +29,7 @@ export function dayPartAt(calendar: Calendar, minutes: number): DayPart | undefi
 export function splitDate(story: Story, date: StoryDate | undefined): DateParts {
   if (!date) return { date: "", part: "", partAuto: true, clock: "" };
   const calendar = mainCalendar(story);
-  const bare: StoryDate = { ...date, approximate: false };
+  const bare: StoryDate = { ...date };
   delete bare.minutes;
   delete bare.dayPart;
   const text = formatStoryDate(story, bare, { zone: false });

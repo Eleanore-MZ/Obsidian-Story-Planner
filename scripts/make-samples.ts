@@ -75,7 +75,7 @@ function smallStory(): Story {
     card({
       id: "k06", title: "Tom moves to Linden Street", plotLine: "p2", chapter: null, order: 1,
       synopsis: "Off-page: Tom moves in some time the autumn before.",
-      date: { calendar: "main", year: 2023, month: 9, approximate: true }, location: "l2",
+      date: { calendar: "main", year: 2023, month: 9 }, location: "l2",
       characters: [{ id: "x2", role: "present" }],
     }),
   ]);
@@ -181,7 +181,7 @@ function harbourStory(): Story {
     }),
     card({
       id: "k04", title: "A letter is sealed at Vell Manor", plotLine: "p3", chapter: "c2", order: 2,
-      date: date(5, 3, { dayPart: "night", zone: "z2", approximate: true }), location: "l5",
+      date: date(5, 3, { dayPart: "night", zone: "z2" }), location: "l5",
       characters: [{ id: "x2", role: "present", note: "Receives the letter." }],
     }),
     card({
@@ -207,7 +207,7 @@ function harbourStory(): Story {
     card({
       id: "k08", title: "The ring is stolen", plotLine: "p1", chapter: null, order: 2,
       synopsis: "Off-page, the year before: the ring disappears from Vell Manor.",
-      date: { calendar: "main", era: "af", year: 1530, month: 6, approximate: true }, location: "l5",
+      date: { calendar: "main", era: "af", year: 1530, month: 6 }, location: "l5",
       characters: [{ id: "x3", role: "mentioned" }],
     }),
     card({

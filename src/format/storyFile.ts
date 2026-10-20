@@ -1,6 +1,6 @@
 import { formatStoryDate } from "../model/calendar";
 import { linkTarget, noteName } from "../model/links";
-import { Card, Chapter, STORY_SCHEMA_VERSION, Story, StorySetup } from "../model/types";
+import { Card, Chapter, STORY_SCHEMA_VERSION, Story, StoryDate, StorySetup } from "../model/types";
 import { actsShown, actTitle, chapterNumbers, chapterTitle, titleFromOldName } from "../model/chapters";
 
 // A story note has three parts:
@@ -286,6 +286,11 @@ function readSetup(raw: unknown): StorySetup | string {
   };
 }
 
+function withoutApproximate(date: StoryDate): StoryDate {
+  const { approximate: _old, ...rest } = date as StoryDate & { approximate?: unknown };
+  return rest;
+}
+
 function readCard(raw: unknown): Card | null {
   if (!isObject(raw)) return null;
   if (typeof raw.id !== "string" || typeof raw.title !== "string" || typeof raw.plotLine !== "string") {
@@ -294,11 +299,21 @@ function readCard(raw: unknown): Card | null {
   // Before cards were simply written or not, they had a status; drafted and
   // revised scenes count as written. The old field is not kept.
   // Relationship states belonged to a feature that has been removed; they are dropped.
-  const { status, relationshipState: _dropped, during, ...rest } = raw as Partial<Card> & { status?: unknown; relationshipState?: unknown; during?: unknown };
+  const { status, relationshipState: _dropped, during, date, endDate, ...rest } = raw as Partial<Card> & {
+    status?: unknown;
+    relationshipState?: unknown;
+    during?: unknown;
+  };
+  // Dates were once marked approximate; the mark is dropped.
+  const dates = {
+    ...(isObject(date) ? { date: withoutApproximate(date as StoryDate) } : {}),
+    ...(isObject(endDate) ? { endDate: withoutApproximate(endDate as StoryDate) } : {}),
+  };
   // Only an off-page event happens during a chapter.
   const background = typeof during === "string" && typeof raw.chapter !== "string" ? { during } : {};
   return {
     ...rest,
+    ...dates,
     ...background,
     id: raw.id,
     title: raw.title,

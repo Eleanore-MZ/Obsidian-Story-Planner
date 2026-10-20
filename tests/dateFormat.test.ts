@@ -49,7 +49,7 @@ describe("story dates in a format", () => {
     expect(formatStoryDate(s, date({ dayPart: "morning" }))).toBe("2024/03/02 Morning");
     expect(formatStoryDate(s, { calendar: "main", year: 2024, month: 3 })).toBe("2024/03");
     expect(formatStoryDate(s, { calendar: "main", year: 2024 })).toBe("2024");
-    expect(formatStoryDate(s, { calendar: "main", year: 2023, month: 9, approximate: true })).toBe("around 2023/09");
+    expect(formatStoryDate(s, { calendar: "main", year: 2023, month: 9 })).toBe("2023/09");
   });
 
   it("follows the plugin's formats, and a story's own over them", () => {

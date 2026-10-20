@@ -3,7 +3,7 @@ import { Calendar, Story, StoryDate } from "./types";
 
 // Reading a date the writer typed, the way date fields on good websites do:
 // "2020/07/12 19:49", "20200712", "2020-7-12", "2020/07", "1531",
-// "12 Jul 2020", "4 Frost 1531 AF dawn", "~2023/09" (approximate), and for an
+// "12 Jul 2020", "4 Frost 1531 AF dawn", and for an
 // end date "+3d" from the start. Numbers without names are read in the order
 // the story's date format puts them (year, month, day for YYYY/MM/DD).
 
@@ -47,13 +47,9 @@ export function parseStoryDate(story: Story, typed: string, start?: StoryDate): 
   let text = typed.trim();
   if (!text) return { ok: true, date: undefined };
 
-  // "~2023/09" or "around 2023/09": approximate.
-  let approximate = false;
+  // "~2023/09" or "around 2023/09", from older habits, read as the date itself.
   const rough = /^(~|around\b|about\b|circa\b|ca\.?(?=\s))\s*/i.exec(text);
-  if (rough) {
-    approximate = true;
-    text = text.slice(rough[0].length);
-  }
+  if (rough) text = text.slice(rough[0].length);
 
   // "+3d": counted on from the start.
   const relative = /^\+\s*(\d+)\s*([a-z]+)?$/i.exec(text);
@@ -61,7 +57,6 @@ export function parseStoryDate(story: Story, typed: string, start?: StoryDate): 
     if (!start) return { ok: false, error: "Only an end date can count on from the start." };
     const moved = addToDate(calendar, start, Number(relative[1]), (relative[2] ?? "d").toLowerCase());
     if (!moved) return { ok: false, error: "Use d, w, m, y or h, as in +3d." };
-    if (approximate) moved.approximate = true;
     const problem = dateProblem(calendar, moved);
     return problem ? { ok: false, error: problem } : { ok: true, date: moved };
   }
@@ -165,7 +160,6 @@ export function parseStoryDate(story: Story, typed: string, start?: StoryDate): 
   if (parts.D !== undefined) date.day = parts.D;
   if (minutes !== undefined) date.minutes = minutes;
   if ((minutes !== undefined || date.dayPart) && date.day === undefined) return { ok: false, error: "A time needs a day." };
-  if (approximate) date.approximate = true;
   if (date.era === undefined) delete date.era;
 
   const problem = dateProblem(calendar, date);
@@ -175,7 +169,6 @@ export function parseStoryDate(story: Story, typed: string, start?: StoryDate): 
 /** A date moved on by an amount: d(ays), w(eeks), m(onths), y(ears) or h(ours). */
 function addToDate(calendar: Calendar, from: StoryDate, amount: number, unit: string): StoryDate | null {
   const date: StoryDate = { ...from };
-  delete date.approximate;
   const line = lineYear(calendar, from.era, from.year);
   const kind = unit[0];
   if (kind === "y") {

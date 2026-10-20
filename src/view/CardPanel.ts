@@ -1,14 +1,19 @@
+import { Menu, setIcon } from "obsidian";
 import { moveCard } from "../model/moves";
 import {
   addCharacterByName,
   deleteCard,
+  duringChapter,
   removeCardCharacter,
+  setCardDate,
+  setCardDuring,
+  setCardLocation,
+  setCardTag,
   setEcho,
   updateCard,
   updateCardCharacter,
 } from "../model/edits";
 import { compareDates, effectiveZone, ZoneSource } from "../model/calendar";
-import { duringChapter, setCardDate, setCardDuring, setCardLocation, setCardTag } from "../model/edits";
 import { locationTree, plotLineColor } from "../model/setup";
 import { chapterTitle } from "../model/chapters";
 import { Card, CharacterRole, Id, Story } from "../model/types";
@@ -26,15 +31,18 @@ import {
   tagState,
 } from "../model/groupEdits";
 import { isUntitled } from "../model/defaults";
+import { fold } from "../model/search";
 import { DateEditor } from "./DateEditor";
 import { addCardNote, noteName, removeCardNote } from "../model/links";
-import { setIcon } from "obsidian";
 
 const ROLE_LABELS: Record<CharacterRole, string> = {
   pov: "Point of view",
   present: "Present",
   mentioned: "Mentioned",
 };
+
+/** The short mark a character's chip shows for its role. */
+const ROLE_MARKS: Record<CharacterRole, string> = { pov: "POV", present: "", mentioned: "mentioned" };
 
 /** Linked notes, as the board offers them to its panels. */
 export interface NoteHost {
@@ -59,13 +67,17 @@ export interface CardPanelHost {
   deleted(title: string): void;
   /** Called after several selected cards were deleted from the panel. */
   deletedMany?(count: number): void;
+  /** True when the card opens as a page in the middle of the board rather than in the side panel. */
+  centre?(): boolean;
   notes: NoteHost;
 }
 
 /**
- * The side panel that edits the selected card. Text fields save as you type
- * and are never rebuilt while you are in them, so the board can redraw
- * freely behind the panel without stealing focus.
+ * The panel that edits the selected card, beside the board or as a page in
+ * the middle of it. Like a page in Notion: the title, the scene tags and the
+ * synopsis first, then the card's properties, one row each. Text fields save
+ * as you type and are never rebuilt while you are in them, so the board can
+ * redraw freely behind the panel without stealing focus.
  */
 export class CardPanel {
   readonly el: HTMLElement;
@@ -73,6 +85,9 @@ export class CardPanel {
   private story: Story | null = null;
   /** Whether "Also in" is unfolded; reset when another card is shown. */
   private echoesOpen = false;
+  /** The character picker, kept open (with what was typed) while the panel redraws around it. */
+  private picker: { query: string } | null = null;
+  private closePicker: (() => void) | null = null;
 
   constructor(parent: HTMLElement, private host: CardPanelHost) {
     this.el = parent.createDiv({ cls: "story-planner-panel" });
@@ -108,35 +123,22 @@ export class CardPanel {
 
   private buildGroup(story: Story, cards: Card[]): void {
     const el = this.el;
+    const reopen = this.picker;
+    this.closePicker?.();
+    this.picker = reopen;
     el.empty();
+    el.toggleClass("is-centre", !!this.host.centre?.());
     const ids = cards.map((c) => c.id);
     const edit = (change: (s: Story) => boolean) => this.host.edit((s) => change(s));
 
-    const header = el.createDiv({ cls: "story-planner-panel-header" });
-    header.createDiv({ cls: "story-planner-panel-heading", text: `${cards.length} cards` });
     const written = common(cards, (c) => c.written);
-    const label = header.createEl("label", { cls: "story-planner-panel-written" });
-    label.toggleClass("is-written", written === true);
-    label.createSpan({ text: "Written" });
-    const box = label.createEl("button", { cls: "story-planner-written" });
-    box.setAttr("role", "checkbox");
-    box.setAttr("aria-checked", written === "mixed" ? "mixed" : String(written));
-    box.toggleClass("is-mixed", written === "mixed");
-    if (written === true) setIcon(box, "check");
-    else if (written === "mixed") setIcon(box, "minus");
-    box.addEventListener("click", (e) => {
-      e.preventDefault();
-      edit((s) => setWrittenOnCards(s, ids, written !== true));
-    });
-    const close = header.createEl("button", { cls: "story-planner-panel-close clickable-icon", text: "×" });
-    close.setAttr("aria-label", "Clear the selection");
-    close.addEventListener("click", () => this.host.close());
+    this.header(`${cards.length} cards`, written === "mixed" ? "mixed" : written, () => edit((s) => setWrittenOnCards(s, ids, written !== true)), "Clear the selection");
 
     const list = el.createDiv({ cls: "story-planner-panel-group-list" });
     for (const card of cards) list.createDiv({ cls: "story-planner-panel-group-item", text: isUntitled(card.title) ? card.synopsis.split(/\r?\n/)[0] || "Untitled" : card.title });
 
     if (story.tags.length > 0) {
-      const chips = this.field("Scene tags").createDiv({ cls: "story-planner-tag-chips" });
+      const chips = el.createDiv({ cls: "story-planner-tag-chips story-planner-panel-tags" });
       for (const tag of story.tags) {
         const state = tagState(cards, tag.id);
         const chip = chips.createEl("button", { cls: "story-planner-tag-chip", text: tag.name });
@@ -149,10 +151,11 @@ export class CardPanel {
       }
     }
 
+    const props = el.createDiv({ cls: "story-planner-props" });
     const mixed = (options: Record<string, string>, value: string | "mixed") =>
       value === "mixed" ? { [MIXED]: "(mixed)", ...options } : options;
     const plotLine = common(cards, (c) => c.plotLine);
-    this.select(this.field("Plot line"), mixed(Object.fromEntries(story.plotLines.map((p) => [p.id, p.name])), plotLine), plotLine === "mixed" ? MIXED : plotLine, (value) => {
+    this.select(this.prop(props, "Plot line", "git-branch"), mixed(Object.fromEntries(story.plotLines.map((p) => [p.id, p.name])), plotLine), plotLine === "mixed" ? MIXED : plotLine, (value) => {
       if (value !== MIXED) edit((s) => moveCardsToPlotLine(s, ids, value));
     });
 
@@ -160,12 +163,13 @@ export class CardPanel {
     const chapters: Record<string, string> = Object.fromEntries(story.chapters.map((c) => [c.id, chapterTitle(story, c)]));
     chapters[OFF_PAGE] = "Off-page";
     const chapter = common(cards, (c) => (c.chapter && chapterIds.has(c.chapter) ? c.chapter : OFF_PAGE));
-    this.select(this.field("Chapter"), mixed(chapters, chapter), chapter === "mixed" ? MIXED : chapter, (value) => {
+    this.select(this.prop(props, "Chapter", "book-open"), mixed(chapters, chapter), chapter === "mixed" ? MIXED : chapter, (value) => {
       if (value !== MIXED) edit((s) => moveCardsToChapter(s, ids, value === OFF_PAGE ? null : value));
     });
 
     const date = common(cards, (c) => c.date);
-    const when = this.field(date === "mixed" ? "When (dates differ; a date set here goes on all)" : "When");
+    const when = this.prop(props, "When", "calendar");
+    if (date === "mixed") when.createDiv({ cls: "story-planner-date-hint", text: "Dates differ; a date set here goes on all of them." });
     new DateEditor(when, story, date === "mixed" ? undefined : date, "group-date", "Zone: default", (value) => {
       // An empty field never clears dates that differed.
       if (!value && date === "mixed") return;
@@ -176,41 +180,30 @@ export class CardPanel {
       const location = common(cards, (c) => c.location ?? "");
       const options: Record<string, string> = { "": "No location" };
       for (const { location: l, depth } of locationTree(story)) options[l.id] = `${" ".repeat(depth)}${l.name}`;
-      this.select(this.field("Where"), mixed(options, location), location === "mixed" ? MIXED : location, (value) => {
+      this.select(this.prop(props, "Where", "map-pin"), mixed(options, location), location === "mixed" ? MIXED : location, (value) => {
         if (value !== MIXED) edit((s) => setLocationOnCards(s, ids, value || undefined));
       });
     }
 
-    const add = this.field("Add a character to all").createDiv({ cls: "story-planner-panel-add-character" });
-    const input = add.createEl("input");
-    input.type = "text";
-    input.dataset.field = "group-add-character";
-    input.placeholder = "Pick one, or type a name and press Enter";
-    const listId = "story-planner-group-characters";
-    input.setAttr("list", listId);
-    const datalist = add.createEl("datalist");
-    datalist.id = listId;
-    for (const c of story.characters) datalist.createEl("option").value = c.name;
-    const submit = () => {
-      if (input.value.trim()) edit((s) => addCharacterToCards(s, ids, input.value));
-    };
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        submit();
-      }
-    });
-    input.addEventListener("input", (e) => {
-      const picked = (e as InputEvent).inputType === "insertReplacementText" || (e as InputEvent).inputType === undefined;
-      if (picked && story.characters.some((c) => c.name === input.value)) submit();
+    // Characters on every selected card show as chips; picking one puts it on all of them.
+    const value = this.prop(props, "Characters", "users");
+    const onAll = story.characters.filter((c) => cards.every((card) => card.characters.some((e) => e.id === c.id)));
+    this.characterPicker(value, story, new Set(onAll.map((c) => c.id)), {
+      chip: () => undefined,
+      toggle: (characterId, on) => {
+        if (on) edit((s) => addCharacterToCards(s, ids, story.characters.find((c) => c.id === characterId)!.name));
+        else edit((s) => cards.reduce((changed, card) => removeCardCharacter(s, card.id, characterId) || changed, false));
+      },
+      create: (name) => edit((s) => addCharacterToCards(s, ids, name)),
     });
 
     const footer = el.createDiv({ cls: "story-planner-panel-footer" });
-    const remove = footer.createEl("button", { cls: "mod-warning", text: `Delete ${cards.length} cards` });
+    const remove = footer.createEl("button", { cls: "story-planner-delete", text: `Delete ${cards.length} cards` });
     remove.addEventListener("click", () => {
       edit((s) => deleteCards(s, ids));
       this.host.deletedMany?.(cards.length);
     });
+    if (reopen) this.el.querySelector<HTMLElement>(".story-planner-multi")?.click();
   }
 
   /**
@@ -221,13 +214,18 @@ export class CardPanel {
     this.story = story;
     if (!cardId || !story.cards[cardId]) {
       this.cardId = null;
+      this.picker = null;
+      this.closePicker?.();
       this.el.hidden = true;
       this.el.empty();
       delete this.el.dataset.group;
       return;
     }
     const sameCard = cardId === this.cardId;
-    if (!sameCard) this.echoesOpen = false;
+    if (!sameCard) {
+      this.echoesOpen = false;
+      this.picker = null;
+    }
     delete this.el.dataset.group;
     this.cardId = cardId;
     this.el.hidden = false;
@@ -275,54 +273,80 @@ export class CardPanel {
     }
   }
 
+  /** The top line: what is shown, whether it is written, and the close button. */
+  private header(heading: string, written: boolean | "mixed", toggle: () => void, closeLabel: string): void {
+    const story = this.story!;
+    const header = this.el.createDiv({ cls: "story-planner-panel-header" });
+    header.createDiv({ cls: "story-planner-panel-heading", text: heading });
+    const card = this.card;
+    header.style.setProperty("--lane-color", (card && plotLineColor(story, story.plotLines.find((p) => p.id === card.plotLine))) ?? "var(--interactive-accent)");
+    const label = header.createEl("label", { cls: "story-planner-panel-written" });
+    label.toggleClass("is-written", written === true);
+    label.createSpan({ text: "Written" });
+    const box = label.createEl("button", { cls: "story-planner-written" });
+    box.dataset.field = "written";
+    box.setAttr("role", "checkbox");
+    box.setAttr("aria-checked", written === "mixed" ? "mixed" : String(written));
+    box.toggleClass("is-mixed", written === "mixed");
+    if (written === true) setIcon(box, "check");
+    else if (written === "mixed") setIcon(box, "minus");
+    box.addEventListener("click", (e) => {
+      e.preventDefault();
+      toggle();
+    });
+    const close = header.createEl("button", { cls: "story-planner-panel-close clickable-icon", text: "×" });
+    close.setAttr("aria-label", closeLabel);
+    close.addEventListener("click", () => this.host.close());
+  }
+
   private build(): void {
     const card = this.card!;
     const story = this.story!;
     const id = card.id;
     const el = this.el;
+    const reopen = this.picker;
+    this.closePicker?.();
+    this.picker = reopen;
     el.empty();
+    el.toggleClass("is-centre", !!this.host.centre?.());
 
-    const header = el.createDiv({ cls: "story-planner-panel-header" });
-    header.createDiv({ cls: "story-planner-panel-heading", text: "Card" });
-    // Written or not, in the header: the same square as on the card.
-    header.style.setProperty("--lane-color", plotLineColor(story, story.plotLines.find((p) => p.id === card.plotLine)) ?? "var(--interactive-accent)");
-    const written = header.createEl("label", { cls: "story-planner-panel-written" });
-    written.toggleClass("is-written", card.written);
-    written.createSpan({ text: "Written" });
-    const box = written.createEl("button", { cls: "story-planner-written" });
-    box.dataset.field = "written";
-    box.setAttr("role", "checkbox");
-    box.setAttr("aria-checked", String(card.written));
-    box.setAttr("aria-label", card.written ? "Written. Click to mark it not written." : "Not written yet. Click to mark it written.");
-    if (card.written) setIcon(box, "check");
-    box.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.host.edit((s) => updateCard(s, id, { written: !s.cards[id]!.written }));
-    });
-    const close = header.createEl("button", { cls: "story-planner-panel-close clickable-icon", text: "×" });
-    close.setAttr("aria-label", "Close");
-    close.addEventListener("click", () => this.host.close());
+    this.header("Card", card.written, () => this.host.edit((s) => updateCard(s, id, { written: !s.cards[id]!.written })), "Close");
 
-    // Title and synopsis save as you type.
-    const title = this.field("Title").createEl("input", { cls: "story-planner-panel-title" });
+    // The text: the title as a heading, the scene tags under it, then the synopsis. All save as you type.
+    const title = el.createEl("input", { cls: "story-planner-panel-title" });
     title.type = "text";
     title.value = isUntitled(card.title) ? "" : card.title;
     title.placeholder = "Untitled";
     title.dataset.field = "title";
+    title.setAttr("aria-label", "Title");
     title.addEventListener("input", () =>
       this.host.edit((s) => updateCard(s, id, { title: title.value }), `title:${id}`),
     );
     title.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        (this.el.querySelector("textarea") as HTMLTextAreaElement | null)?.focus();
+        (this.el.querySelector("textarea.story-planner-panel-synopsis") as HTMLTextAreaElement | null)?.focus();
       }
     });
 
-    const synopsis = this.field("Synopsis").createEl("textarea", { cls: "story-planner-panel-synopsis" });
+    if (story.tags.length > 0) {
+      const chips = el.createDiv({ cls: "story-planner-tag-chips story-planner-panel-tags" });
+      for (const tag of story.tags) {
+        const on = card.tags.includes(tag.id);
+        const chip = chips.createEl("button", { cls: "story-planner-tag-chip", text: tag.name });
+        chip.toggleClass("is-on", on);
+        chip.style.setProperty("--tag-color", tag.color);
+        chip.setAttr("aria-pressed", String(on));
+        chip.addEventListener("click", () => this.host.edit((s) => setCardTag(s, id, tag.id, !on)));
+      }
+    }
+
+    const synopsis = el.createEl("textarea", { cls: "story-planner-panel-synopsis" });
     synopsis.rows = 8;
     synopsis.value = card.synopsis;
+    synopsis.placeholder = "What happens in this scene";
     synopsis.dataset.field = "synopsis";
+    synopsis.setAttr("aria-label", "Synopsis");
     // At least eight lines, and taller as the text grows.
     const grow = () => {
       synopsis.style.height = "auto";
@@ -333,23 +357,24 @@ export class CardPanel {
       this.host.edit((s) => updateCard(s, id, { synopsis: synopsis.value }), `synopsis:${id}`);
     });
     window.requestAnimationFrame(grow);
-    this.buildTagsAndState();
 
-    // Where the card sits on the board.
+    // The properties, one row each.
+    const props = el.createDiv({ cls: "story-planner-props" });
+
     const plotLines = Object.fromEntries(story.plotLines.map((p) => [p.id, p.name]));
-    const plotLineField = this.field("Plot line");
-    this.select(plotLineField, plotLines, card.plotLine, (value) =>
+    const plotLineValue = this.prop(props, "Plot line", "git-branch");
+    this.select(plotLineValue, plotLines, card.plotLine, (value) =>
       // Beside itself: same row, new plot line.
       this.host.edit((s) => moveCard(s, id, { chapter: s.cards[id]!.chapter, plotLine: value, besideCardId: id })),
     );
-    this.buildEchoes(plotLineField);
+    this.buildEchoes(plotLineValue);
 
     const chapterIds = new Set(story.chapters.map((c) => c.id));
     const chapters: Record<string, string> = Object.fromEntries(story.chapters.map((c) => [c.id, chapterTitle(story, c)]));
     chapters[OFF_PAGE] = "Off-page";
     const currentChapter = card.chapter && chapterIds.has(card.chapter) ? card.chapter : OFF_PAGE;
-    const chapterField = this.field("Chapter");
-    this.select(chapterField, chapters, currentChapter, (value) =>
+    const chapterValue = this.prop(props, "Chapter", "book-open");
+    this.select(chapterValue, chapters, currentChapter, (value) =>
       // A new chapter puts the card at its end.
       this.host.edit((s) =>
         moveCard(s, id, { chapter: value === OFF_PAGE ? null : value, plotLine: s.cards[id]!.plotLine }),
@@ -359,26 +384,26 @@ export class CardPanel {
     if (currentChapter === OFF_PAGE && story.chapters.length > 0) {
       const during: Record<string, string> = { "": "During no chapter" };
       for (const c of story.chapters) during[c.id] = `During ${chapterTitle(story, c)}`;
-      const select = this.select(chapterField, during, duringChapter(story, card) ?? "", (value) =>
+      const select = this.select(chapterValue, during, duringChapter(story, card) ?? "", (value) =>
         this.host.edit((s) => setCardDuring(s, id, value || undefined)),
       );
       select.addClass("story-planner-panel-during");
       select.dataset.field = "during";
     }
 
-    this.buildDates();
-    this.buildPlace();
-
-    this.buildCharacters(this.field("Characters"));
-    this.buildNotes();
+    this.buildDates(props);
+    this.buildPlace(props);
+    this.buildCharacters(props);
+    this.buildNotes(props);
 
     const footer = el.createDiv({ cls: "story-planner-panel-footer" });
-    const remove = footer.createEl("button", { cls: "mod-warning", text: "Delete card" });
+    const remove = footer.createEl("button", { cls: "story-planner-delete", text: "Delete card" });
     remove.addEventListener("click", () => {
       const name = card.title;
       this.host.edit((s) => deleteCard(s, id));
       this.host.deleted(name);
     });
+    if (reopen) this.el.querySelector<HTMLElement>(".story-planner-multi")?.click();
   }
 
   /**
@@ -405,16 +430,23 @@ export class CardPanel {
     }
   }
 
-  /** The card's date and, for events that take time, its end date. */
-  private buildDates(): void {
+  /**
+   * The card's date and, for events that take time, its end date. In the side
+   * panel the end has its own row; on the page in the middle it follows the
+   * start on the same line, after an arrow.
+   */
+  private buildDates(props: HTMLElement): void {
     const card = this.card!;
     const story = this.story!;
     const id = card.id;
     const fallback = effectiveZone(story, { ...card, date: card.date && { ...card.date, zone: undefined } });
     const defaultZone = fallback.zone ? `Zone: ${fallback.zone.name} (${ZONE_SOURCES[fallback.source]})` : "Zone: default";
+    const centre = !!this.host.centre?.();
 
-    const when = this.field(card.chapter === null ? "When (off-page event)" : "When");
-    new DateEditor(when, story, card.date, "date", defaultZone, (date) => {
+    const when = this.prop(props, card.chapter === null ? "When (off-page)" : "When", "calendar");
+    const line = when.createDiv({ cls: "story-planner-date-range" });
+    const start = line.createDiv({ cls: "story-planner-date-part-of-range" });
+    new DateEditor(start, story, card.date, "date", defaultZone, (date) => {
       const hadDate = !!this.story!.cards[id]?.date;
       // Each saved date (Enter, or leaving the field) is one undo step.
       this.host.edit((s) => setCardDate(s, id, "date", date));
@@ -424,17 +456,23 @@ export class CardPanel {
     if (!card.date) return;
 
     if (card.endDate) {
-      const until = this.field("Until");
+      let end: HTMLElement;
+      if (centre) {
+        line.createSpan({ cls: "story-planner-date-arrow", text: "→" }).setAttr("aria-label", "until");
+        end = line.createDiv({ cls: "story-planner-date-part-of-range" });
+      } else {
+        end = this.prop(props, "Until", "calendar-range");
+      }
       new DateEditor(
-        until,
+        end,
         story,
         card.endDate,
         "end",
         defaultZone,
         (date) => this.host.edit((s) => setCardDate(s, id, "endDate", date)),
         (date) => {
-          const start = this.story?.cards[id]?.date;
-          return start && compareDates(this.story!, date, start) < 0 ? "The end is before the start." : null;
+          const startDate = this.story?.cards[id]?.date;
+          return startDate && compareDates(this.story!, date, startDate) < 0 ? "The end is before the start." : null;
         },
         () => this.story?.cards[id]?.date,
       );
@@ -444,42 +482,24 @@ export class CardPanel {
     }
   }
 
-  private buildPlace(): void {
+  private buildPlace(props: HTMLElement): void {
     const card = this.card!;
     const story = this.story!;
     if (story.locations.length === 0) return;
     const options: Record<string, string> = { "": "No location" };
-    for (const { location, depth } of locationTree(story)) options[location.id] = `${"\u2003".repeat(depth)}${location.name}`;
-    const select = this.select(this.field("Where"), options, card.location ?? "", (value) =>
+    for (const { location, depth } of locationTree(story)) options[location.id] = `${" ".repeat(depth)}${location.name}`;
+    const select = this.select(this.prop(props, "Where", "map-pin"), options, card.location ?? "", (value) =>
       this.host.edit((s) => setCardLocation(s, card.id, value || undefined)),
     );
     select.dataset.field = "location";
   }
 
-  private buildTagsAndState(): void {
-    const card = this.card!;
-    const story = this.story!;
-    const id = card.id;
-    if (story.tags.length > 0) {
-      const field = this.field("Scene tags");
-      const chips = field.createDiv({ cls: "story-planner-tag-chips" });
-      for (const tag of story.tags) {
-        const on = card.tags.includes(tag.id);
-        const chip = chips.createEl("button", { cls: "story-planner-tag-chip", text: tag.name });
-        chip.toggleClass("is-on", on);
-        chip.style.setProperty("--tag-color", tag.color);
-        chip.setAttr("aria-pressed", String(on));
-        chip.addEventListener("click", () => this.host.edit((s) => setCardTag(s, id, tag.id, !on)));
-      }
-    }
-  }
-
   /** Notes linked to the card, such as a draft of the scene or research. */
-  private buildNotes(): void {
+  private buildNotes(props: HTMLElement): void {
     const card = this.card!;
     const id = card.id;
     const notes = this.host.notes;
-    const field = this.field("Notes", card.notes.length === 0 ? "Link a draft, research or any other note. Linked notes open beside the board." : undefined);
+    const field = this.prop(props, "Notes", "file-text");
     for (const path of card.notes) {
       const row = field.createDiv({ cls: "story-planner-panel-note" });
       const exists = notes.exists(path);
@@ -502,73 +522,198 @@ export class CardPanel {
     actions.createEl("button", { text: "Create note from card" }).addEventListener("click", () => notes.createFromCard(id));
   }
 
-  private buildCharacters(section: HTMLElement): void {
+  /**
+   * The card's characters as chips in one box, like a multi-select property
+   * in Notion: clicking the box opens a list to pick from, with a field that
+   * filters it and makes a new character on Enter; clicking a chip sets the
+   * character's role. What each character does in the scene is a line below.
+   */
+  private buildCharacters(props: HTMLElement): void {
     const card = this.card!;
     const story = this.story!;
     const id = card.id;
-    const names = new Map(story.characters.map((c) => [c.id, c]));
+    const value = this.prop(props, "Characters", "users");
+    this.characterPicker(value, story, new Set(card.characters.map((c) => c.id)), {
+      chip: (characterId) => card.characters.find((c) => c.id === characterId)?.role,
+      chipMenu: (characterId, e) => {
+        const entry = card.characters.find((c) => c.id === characterId);
+        if (!entry) return;
+        const menu = new Menu();
+        for (const role of Object.keys(ROLE_LABELS) as CharacterRole[]) {
+          menu.addItem((item) =>
+            item
+              .setTitle(ROLE_LABELS[role])
+              .setChecked(entry.role === role)
+              .onClick(() => this.host.edit((s) => updateCardCharacter(s, id, characterId, { role }))),
+          );
+        }
+        menu.addSeparator();
+        menu.addItem((item) => item.setTitle("Remove from this card").setIcon("x").onClick(() => this.host.edit((s) => removeCardCharacter(s, id, characterId))));
+        menu.showAtMouseEvent(e);
+      },
+      toggle: (characterId, on) => {
+        if (on) this.host.edit((s) => addCharacterByName(s, id, story.characters.find((c) => c.id === characterId)!.name));
+        else this.host.edit((s) => removeCardCharacter(s, id, characterId));
+      },
+      create: (name) => this.host.edit((s) => addCharacterByName(s, id, name)),
+    });
 
+    // What each character does in the scene.
     for (const entry of card.characters) {
-      const character = names.get(entry.id);
-      const row = section.createDiv({ cls: "story-planner-panel-character" });
-      const top = row.createDiv({ cls: "story-planner-panel-character-top" });
-      const name = top.createSpan({ cls: "story-planner-panel-character-name", text: character?.name ?? "Unknown" });
-      name.style.setProperty("--character-color", character?.color ?? "var(--text-faint)");
-      this.select(top, ROLE_LABELS, entry.role, (value) =>
-        this.host.edit((s) => updateCardCharacter(s, id, entry.id, { role: value as CharacterRole })),
-      );
-      const remove = top.createEl("button", { cls: "clickable-icon", text: "×" });
-      remove.setAttr("aria-label", `Remove ${character?.name ?? "character"}`);
-      remove.addEventListener("click", () => this.host.edit((s) => removeCardCharacter(s, id, entry.id)));
-
+      const character = story.characters.find((c) => c.id === entry.id);
+      const row = value.createDiv({ cls: "story-planner-panel-character-note-row" });
+      row.createSpan({ cls: "story-planner-panel-character-note-name", text: character?.name ?? "Unknown" });
       const note = row.createEl("input", { cls: "story-planner-panel-character-note" });
       note.type = "text";
-      note.placeholder = "What they do in this scene";
+      note.placeholder = "What they do here";
       note.value = entry.note ?? "";
       note.dataset.field = `note:${entry.id}`;
       note.addEventListener("input", () =>
         this.host.edit((s) => updateCardCharacter(s, id, entry.id, { note: note.value }), `note:${id}:${entry.id}`),
       );
     }
+  }
 
-    const add = section.createDiv({ cls: "story-planner-panel-add-character" });
-    const input = add.createEl("input");
-    input.type = "text";
-    input.dataset.field = "add-character";
-    const listId = `story-planner-characters-${id}`;
-    input.setAttr("list", listId);
-    const list = add.createEl("datalist");
-    list.id = listId;
-    for (const c of story.characters) {
-      if (!card.characters.some((e) => e.id === c.id)) list.createEl("option").value = c.name;
-    }
-    input.placeholder = "Add a character: pick one, or type a name and press Enter";
-    const submit = () => {
-      const value = input.value;
-      if (!value.trim()) return;
-      // The panel rebuilds and puts the cursor back in this (now empty) field.
-      this.host.edit((s) => addCharacterByName(s, id, value));
-    };
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        submit();
+  /** The chip box and its drop-down list, shared by one card and by several selected cards. */
+  private characterPicker(
+    parent: HTMLElement,
+    story: Story,
+    chosen: Set<Id>,
+    on: {
+      /** A chosen character's role, to mark on its chip. */
+      chip: (characterId: Id) => CharacterRole | undefined;
+      chipMenu?: (characterId: Id, e: MouseEvent) => void;
+      toggle: (characterId: Id, on: boolean) => void;
+      create: (name: string) => void;
+    },
+  ): void {
+    const box = parent.createDiv({ cls: "story-planner-multi" });
+    box.tabIndex = 0;
+    box.setAttr("role", "combobox");
+    box.setAttr("aria-label", "Characters");
+    const chosenList = story.characters.filter((c) => chosen.has(c.id));
+    for (const character of chosenList) {
+      const chip = box.createSpan({ cls: "story-planner-multi-chip" });
+      chip.style.setProperty("--chip-color", character.color);
+      chip.createSpan({ text: character.name });
+      const role = on.chip(character.id);
+      if (role && ROLE_MARKS[role]) chip.createSpan({ cls: "story-planner-multi-chip-role", text: ROLE_MARKS[role] });
+      if (on.chipMenu) {
+        chip.setAttr("title", "Click to set the role");
+        chip.addEventListener("click", (e) => {
+          e.stopPropagation();
+          on.chipMenu!(character.id, e);
+        });
       }
-    });
-    // Picking a suggestion adds it at once. A suggestion arrives as one
-    // replacement of the whole text, unlike typing, which may only match a
-    // name by chance part way through a longer one.
-    input.addEventListener("input", (e) => {
-      const picked = (e as InputEvent).inputType === "insertReplacementText" || (e as InputEvent).inputType === undefined;
-      const known = story.characters.some((c) => c.name === input.value && !card.characters.some((x) => x.id === c.id));
-      if (picked && known) submit();
+      const x = chip.createSpan({ cls: "story-planner-multi-chip-remove", text: "×" });
+      x.setAttr("aria-label", `Remove ${character.name}`);
+      x.addEventListener("click", (e) => {
+        e.stopPropagation();
+        on.toggle(character.id, false);
+      });
+    }
+    if (chosenList.length === 0) box.createSpan({ cls: "story-planner-multi-empty", text: "Empty" });
+
+    const open = () => {
+      if (box.hasClass("is-open")) return;
+      box.addClass("is-open");
+      this.picker = this.picker ?? { query: "" };
+      const pop = parent.createDiv({ cls: "story-planner-multi-pop" });
+      const input = pop.createEl("input", { cls: "story-planner-multi-search" });
+      input.type = "text";
+      input.placeholder = "Search, or type a new name";
+      input.value = this.picker.query;
+      input.dataset.field = "character-search";
+      const list = pop.createDiv({ cls: "story-planner-multi-list" });
+      let active = 0;
+      const items = () => {
+        const q = fold(input.value.trim());
+        return story.characters.filter((c) => !q || fold(c.name).includes(q));
+      };
+      const draw = () => {
+        list.empty();
+        const shown = items();
+        const exact = story.characters.some((c) => fold(c.name) === fold(input.value.trim()));
+        shown.forEach((c, i) => {
+          const row = list.createDiv({ cls: "story-planner-multi-option" });
+          row.toggleClass("is-active", i === active);
+          row.toggleClass("is-chosen", chosen.has(c.id));
+          const chip = row.createSpan({ cls: "story-planner-multi-chip", text: c.name });
+          chip.style.setProperty("--chip-color", c.color);
+          if (chosen.has(c.id)) setIcon(row.createSpan({ cls: "story-planner-multi-check" }), "check");
+          row.addEventListener("mousedown", (e) => e.preventDefault());
+          row.addEventListener("click", () => on.toggle(c.id, !chosen.has(c.id)));
+        });
+        if (input.value.trim() && !exact) {
+          const row = list.createDiv({ cls: "story-planner-multi-option is-create" });
+          row.toggleClass("is-active", active === shown.length);
+          row.createSpan({ text: "Create " });
+          row.createSpan({ cls: "story-planner-multi-chip", text: input.value.trim() });
+          row.addEventListener("mousedown", (e) => e.preventDefault());
+          row.addEventListener("click", () => on.create(input.value.trim()));
+        }
+      };
+      input.addEventListener("input", () => {
+        this.picker = { query: input.value };
+        active = 0;
+        draw();
+      });
+      input.addEventListener("keydown", (e) => {
+        const shown = items();
+        const count = shown.length + (input.value.trim() && !story.characters.some((c) => fold(c.name) === fold(input.value.trim())) ? 1 : 0);
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          active = count === 0 ? 0 : (active + (e.key === "ArrowDown" ? 1 : -1) + count) % count;
+          draw();
+        } else if (e.key === "Enter") {
+          e.preventDefault();
+          const c = shown[active];
+          if (c) on.toggle(c.id, !chosen.has(c.id));
+          else if (input.value.trim()) on.create(input.value.trim());
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          close();
+          box.focus();
+        } else if (e.key === "Backspace" && !input.value && chosenList.length > 0) {
+          on.toggle(chosenList[chosenList.length - 1]!.id, false);
+        }
+      });
+      const outside = (e: PointerEvent) => {
+        if (!pop.contains(e.target as Node) && !box.contains(e.target as Node)) close();
+      };
+      const close = () => {
+        pop.remove();
+        box.removeClass("is-open");
+        document.removeEventListener("pointerdown", outside, true);
+        this.picker = null;
+        if (this.closePicker === close) this.closePicker = null;
+      };
+      // A redraw of the panel drops the list without forgetting it was open.
+      this.closePicker = () => {
+        pop.remove();
+        document.removeEventListener("pointerdown", outside, true);
+      };
+      document.addEventListener("pointerdown", outside, true);
+      draw();
+      input.focus();
+    };
+    box.addEventListener("click", open);
+    box.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+        e.preventDefault();
+        open();
+      }
     });
   }
 
-  private field(label: string, hint?: string): HTMLElement {
-    const field = this.el.createDiv({ cls: "story-planner-panel-field" });
-    field.createDiv({ cls: "story-planner-panel-label", text: label });
-    return field;
+  /** A property row: a small icon and label on the left, the value on the right. Returns the value's cell. */
+  private prop(parent: HTMLElement, label: string, icon: string): HTMLElement {
+    const row = parent.createDiv({ cls: "story-planner-prop" });
+    const name = row.createDiv({ cls: "story-planner-prop-label" });
+    setIcon(name.createSpan({ cls: "story-planner-prop-icon" }), icon);
+    name.createSpan({ text: label });
+    return row.createDiv({ cls: "story-planner-prop-value" });
   }
 
   private select(parent: HTMLElement, options: Record<string, string>, value: string, onChange: (value: string) => void) {

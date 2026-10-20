@@ -103,6 +103,18 @@ describe("text that could break the note", () => {
     expect("timeBlockMinutes" in parseOk(serializeStory(sampleStory())).story).toBe(false);
   });
 
+  it("opens dates once marked approximate, and drops the mark on the next save", () => {
+    const story = sampleStory();
+    const card = Object.values(story.cards)[0]!;
+    card.date = { calendar: story.calendars[0]!.id, year: 2020, month: 1 };
+    card.endDate = { calendar: story.calendars[0]!.id, year: 2020, month: 2 };
+    const old = serializeStory(story).replace('"year":2020,"month":1}', '"year":2020,"month":1,"approximate":true}').replace('"month":2}', '"month":2,"approximate":true}');
+    expect(old.match(/"approximate":true/g)).toHaveLength(2);
+    const parsed = parseOk(old);
+    expect(parsed.story).toEqual(story);
+    expect(serializeStory(parsed.story, parsed.frontmatter)).not.toContain("approximate");
+  });
+
   it("does write real links for notes linked to cards", () => {
     const story = sampleStory();
     Object.values(story.cards)[0]!.notes = ["Drafts/Chapter 1.md"];

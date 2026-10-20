@@ -3,7 +3,7 @@
 .story-planner {
   --story-planner-header-size: 9rem;
   --story-planner-card-width: 14rem;
-  --story-planner-panel-width: 20rem;
+  --story-planner-panel-width: 23rem;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -2985,4 +2985,289 @@ body.story-planner-reordering * {
 
 .story-planner-zoom-indicator.is-fading {
   opacity: 0;
+}
+
+/* The card page, beside the board or in the middle of it, laid out like a
+   Notion page: the title, the scene tags and the synopsis, then a block of
+   properties, one row each, then Delete at the bottom. */
+.story-planner-board {
+  position: relative;
+}
+
+.story-planner-panel input.story-planner-panel-title {
+  width: 100%;
+  margin: var(--size-4-1) 0 var(--size-4-2);
+  border: none;
+  background: transparent;
+}
+
+.story-planner-panel .story-planner-panel-tags {
+  margin: 0 0 var(--size-4-3);
+}
+
+.story-planner-panel textarea.story-planner-panel-synopsis {
+  width: 100%;
+  border: none;
+  background: transparent;
+}
+
+.story-planner-props {
+  margin-top: var(--size-4-4);
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-prop {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: var(--size-4-2);
+  align-items: start;
+  padding: var(--size-4-2) var(--size-2-2);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-prop:hover {
+  background: var(--background-modifier-hover);
+}
+
+.story-planner-prop-label {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  min-height: 28px;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.story-planner-prop-icon {
+  display: flex;
+  flex: none;
+  color: var(--text-faint);
+}
+
+.story-planner-prop-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.story-planner-prop-value {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+}
+
+.story-planner-prop-value > select.dropdown {
+  width: 100%;
+}
+
+.story-planner-panel.is-centre .story-planner-prop {
+  grid-template-columns: 9rem minmax(0, 1fr);
+}
+
+/* When: the readout first, then the date, the time of day and the clock on one line. */
+.story-planner-prop-value .story-planner-date-hint {
+  order: 0;
+  margin: 0;
+  min-height: 0;
+}
+
+.story-planner-prop-value .story-planner-date-row {
+  flex-wrap: nowrap;
+  margin: 0;
+}
+
+.story-planner .story-planner-date-row input.story-planner-date-input {
+  flex: none;
+  width: 11ch;
+  min-width: 0;
+}
+
+.story-planner .story-planner-date-row input.story-planner-date-clock {
+  width: 6.5ch;
+}
+
+.story-planner .story-planner-date-row select.story-planner-date-part {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.story-planner-date-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--size-4-2);
+}
+
+.story-planner-date-part-of-range {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+  min-width: 0;
+}
+
+.story-planner-date-arrow {
+  padding-bottom: 6px;
+  color: var(--text-muted);
+}
+
+.story-planner-prop-value .story-planner-date-add {
+  align-self: flex-start;
+}
+
+/* Characters: chips in a box, and the list to pick from. */
+.story-planner-multi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-2-2);
+  min-height: 28px;
+  padding: var(--size-2-2) var(--size-2-3);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.story-planner-multi:hover,
+.story-planner-multi:focus-visible,
+.story-planner-multi.is-open {
+  border-color: var(--background-modifier-border);
+  outline: none;
+}
+
+.story-planner-multi-empty {
+  color: var(--text-faint);
+  font-size: var(--font-ui-small);
+}
+
+.story-planner-multi-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  padding: 0 var(--size-2-3);
+  background: color-mix(in srgb, var(--chip-color, var(--text-faint)) 32%, transparent);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+  line-height: 1.7;
+  white-space: nowrap;
+}
+
+.story-planner-multi-chip-role {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.story-planner-multi-chip-remove {
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.story-planner-multi-chip-remove:hover {
+  color: var(--text-normal);
+}
+
+.story-planner-multi-pop {
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  box-shadow: var(--shadow-s);
+}
+
+.story-planner .story-planner-multi-pop input.story-planner-multi-search {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background: transparent;
+}
+
+.story-planner-multi-list {
+  max-height: 14em;
+  overflow-y: auto;
+  padding: var(--size-2-2) 0;
+}
+
+.story-planner-multi-option {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-2-2) var(--size-4-2);
+  cursor: pointer;
+}
+
+.story-planner-multi-option.is-active,
+.story-planner-multi-option:hover {
+  background: var(--background-modifier-hover);
+}
+
+.story-planner-multi-check {
+  display: flex;
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+.story-planner-multi-check svg {
+  width: 14px;
+  height: 14px;
+}
+
+.story-planner-multi-option.is-create {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.story-planner-panel-character-note-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+}
+
+.story-planner-panel-character-note-name {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.story-planner .story-planner-panel-character-note-row input.story-planner-panel-character-note {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-ui-small);
+}
+
+/* Delete: a red with a touch of pink, readable on light and dark themes. */
+.story-planner-panel-footer {
+  margin-top: var(--size-4-6);
+  padding-top: var(--size-4-3);
+}
+
+.story-planner button.story-planner-delete {
+  border-color: color-mix(in srgb, #e0607a 45%, transparent);
+  color: #e0607a;
+}
+
+.story-planner button.story-planner-delete:hover {
+  border-color: #e0607a;
+  background: color-mix(in srgb, #e0607a 12%, transparent);
+  color: #e0607a;
+}
+
+.theme-light .story-planner button.story-planner-delete,
+.theme-light .story-planner button.story-planner-delete:hover {
+  color: #c8405c;
+}
+
+/* The rectangle dragged over the board to select cards. */
+.story-planner-marquee {
+  position: absolute;
+  z-index: 20;
+  border: 1px solid var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  pointer-events: none;
+}
+
+body.story-planner-marquee-active,
+body.story-planner-marquee-active * {
+  user-select: none;
 }

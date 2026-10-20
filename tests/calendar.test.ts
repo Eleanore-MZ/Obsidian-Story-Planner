@@ -198,7 +198,7 @@ describe("time zones", () => {
     const dawn = d(1531, 2, 3, { dayPart: "dawn", zone: "z2" });
     expect(momentOf(s, dawn).approximate).toBe(true);
     expect(momentOf(s, { ...dawn, zone: "z1" }).approximate).toBe(false);
-    expect(dateInZone(s, dawn, "z2", "z1")).toEqual(d(1531, 2, 3, { minutes: 4 * 50 - 150, zone: "z1", approximate: true }));
+    expect(dateInZone(s, dawn, "z2", "z1")).toEqual(d(1531, 2, 3, { minutes: 4 * 50 - 150, zone: "z1" }));
   });
 
   it("never shifts a date without a time", () => {

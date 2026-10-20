@@ -33,7 +33,7 @@ function story(): Story {
     characters: [{ id: "x1", role: "pov" }, { id: "x2", role: "present" }], notes: ["Drafts/Coffee.md"],
   });
   add("k3", { title: "Unpacked", plotLine: "p1", chapter: "c2", order: 2 });
-  add("k4", { title: "Tom moves", plotLine: "p2", chapter: null, order: 1, date: { calendar: "main", year: 2023, month: 9, approximate: true } });
+  add("k4", { title: "Tom moves", plotLine: "p2", chapter: null, order: 1, date: { calendar: "main", year: 2023, month: 9 } });
   return s;
 }
 
@@ -56,7 +56,7 @@ describe("Markdown export", () => {
     const text = exportMarkdown(story(), "time");
     const order = ["Tom moves", "Coffee, with Tom", "Boxes everywhere", "## Undated", "Unpacked"].map((t) => text.indexOf(t));
     expect(order).toEqual([...order].sort((a, b) => a - b));
-    expect(text).toContain("## around 2023/09");
+    expect(text).toContain("## 2023/09");
     expect(text).toContain("*Old friends · Chapter 2 · Linden Street › The café*");
   });
 });

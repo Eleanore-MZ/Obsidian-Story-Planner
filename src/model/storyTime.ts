@@ -13,7 +13,6 @@ export function referenceDate(story: Story, card: Card): StoryDate | undefined {
   const shifted = (precision === "time" || precision === "dayPart") && zone && zone !== story.referenceZone;
   const date = shifted ? dateInZone(story, card.date, zone, story.referenceZone) : { ...card.date };
   delete date.zone;
-  delete date.approximate;
   return date;
 }
 

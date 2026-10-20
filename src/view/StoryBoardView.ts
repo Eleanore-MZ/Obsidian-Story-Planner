@@ -186,12 +186,14 @@ export class StoryBoardView extends TextFileView {
       if (target === this.boardEl || target.matches(EMPTY_SPACE)) this.select(null);
     });
     this.boardEl.addEventListener("wheel", (e) => this.wheelZoom(e), { passive: false });
+    this.boardEl.addEventListener("pointerdown", (e) => this.startMarquee(e));
     this.minimap = new Minimap(this.bodyEl, this.boardEl);
     this.panel = new CardPanel(this.bodyEl, {
       edit: (change, coalesce) => this.mutate(change, coalesce),
       close: () => this.select(null),
       deleted: (title) => this.cardDeleted(title),
       deletedMany: (count) => this.cardsDeleted(count),
+      centre: () => this.plugin.settings.cardOpening === "centre",
       notes: this.noteHost(),
     });
     // Behind a card opened in the middle: dims the board, and a click on it closes the card.
@@ -379,39 +381,105 @@ export class StoryBoardView extends TextFileView {
 
   /**
    * A click on a card: on its own it selects the card; with Ctrl (Cmd on a
-   * Mac) it adds the card to the selection or takes it out; with Shift it
-   * selects every card from the last one clicked to this one.
+   * Mac) it adds the card to the selection or takes it out.
    */
   private clickCard(e: MouseEvent, cardId: Id): void {
-    const story = this.story;
-    if (!story) return;
+    if (!this.story) return;
     if (e.ctrlKey || e.metaKey) {
       if (this.multi.size === 0 && this.panel.selected) this.multi.add(this.panel.selected);
       if (this.multi.has(cardId)) this.multi.delete(cardId);
       else this.multi.add(cardId);
       this.anchor = cardId;
       this.showSelection();
-    } else if (e.shiftKey && this.anchor && story.cards[this.anchor]) {
-      const order = this.viewOrder(story);
-      const from = order.indexOf(this.anchor);
-      const to = order.indexOf(cardId);
-      if (from === -1 || to === -1) return this.select(cardId);
-      const anchor = this.anchor;
-      this.multi = new Set(order.slice(Math.min(from, to), Math.max(from, to) + 1));
-      this.showSelection();
-      this.anchor = anchor;
     } else {
       this.select(cardId);
     }
   }
 
-  /** The cards of the current view in the order it shows them, for selecting a range. */
-  private viewOrder(story: Story): Id[] {
-    if (this.tab === "time") {
-      const reading = cardsInReadingOrder(story);
-      return [...timeSorted(story, reading.filter((c) => c.date)), ...reading.filter((c) => !c.date)].map((c) => c.id);
-    }
-    return cardsInReadingOrder(story).map((c) => c.id);
+  /**
+   * Dragging over empty board space draws a rectangle and selects every card
+   * it touches, as in a file explorer; with Ctrl (Cmd) held it adds them to
+   * the cards already selected. Near the board's edges it scrolls the board.
+   */
+  private startMarquee(down: PointerEvent): void {
+    const target = down.target as HTMLElement;
+    if (down.button !== 0 || !this.story || this.tab === "setup") return;
+    if (!(target === this.boardEl || target.matches(EMPTY_SPACE)) || target.closest("[data-card-id], button, input, select, textarea")) return;
+    const board = this.boardEl;
+    const base = new Set(down.ctrlKey || down.metaKey ? (this.multi.size > 0 ? this.multi : this.panel.selected ? [this.panel.selected] : []) : []);
+    // Positions on the board's own content, so they hold while it scrolls.
+    const at = (x: number, y: number) => {
+      const r = board.getBoundingClientRect();
+      return { x: x - r.left + board.scrollLeft, y: y - r.top + board.scrollTop };
+    };
+    const start = at(down.clientX, down.clientY);
+    let pointer = { x: down.clientX, y: down.clientY };
+    let box: HTMLElement | null = null;
+    let hits = new Set<Id>();
+    let frame = 0;
+
+    const update = () => {
+      const now = at(pointer.x, pointer.y);
+      const left = Math.min(start.x, now.x);
+      const top = Math.min(start.y, now.y);
+      const right = Math.max(start.x, now.x);
+      const bottom = Math.max(start.y, now.y);
+      if (!box) {
+        if (right - left < DRAG_THRESHOLD && bottom - top < DRAG_THRESHOLD) return;
+        box = board.createDiv({ cls: "story-planner-marquee" });
+        document.body.addClass("story-planner-marquee-active");
+      }
+      box.style.left = `${left}px`;
+      box.style.top = `${top}px`;
+      box.style.width = `${right - left}px`;
+      box.style.height = `${bottom - top}px`;
+      const r = board.getBoundingClientRect();
+      hits = new Set();
+      for (const el of Array.from(board.querySelectorAll<HTMLElement>("[data-card-id]"))) {
+        const c = el.getBoundingClientRect();
+        const cl = c.left - r.left + board.scrollLeft;
+        const ct = c.top - r.top + board.scrollTop;
+        if (cl < right && cl + c.width > left && ct < bottom && ct + c.height > top) hits.add(el.dataset.cardId!);
+      }
+      const shown = new Set([...base, ...hits]);
+      for (const el of Array.from(board.querySelectorAll<HTMLElement>("[data-card-id]"))) el.classList.toggle("is-selected", shown.has(el.dataset.cardId!));
+    };
+    // Scrolls while the pointer is near an edge, and keeps the rectangle growing with it.
+    const scroll = () => {
+      frame = 0;
+      if (!box) return;
+      const r = board.getBoundingClientRect();
+      const dx = pointer.x < r.left + EDGE_ZONE ? -1 : pointer.x > r.right - EDGE_ZONE ? 1 : 0;
+      const dy = pointer.y < r.top + EDGE_ZONE ? -1 : pointer.y > r.bottom - EDGE_ZONE ? 1 : 0;
+      if (dx || dy) {
+        board.scrollLeft += dx * EDGE_SPEED / 2;
+        board.scrollTop += dy * EDGE_SPEED / 2;
+        update();
+        frame = window.requestAnimationFrame(scroll);
+      }
+    };
+    const move = (e: PointerEvent) => {
+      pointer = { x: e.clientX, y: e.clientY };
+      update();
+      if (box && !frame) frame = window.requestAnimationFrame(scroll);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", up, true);
+      if (frame) window.cancelAnimationFrame(frame);
+      if (!box) return;
+      box.remove();
+      document.body.removeClass("story-planner-marquee-active");
+      // The click that ends the drag must not clear what was just selected.
+      this.suppressClick = true;
+      window.setTimeout(() => (this.suppressClick = false), 0);
+      this.multi = new Set([...base, ...hits]);
+      this.showSelection();
+    };
+    window.addEventListener("pointermove", move, true);
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", up, true);
   }
 
   /** Shows what is selected: the group editor for several cards, the card for one, nothing for none. */

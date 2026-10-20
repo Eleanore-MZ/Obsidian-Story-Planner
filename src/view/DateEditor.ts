@@ -4,12 +4,12 @@ import { Story, StoryDate } from "../model/types";
 
 /**
  * One story date on one line: the date ("2020/07/12", "2020/07", "1531",
- * "12 Jul 2020", "~2023/09", or "+3d" for an end date), a time of day from
- * the calendar's parts of the day, and a clock time, the last two optional.
- * The time of day follows the clock until the writer picks one. The line
- * under it shows how the date reads, or what is wrong. Enter (or leaving a
- * field) saves it; Escape puts back the saved date. A zone, when the story
- * has zones, and "approximate" sit beside it.
+ * "12 Jul 2020", or "+3d" for an end date), a time of day from the
+ * calendar's parts of the day, and a clock time, the last two optional. The
+ * time of day follows the clock until the writer picks one. A line above it
+ * shows how the date reads, or what is wrong. Enter (or leaving a field)
+ * saves it; Escape puts back the saved date. A zone, when the story has
+ * zones, sits beside it.
  */
 export class DateEditor {
   private readonly hint: HTMLElement;
@@ -17,7 +17,6 @@ export class DateEditor {
   private readonly part?: HTMLSelectElement;
   private readonly clock: HTMLInputElement;
   private readonly zone?: HTMLSelectElement;
-  private readonly approximate: HTMLInputElement;
   /** Whether the time of day is the clock's, rather than one the writer picked. */
   private partAuto: boolean;
   /** The date as entered, when it can be read and is allowed; what a dialog saves. */
@@ -42,6 +41,8 @@ export class DateEditor {
     const calendar = mainCalendar(story);
     this.saved = splitDate(story, value);
     this.partAuto = this.saved.partAuto;
+    // How the date reads, first, so it sits right after the field's label.
+    this.hint = parent.createDiv({ cls: "story-planner-date-hint" });
     const row = parent.createDiv({ cls: "story-planner-date-row" });
     this.input = row.createEl("input", { cls: "story-planner-date-input" });
     this.input.type = "text";
@@ -87,15 +88,6 @@ export class DateEditor {
       clear.addEventListener("click", () => this.onChange(undefined));
     }
 
-    const label = parent.createEl("label", { cls: "story-planner-panel-check story-planner-date-approx" });
-    this.approximate = label.createEl("input");
-    this.approximate.type = "checkbox";
-    this.approximate.checked = !!value?.approximate;
-    this.approximate.dataset.field = `${prefix}-approximate`;
-    label.createSpan({ text: "Approximate" });
-    this.approximate.addEventListener("change", () => this.commit());
-
-    this.hint = parent.createDiv({ cls: "story-planner-date-hint" });
     this.fill(this.saved);
 
     for (const field of [this.input, this.clock]) {
@@ -154,7 +146,6 @@ export class DateEditor {
     }
     const date = { ...parsed.date };
     if (!date.zone && this.zone?.value) date.zone = this.zone.value;
-    if (this.approximate.checked) date.approximate = true;
     const problem = dateProblem(mainCalendar(this.story), date) ?? this.check?.(date) ?? null;
     if (problem) return this.say(null, problem);
     this.say(date, null);
@@ -166,8 +157,7 @@ export class DateEditor {
     const date = this.read();
     if (date === null) return;
     if (date) {
-      // Typing "~" ticks the box; a time typed into the date field moves to its own fields.
-      if (date.approximate) this.approximate.checked = true;
+      // A time typed into the date field moves to its own fields.
       if (date.zone && this.zone) this.zone.value = date.zone;
       this.saved = splitDate(this.story, date);
       this.fill(this.saved);

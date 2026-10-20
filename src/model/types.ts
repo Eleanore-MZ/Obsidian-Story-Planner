@@ -137,7 +137,6 @@ export interface StoryDate {
   minutes?: number;
   dayPart?: Id;
   zone?: Id;
-  approximate?: boolean;
 }
 
 export interface CardCharacter {

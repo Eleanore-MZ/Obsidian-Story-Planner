@@ -65,30 +65,8 @@ export function orderedTabs(order: StoryTab[] | undefined): StoryTab[] {
 /** Where a clicked card opens. */
 export type CardOpening = "side" | "centre";
 
-/** What cards on the board can show besides their title. */
-export type CardShow = "chapter" | "date" | "synopsis" | "tags" | "characters" | "place" | "written" | "notes";
-
-export const CARD_SHOW_LABELS: Record<CardShow, string> = {
-  chapter: "Chapter (in story time and the character views)",
-  date: "Date and time",
-  synopsis: "Synopsis",
-  tags: "Scene tags",
-  characters: "Characters",
-  place: "Place",
-  written: "Written box",
-  notes: "Linked notes",
-};
-
-export const DEFAULT_CARD_SHOWS: Record<CardShow, boolean> = {
-  chapter: true,
-  date: true,
-  synopsis: true,
-  tags: true,
-  characters: false,
-  place: true,
-  written: true,
-  notes: true,
-};
+export { CARD_SHOW_LABELS, DEFAULT_CARD_SHOWS, type CardShow } from "./model/cardShows";
+import { CARD_SHOW_LABELS, DEFAULT_CARD_SHOWS, type CardShow } from "./model/cardShows";
 
 /** The key that, held while dropping a card on another plot line, adds an echo there instead of moving it. */
 export type EchoModifier = "alt" | "ctrl" | "shift" | "off";
@@ -360,8 +338,7 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
         }),
       );
 
-    new Setting(containerEl).setName("Layout").setHeading();
-    containerEl.createDiv({ cls: "setting-item-description story-planner-settings-note", text: "What cards on the board show besides their title." });
+    new Setting(containerEl).setName("Default card fields").setHeading();
     for (const key of Object.keys(CARD_SHOW_LABELS) as CardShow[]) {
       new Setting(containerEl).setName(CARD_SHOW_LABELS[key]).addToggle((t) =>
         t.setValue(this.plugin.settings.cardShows[key]).onChange(async (value) => {

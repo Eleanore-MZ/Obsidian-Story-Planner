@@ -1,6 +1,7 @@
 import { Menu, Notice, Scope, setIcon, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import type StoryPlannerPlugin from "../main";
-import { type CardShow, DEFAULT_CARD_SHOWS, orderedTabs, type StoryTab } from "../settings";
+import { orderedTabs, type StoryTab } from "../settings";
+import { cardShows, type CardShow } from "../model/cardShows";
 import { addCardAt, addCharacterByName, deleteCard, duringChapter, echoByDrop, setCardDate, setCardDuring, updateCard } from "../model/edits";
 import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
@@ -210,6 +211,7 @@ export class StoryBoardView extends TextFileView {
       editChapter: (id) => this.editChapter(id),
       editAct: (id) => this.editAct(id),
       section: () => this.viewState()?.setupSection,
+      cardShowDefaults: () => this.plugin.settings.cardShows,
       setSection: (section) => this.setViewState({ setupSection: section }),
     });
     this.contentEl.addEventListener(
@@ -915,7 +917,7 @@ export class StoryBoardView extends TextFileView {
 
   /** Whether cards show a piece of information, by the plugin's Layout settings. */
   private shows(what: CardShow): boolean {
-    return this.plugin.settings.cardShows?.[what] ?? DEFAULT_CARD_SHOWS[what];
+    return cardShows(this.story, this.plugin.settings.cardShows, what);
   }
 
   /** A card's title; a card without one shows none, so its synopsis leads. */

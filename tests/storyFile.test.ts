@@ -115,6 +115,16 @@ describe("text that could break the note", () => {
     expect(serializeStory(parsed.story, parsed.frontmatter)).not.toContain("approximate");
   });
 
+  it("keeps the card fields a story chooses for itself, and nothing for stories that follow the defaults", () => {
+    const story = sampleStory();
+    story.cardShows = { characters: true, synopsis: false };
+    expect(parseOk(serializeStory(story)).story).toEqual(story);
+    expect("cardShows" in parseOk(serializeStory(sampleStory())).story).toBe(false);
+    // Unknown fields and values that are not true or false are dropped.
+    const odd = serializeStory(story).replace('"cardShows":{"characters":true,"synopsis":false}', '"cardShows":{"characters":true,"colour":true,"place":"yes"}');
+    expect(parseOk(odd).story.cardShows).toEqual({ characters: true });
+  });
+
   it("does write real links for notes linked to cards", () => {
     const story = sampleStory();
     Object.values(story.cards)[0]!.notes = ["Drafts/Chapter 1.md"];

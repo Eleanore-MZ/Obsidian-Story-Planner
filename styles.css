@@ -3347,3 +3347,10 @@ body.story-planner-marquee-active * {
   color: var(--text-normal);
   text-decoration: underline;
 }
+
+/* "Use default" beside a card field the story has set for itself. */
+.story-planner button.story-planner-setup-default {
+  margin-left: auto;
+  padding: 0 var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+}

@@ -1,5 +1,6 @@
 import { formatStoryDate } from "../model/calendar";
 import { linkTarget, noteName } from "../model/links";
+import { cleanCardShows } from "../model/cardShows";
 import { Card, Chapter, STORY_SCHEMA_VERSION, Story, StoryDate, StorySetup } from "../model/types";
 import { actsShown, actTitle, chapterNumbers, chapterTitle, titleFromOldName } from "../model/chapters";
 
@@ -283,6 +284,7 @@ function readSetup(raw: unknown): StorySetup | string {
     ...(typeof raw.timeBlockMinutes === "number" && Number.isInteger(raw.timeBlockMinutes) && raw.timeBlockMinutes > 0
       ? { timeBlockMinutes: raw.timeBlockMinutes }
       : {}),
+    ...(cleanCardShows(raw.cardShows) ? { cardShows: cleanCardShows(raw.cardShows) } : {}),
   };
 }
 

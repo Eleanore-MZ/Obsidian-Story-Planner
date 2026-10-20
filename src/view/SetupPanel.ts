@@ -4,6 +4,7 @@ import { colorSwatch } from "./colorPicker";
 import { formatOffset, formatStoryDate, parseOffset } from "../model/calendar";
 import { DATE_TOKENS, defaultFormats, TIME_TOKENS } from "../model/dateFormat";
 import { blockLabel, blockSizes, DEFAULT_TIME_BLOCK, timeBlock } from "./timeLayout";
+import { CARD_SHOW_LABELS, cardShows, type CardShow } from "../model/cardShows";
 import { CALENDAR_PRESETS } from "../model/defaults";
 import {
   addCategory,
@@ -84,6 +85,8 @@ export interface SetupPanelHost {
   editAct(actId: Id): void;
   /** The section of setup last open for this story, kept with the board's view state. */
   section(): SetupSection | undefined;
+  /** What cards show unless the story chooses for itself: the plugin's settings. */
+  cardShowDefaults(): Partial<Record<CardShow, boolean>>;
   setSection(section: SetupSection): void;
 }
 
@@ -207,6 +210,7 @@ export class SetupPanel {
       this.buildPlotLines(story);
       this.buildCategories(story);
       this.buildTags(story);
+      this.buildCardFields(story);
     } else if (current === "chapters") {
       this.buildChapters(story);
     } else if (current === "characters") {
@@ -419,6 +423,35 @@ export class SetupPanel {
         s.acts.push(act);
       }),
     );
+  }
+
+  /**
+   * What this story's cards show. Each field follows the plugin's default
+   * until it is changed here; "Use default" puts it back to following it.
+   */
+  private buildCardFields(story: Story): void {
+    const section = this.section("Card fields");
+    const defaults = this.host.cardShowDefaults();
+    for (const key of Object.keys(CARD_SHOW_LABELS) as CardShow[]) {
+      const row = section.createDiv({ cls: "story-planner-setup-row" });
+      const own = story.cardShows?.[key];
+      this.checkbox(row, CARD_SHOW_LABELS[key], cardShows(story, defaults, key), (on) =>
+        this.host.edit((s) => {
+          s.cardShows = { ...s.cardShows, [key]: on };
+        }),
+      ).dataset.field = `card-show:${key}`;
+      if (own !== undefined) {
+        const reset = row.createEl("button", { cls: "story-planner-setup-default", text: "Use default" });
+        reset.addEventListener("click", () =>
+          this.host.edit((s) => {
+            if (!s.cardShows) return false;
+            const { [key]: _gone, ...rest } = s.cardShows;
+            if (Object.keys(rest).length > 0) s.cardShows = rest;
+            else delete s.cardShows;
+          }),
+        );
+      }
+    }
   }
 
   private buildCharacters(story: Story): void {

@@ -199,6 +199,8 @@ export interface StorySetup {
   timeFormat?: string;
   /** How long a block of time is at story time's clock zoom, in the calendar's minutes; unset is 15. */
   timeBlockMinutes?: number;
+  /** What this story's cards show, where it differs from the plugin's defaults. */
+  cardShows?: Partial<Record<"chapter" | "date" | "synopsis" | "tags" | "characters" | "place" | "written" | "notes", boolean>>;
 }
 
 export interface Story extends StorySetup {

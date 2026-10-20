@@ -28,6 +28,8 @@ export interface StoryViewState {
   timeZoneView?: string;
   /** Story time shows every span from the first to the last, not only those with cards. */
   expandTimeline?: boolean;
+  /** The clock zoom's block, in minutes, set with Ctrl+wheel; never shorter than the story's shortest. */
+  clockBlock?: number;
   /** A character, tag or place to make stand out, as "character:id", "tag:id" or "location:id". */
   highlight?: string;
   /** Character view: track or matrix, the characters chosen as lanes (in order), axis and layout. */

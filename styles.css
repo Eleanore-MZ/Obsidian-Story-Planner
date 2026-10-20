@@ -2962,3 +2962,27 @@ body.story-planner-reordering * {
 .story-planner-echo.is-background {
   opacity: 0.6;
 }
+
+/* Says the zoom for a moment after Ctrl+wheel changes it. */
+.story-planner {
+  position: relative;
+}
+
+.story-planner-zoom-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  padding: var(--size-4-2) var(--size-4-4);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+  font-size: var(--font-ui-medium);
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+.story-planner-zoom-indicator.is-fading {
+  opacity: 0;
+}

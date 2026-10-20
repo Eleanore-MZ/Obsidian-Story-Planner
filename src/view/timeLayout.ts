@@ -34,6 +34,38 @@ export const DEFAULT_TIME_BLOCK = 15;
 /** The most rows an expanded timeline draws; a longer one stays as it is. */
 export const MAX_EXPANDED_ROWS = 500;
 
+/** The block sizes the clock zoom offers, in the calendar's minutes, shortest first. */
+export function blockSizes(calendar: Calendar): number[] {
+  const perHour = calendar.minutesPerHour;
+  return [
+    ...[5, 10, 15, 30].filter((m) => m < perHour),
+    ...[1, 2, 3, 6].filter((h) => h < calendar.hoursPerDay).map((h) => h * perHour),
+  ];
+}
+
+/**
+ * The steps of story time's zoom, coarsest first: years, months, days, times
+ * of day, then the clock in blocks from the longest down to the story's
+ * shortest.
+ */
+export function zoomSteps(story: Story): { zoom: Zoom; block?: number }[] {
+  const finest = timeBlock(story);
+  const blocks = blockSizes(mainCalendar(story)).filter((b) => b >= finest);
+  if (!blocks.includes(finest)) blocks.unshift(finest);
+  return [
+    { zoom: "year" },
+    { zoom: "month" },
+    { zoom: "day" },
+    { zoom: "time" },
+    ...blocks.sort((a, b) => b - a).map((block) => ({ zoom: "clock" as const, block })),
+  ];
+}
+
+/** A block size as "15 min" or "2 h". */
+export function blockLabel(calendar: Calendar, minutes: number): string {
+  return minutes % calendar.minutesPerHour === 0 ? `${minutes / calendar.minutesPerHour} h` : `${minutes} min`;
+}
+
 /** A story's block of time for the clock zoom, in its calendar's minutes. */
 export function timeBlock(story: Story): number {
   const block = story.timeBlockMinutes;
@@ -227,9 +259,8 @@ export function describeGap(calendar: Calendar, from: number, to: number): strin
  * story order; a span is as tall as its tallest stack, and the space under a
  * short stack is a time cell, so every plot line accepts drops in every span.
  */
-export function computeTimeLayout(story: Story, zoom: Zoom, orientation: Orientation, expand = false): TimeLayout {
+export function computeTimeLayout(story: Story, zoom: Zoom, orientation: Orientation, expand = false, block = timeBlock(story)): TimeLayout {
   const calendar = mainCalendar(story);
-  const block = timeBlock(story);
   const laneIndex = new Map(story.plotLines.map((p, i) => [p.id, i]));
   const cards = Object.values(story.cards).filter((c) => laneIndex.has(c.plotLine));
   const dated = timeSorted(story, cards.filter((c) => c.date));

@@ -35,7 +35,7 @@ import {
   setChapterAct,
   startActAt,
 } from "../model/chapters";
-import { Bucket, bucketDate, computeTimeLayout, MAX_EXPANDED_ROWS, TimeItem, timeBlock, Zoom, ZOOM_LABELS } from "./timeLayout";
+import { blockLabel, Bucket, bucketDate, computeTimeLayout, MAX_EXPANDED_ROWS, TimeItem, timeBlock, Zoom, ZOOM_LABELS, zoomSteps } from "./timeLayout";
 import { computeMatrix, computeTrackLayout, TrackAxis, TrackItem } from "./trackLayout";
 
 export const STORY_BOARD_VIEW = "story-planner-board";
@@ -127,6 +127,8 @@ export class StoryBoardView extends TextFileView {
   private gridLanes = new WeakMap<HTMLElement, { kind: LaneKind; ids: string[]; tracks: number[]; lead: number }>();
   /** The zoom at which the whole timeline was last found too long to show, so that is said only once. */
   private tooLongNoticed: string | null = null;
+  /** When Ctrl+wheel last zoomed, so one notch is one step. */
+  private lastWheel = 0;
   /** Cards selected together with Ctrl+click or Shift+click; two or more open the group editor. */
   private multi = new Set<Id>();
   /** The card a Shift+click selects from. */
@@ -183,6 +185,7 @@ export class StoryBoardView extends TextFileView {
       const target = e.target as HTMLElement;
       if (target === this.boardEl || target.matches(EMPTY_SPACE)) this.select(null);
     });
+    this.boardEl.addEventListener("wheel", (e) => this.wheelZoom(e), { passive: false });
     this.minimap = new Minimap(this.bodyEl, this.boardEl);
     this.panel = new CardPanel(this.bodyEl, {
       edit: (change, coalesce) => this.mutate(change, coalesce),
@@ -910,6 +913,62 @@ export class StoryBoardView extends TextFileView {
     return (path ? this.plugin.settings.viewState[path]?.zoom : undefined) ?? "day";
   }
 
+  /** The clock zoom's block: the one chosen with Ctrl+wheel, or the story's shortest. */
+  private clockBlock(story: Story): number {
+    const finest = timeBlock(story);
+    const chosen = this.viewState()?.clockBlock;
+    return chosen && chosen >= finest ? chosen : finest;
+  }
+
+  /**
+   * Ctrl+wheel over story time: up for finer, down for coarser, one step a
+   * notch, through the zoom levels and then the clock's blocks. The time
+   * under the pointer stays where it is.
+   */
+  private wheelZoom(e: WheelEvent): void {
+    const story = this.story;
+    if (!story || this.tab !== "time" || !(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const now = Date.now();
+    if (now - this.lastWheel < 140) return;
+    this.lastWheel = now;
+    const steps = zoomSteps(story);
+    const block = this.clockBlock(story);
+    let at = steps.findIndex((s) => s.zoom === this.zoom && (s.zoom !== "clock" || s.block === block));
+    if (at === -1) at = this.zoom === "clock" ? steps.length - 1 : 2;
+    const next = steps[Math.max(0, Math.min(steps.length - 1, at + (e.deltaY < 0 ? 1 : -1)))]!;
+    if (next === steps[at]) return;
+
+    // The minute under the pointer, from the time header beside it, to scroll back to.
+    const vertical = this.orientation === "vertical";
+    const headers = Array.from(this.boardEl.querySelectorAll<HTMLElement>(".story-planner-time-header[data-start]"));
+    const under = headers.find((h) => {
+      const r = h.getBoundingClientRect();
+      return vertical ? e.clientY >= r.top && e.clientY < r.bottom : e.clientX >= r.left && e.clientX < r.right;
+    });
+    const minute = under ? Number(under.dataset.start) : null;
+    const offset = under ? (vertical ? under.getBoundingClientRect().top : under.getBoundingClientRect().left) : 0;
+
+    this.setViewState(next.zoom === "clock" ? { zoom: "clock", clockBlock: next.block } : { zoom: next.zoom });
+    this.zoomIndicator(next.zoom === "clock" ? `Clock · ${blockLabel(mainCalendar(story), next.block!)}` : ZOOM_LABELS[next.zoom]);
+    if (minute === null) return;
+    const after = Array.from(this.boardEl.querySelectorAll<HTMLElement>(".story-planner-time-header[data-start]"));
+    const target = after.filter((h) => Number(h.dataset.start) <= minute).pop() ?? after[0];
+    if (!target) return;
+    const r = target.getBoundingClientRect();
+    if (vertical) this.boardEl.scrollTop += r.top - offset;
+    else this.boardEl.scrollLeft += r.left - offset;
+  }
+
+  /** A small label that says the zoom for a moment after it changes. */
+  private zoomIndicator(text: string): void {
+    this.contentEl.querySelector(".story-planner-zoom-indicator")?.remove();
+    const el = this.contentEl.createDiv({ cls: "story-planner-zoom-indicator", text });
+    window.setTimeout(() => el.addClass("is-fading"), 700);
+    window.setTimeout(() => el.remove(), 1200);
+  }
+
   /** The zone story-time cards show their times in; "" is each card's own local time. */
   private get zoneView(): string {
     const path = this.file?.path;
@@ -1603,7 +1662,7 @@ export class StoryBoardView extends TextFileView {
     }
     const orientation = this.orientation;
     const expand = !!this.viewState()?.expandTimeline;
-    const layout = computeTimeLayout(story, this.zoom, orientation, expand);
+    const layout = computeTimeLayout(story, this.zoom, orientation, expand, this.clockBlock(story));
     this.buckets = new Map(layout.buckets.map((b) => [b.id, b]));
     if (layout.tooLongToExpand) {
       // Said once per zoom, not on every redraw.
@@ -1628,8 +1687,9 @@ export class StoryBoardView extends TextFileView {
   }
 
   /** A date in the date column; its label stays in view while a tall span scrolls past. */
-  private timeHeader(grid: HTMLElement, label: string): HTMLElement {
+  private timeHeader(grid: HTMLElement, label: string, start?: number): HTMLElement {
     const el = grid.createDiv({ cls: "story-planner-time-header" });
+    if (start !== undefined) el.dataset.start = String(start);
     el.createSpan({ cls: "story-planner-time-label", text: label });
     return el;
   }
@@ -1918,7 +1978,7 @@ export class StoryBoardView extends TextFileView {
         return this.renderItem(grid, item, story);
 
       case "time-header":
-        return this.timeHeader(grid, item.bucket.label);
+        return this.timeHeader(grid, item.bucket.label, item.bucket.start);
 
       case "gap":
         return this.gap(grid, item.text);
@@ -2068,7 +2128,7 @@ export class StoryBoardView extends TextFileView {
       new Notice(`"${card.title}" now happens ${bucket.label}. Refine the date in the card panel.`);
       return;
     }
-    const current = bucketDate(mainCalendar(story), referenceDate(story, card)!, this.zoom, timeBlock(story));
+    const current = bucketDate(mainCalendar(story), referenceDate(story, card)!, this.zoom, this.clockBlock(story));
     if (JSON.stringify(current) === bucketId) {
       // Cards at the same moment keep the writer's order; cards at different
       // moments in one span are in the order of their times.
@@ -2264,7 +2324,7 @@ export class StoryBoardView extends TextFileView {
       }
 
       case "time-header":
-        return this.timeHeader(grid, item.bucket.label);
+        return this.timeHeader(grid, item.bucket.label, item.bucket.start);
 
       case "gap":
         return this.gap(grid, item.text);
@@ -2707,6 +2767,8 @@ export class StoryBoardView extends TextFileView {
       (place) =>
         this.mutate((s) => {
           const id = this.dragged!.id;
+          // An off-page event dropped among a chapter's scenes stays off-page, in the chapter's background.
+          if (s.cards[id]?.chapter === null && target.chapter !== null) return moveToChapter(s, id, { chapter: target.chapter, plotLine });
           const moved = moveCard(s, id, {
             chapter: target.chapter,
             plotLine,
@@ -2798,8 +2860,18 @@ function echoText(card: Card): string {
   return card.synopsis.trim().split(/\r?\n/)[0] || "Untitled";
 }
 
-/** Moves a card into a chapter, or into the off-page group, where it happens during no chapter. */
+/**
+ * Moves a card into a chapter, or into the off-page group, where it happens
+ * during no chapter. An off-page event dropped into a chapter stays off-page
+ * and happens during that chapter, in its background rows; the card panel's
+ * Chapter field is what makes it a scene told in the chapter.
+ */
 function moveToChapter(story: Story, cardId: Id, target: CardTarget): boolean {
+  const card = story.cards[cardId];
+  if (card && card.chapter === null && target.chapter !== null) {
+    const moved = moveCard(story, cardId, { chapter: null, plotLine: target.plotLine });
+    return setCardDuring(story, cardId, target.chapter) || moved;
+  }
   const moved = moveCard(story, cardId, target);
   return (target.chapter === null && setCardDuring(story, cardId, undefined)) || moved;
 }

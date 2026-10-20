@@ -3,7 +3,7 @@ import { createCard, createEmptyStory } from "../src/model/defaults";
 import { placeLastInTime, reorderInTime, timeSorted } from "../src/model/storyTime";
 import { Card, Story, StoryDate } from "../src/model/types";
 import { dateSpan } from "../src/model/calendar";
-import { bucketDate, computeTimeLayout, describeGap } from "../src/view/timeLayout";
+import { bucketDate, computeTimeLayout, describeGap, zoomSteps } from "../src/view/timeLayout";
 
 const NOW = "2026-10-19T03:00:00.000Z";
 const d = (year: number, month?: number, day?: number, extra: Partial<StoryDate> = {}): StoryDate => ({
@@ -149,6 +149,22 @@ describe("story-time layout", () => {
     expect(layout.tooLongToExpand).toBe(true);
     expect(layout.buckets).toHaveLength(2);
     expect(computeTimeLayout(s, "month", "vertical", true).tooLongToExpand).toBeUndefined();
+  });
+
+  it("zooms in steps from years down to the story's shortest clock block", () => {
+    const s = story();
+    const label = (x: { zoom: string; block?: number }) => (x.block ? `${x.zoom}:${x.block}` : x.zoom);
+    expect(zoomSteps(s).map(label)).toEqual(["year", "month", "day", "time", "clock:360", "clock:180", "clock:120", "clock:60", "clock:30", "clock:15"]);
+    s.timeBlockMinutes = 60;
+    expect(zoomSteps(s).map(label).slice(-2)).toEqual(["clock:120", "clock:60"]);
+  });
+
+  it("uses a block chosen for the view over the story's shortest", () => {
+    const s = story();
+    add(s, "a", d(2020, 1, 1, { minutes: 9 * 60 + 5 }));
+    add(s, "b", d(2020, 1, 1, { minutes: 9 * 60 + 40 }));
+    expect(computeTimeLayout(s, "clock", "vertical", false, 60).buckets).toHaveLength(1);
+    expect(computeTimeLayout(s, "clock", "vertical", false).buckets).toHaveLength(2);
   });
 
   it("lists undated cards in reading order for the tray", () => {

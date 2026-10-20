@@ -577,10 +577,11 @@ export class CardPanel {
       .map((e) => ({ entry: e, character: story.characters.find((c) => c.id === e.id) }))
       .filter((x): x is { entry: (typeof entries)[number]; character: NonNullable<typeof x.character> } => !!x.character);
     for (const { entry, character } of chosenList) {
-      const chip = box.createSpan({ cls: `story-planner-multi-chip story-planner-role-chip role-${entry.role}` });
+      // The row is plain; the name is boxed in the role's style, and the role word takes the character's colour.
+      const chip = box.createDiv({ cls: "story-planner-multi-row" });
       chip.toggleClass("is-partial", entry.partial);
       chip.style.setProperty("--chip-color", character.color);
-      chip.createSpan({ cls: "story-planner-multi-chip-name", text: character.name });
+      chip.createSpan({ cls: `story-planner-multi-chip-name story-planner-role-chip role-${entry.role}`, text: character.name });
       if (entry.partial) chip.setAttr("title", "On some of the selected cards");
       if (on.note) {
         const note = chip.createEl("input", { cls: "story-planner-multi-chip-note" });
@@ -593,6 +594,7 @@ export class CardPanel {
         note.addEventListener("input", () => on.note!.set(character.id, note.value));
       }
       const role = chip.createEl("button", { cls: "story-planner-role-cycle", text: entry.role === "mixed" ? "Mixed" : ROLE_LABELS[entry.role] });
+      role.toggleClass("is-mixed", entry.role === "mixed");
       role.setAttr("aria-label", `Role: ${entry.role === "mixed" ? "mixed" : ROLE_LABELS[entry.role]}. Click for the next one.`);
       role.addEventListener("click", (e) => {
         e.stopPropagation();

@@ -5,14 +5,15 @@ import { addCardAt, addCharacterByName, deleteCard, echoByDrop, setCardDate, upd
 import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
-import { compareDates, dateInZone, effectiveZone, formatDateRange, formatStoryDate, precisionOf } from "../model/calendar";
-import { Clash, findClashes, placeLastInTime, reorderInTime, referenceDate } from "../model/storyTime";
+import { cardMoment, compareDates, dateInZone, mainCalendar, effectiveZone, formatDateRange, formatStoryDate, precisionOf } from "../model/calendar";
+import { Clash, findClashes, placeLastInTime, reorderInTime, referenceDate, timeSorted } from "../model/storyTime";
 import { Card, CharacterRole, Id, Story } from "../model/types";
 import { isUntitled } from "../model/defaults";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree, plotLineColor } from "../model/setup";
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
-import { cardMatches, queryTerms, searchCards } from "../model/search";
+import { cardMatches, cardsInReadingOrder, queryTerms, searchCards } from "../model/search";
+import { deleteCards } from "../model/groupEdits";
 import { CardPanel, NoteHost } from "./CardPanel";
 import { Minimap } from "./Minimap";
 import { guardComposition } from "./composition";
@@ -33,7 +34,7 @@ import {
   setChapterAct,
   startActAt,
 } from "../model/chapters";
-import { Bucket, bucketDate, computeTimeLayout, TimeItem, Zoom, ZOOM_LABELS } from "./timeLayout";
+import { Bucket, bucketDate, computeTimeLayout, MAX_EXPANDED_ROWS, TimeItem, timeBlock, Zoom, ZOOM_LABELS } from "./timeLayout";
 import { computeMatrix, computeTrackLayout, TrackAxis, TrackItem } from "./trackLayout";
 
 export const STORY_BOARD_VIEW = "story-planner-board";
@@ -122,6 +123,12 @@ export class StoryBoardView extends TextFileView {
   /** Which lanes each drawn grid has, for resizing a lane while it is dragged. */
   /** Lanes can have several tracks, where a long card runs beside others in story time. */
   private gridLanes = new WeakMap<HTMLElement, { kind: LaneKind; ids: string[]; tracks: number[]; lead: number }>();
+  /** The zoom at which the whole timeline was last found too long to show, so that is said only once. */
+  private tooLongNoticed: string | null = null;
+  /** Cards selected together with Ctrl+click or Shift+click; two or more open the group editor. */
+  private multi = new Set<Id>();
+  /** The card a Shift+click selects from. */
+  private anchor: Id | null = null;
 
   constructor(leaf: WorkspaceLeaf, private plugin: StoryPlannerPlugin) {
     super(leaf);
@@ -148,12 +155,16 @@ export class StoryBoardView extends TextFileView {
     // Delete removes the selected card, the same undoable way as the panel's button,
     // but never while typing or with a dialog open.
     this.scope.register([], "Delete", () => {
-      if (!this.panel.selected || this.tab === "setup" || isTyping() || document.querySelector(".modal-container")) return true;
-      this.deleteCard(this.panel.selected);
+      if ((!this.panel.selected && this.multi.size < 2) || this.tab === "setup" || isTyping() || document.querySelector(".modal-container")) return true;
+      if (this.multi.size >= 2) {
+        const ids = [...this.multi];
+        this.mutate((s) => deleteCards(s, ids));
+        this.cardsDeleted(ids.length);
+      } else this.deleteCard(this.panel.selected!);
       return false;
     });
     this.scope.register([], "Escape", () => {
-      if (!this.panel.selected) return true;
+      if (!this.panel.selected && this.multi.size === 0) return true;
       this.select(null);
       return false;
     });
@@ -175,6 +186,7 @@ export class StoryBoardView extends TextFileView {
       edit: (change, coalesce) => this.mutate(change, coalesce),
       close: () => this.select(null),
       deleted: (title) => this.cardDeleted(title),
+      deletedMany: (count) => this.cardsDeleted(count),
       notes: this.noteHost(),
     });
     this.setup = new SetupPanel(this.contentEl, {
@@ -331,6 +343,11 @@ export class StoryBoardView extends TextFileView {
     new Notice(`Deleted "${title}". Press Ctrl+Z to undo.`);
   }
 
+  private cardsDeleted(count: number): void {
+    this.select(null);
+    new Notice(`Deleted ${count} cards. Press Ctrl+Z to undo.`);
+  }
+
   /** Creates a card at a board position, selects it and puts the cursor in its title. */
   private addCard(target: CardTarget): void {
     let id: Id | null = null;
@@ -343,12 +360,69 @@ export class StoryBoardView extends TextFileView {
     }
   }
 
-  /** Selects a card and shows it in the side panel; null closes the panel. */
+  /** Selects a card and shows it in the side panel; null closes the panel. Either way it ends a selection of several. */
   private select(cardId: Id | null): void {
     if (!this.story) return;
+    this.multi.clear();
+    this.anchor = cardId;
     this.panel.show(this.story, cardId);
+    this.markSelection();
+  }
+
+  /**
+   * A click on a card: on its own it selects the card; with Ctrl (Cmd on a
+   * Mac) it adds the card to the selection or takes it out; with Shift it
+   * selects every card from the last one clicked to this one.
+   */
+  private clickCard(e: MouseEvent, cardId: Id): void {
+    const story = this.story;
+    if (!story) return;
+    if (e.ctrlKey || e.metaKey) {
+      if (this.multi.size === 0 && this.panel.selected) this.multi.add(this.panel.selected);
+      if (this.multi.has(cardId)) this.multi.delete(cardId);
+      else this.multi.add(cardId);
+      this.anchor = cardId;
+      this.showSelection();
+    } else if (e.shiftKey && this.anchor && story.cards[this.anchor]) {
+      const order = this.viewOrder(story);
+      const from = order.indexOf(this.anchor);
+      const to = order.indexOf(cardId);
+      if (from === -1 || to === -1) return this.select(cardId);
+      const anchor = this.anchor;
+      this.multi = new Set(order.slice(Math.min(from, to), Math.max(from, to) + 1));
+      this.showSelection();
+      this.anchor = anchor;
+    } else {
+      this.select(cardId);
+    }
+  }
+
+  /** The cards of the current view in the order it shows them, for selecting a range. */
+  private viewOrder(story: Story): Id[] {
+    if (this.tab === "time") {
+      const reading = cardsInReadingOrder(story);
+      return [...timeSorted(story, reading.filter((c) => c.date)), ...reading.filter((c) => !c.date)].map((c) => c.id);
+    }
+    return cardsInReadingOrder(story).map((c) => c.id);
+  }
+
+  /** Shows what is selected: the group editor for several cards, the card for one, nothing for none. */
+  private showSelection(): void {
+    if (!this.story) return;
+    for (const id of [...this.multi]) if (!this.story.cards[id]) this.multi.delete(id);
+    if (this.multi.size >= 2) {
+      this.panel.showGroup(this.story, [...this.multi]);
+      this.markSelection();
+      return;
+    }
+    const only = [...this.multi][0] ?? null;
+    this.select(only);
+  }
+
+  private markSelection(): void {
     for (const el of Array.from(this.boardEl.querySelectorAll<HTMLElement>("[data-card-id]"))) {
-      el.classList.toggle("is-selected", el.dataset.cardId === this.panel.selected);
+      const id = el.dataset.cardId!;
+      el.classList.toggle("is-selected", this.multi.size >= 2 ? this.multi.has(id) : id === this.panel.selected);
     }
     this.minimap.refresh();
   }
@@ -976,8 +1050,13 @@ export class StoryBoardView extends TextFileView {
     gear.toggleClass("is-active", tab === "setup");
     gear.addEventListener("click", () => this.showTab(tab === "setup" ? (this.viewState()?.lastView ?? "board") : "setup"));
 
-    // Keep the panel on the selected card; it closes if the card is gone (after an undo, say).
-    this.panel.show(story, withPanel ? this.panel.selected : null, typing);
+    // Keep the panel on the selected card (or cards); it closes if the card is gone (after an undo, say).
+    for (const id of [...this.multi]) if (!story.cards[id]) this.multi.delete(id);
+    if (withPanel && this.multi.size >= 2) this.panel.showGroup(story, [...this.multi]);
+    else {
+      if (this.multi.size > 0) this.multi.clear();
+      this.panel.show(story, withPanel ? this.panel.selected : null, typing);
+    }
     this.setup.refresh(story, typing);
     if (withPanel) this.renderBoard(story);
     this.minimap.setVisible(withPanel && !!this.viewState()?.minimap);
@@ -1007,7 +1086,7 @@ export class StoryBoardView extends TextFileView {
     for (const wrap of Array.from(this.boardEl.querySelectorAll<HTMLElement>(".story-planner-chapter-wrap"))) {
       wrap.toggleClass("is-clipped", wrap.scrollHeight > wrap.clientHeight + 1);
     }
-    this.minimap.refresh();
+    this.markSelection();
   }
 
   private fillBoard(parent: HTMLElement, story: Story): void {
@@ -1250,8 +1329,7 @@ export class StoryBoardView extends TextFileView {
         if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
         this.cardExtras(el, card, story);
         el.dataset.cardId = card.id;
-        if (card.id === this.panel.selected) el.addClass("is-selected");
-        el.addEventListener("click", () => this.select(card.id));
+        el.addEventListener("click", (e) => this.clickCard(e, card.id));
         el.addEventListener("dblclick", () => this.editTitleInPlace(el, card));
         this.makeDraggable(el, { kind: "card", id: card.id });
         this.makeCardDropTarget(el, card, card.plotLine);
@@ -1378,6 +1456,15 @@ export class StoryBoardView extends TextFileView {
     for (const [value, label] of Object.entries(ZOOM_LABELS)) zoom.createEl("option", { text: label }).value = value;
     zoom.value = this.zoom;
     zoom.addEventListener("change", () => this.setViewState({ zoom: zoom.value as Zoom }));
+    // Every span from the first to the last, empty ones too, like a calendar.
+    const expanded = !!this.viewState()?.expandTimeline;
+    const expand = actions.createEl("button", { cls: "clickable-icon story-planner-expand-time" });
+    iconOr(expand, expanded ? "fold-vertical" : "unfold-vertical", "chevrons-up-down");
+    expand.setAttr("aria-label", expanded ? "Show only times with cards" : "Show the whole timeline");
+    expand.setAttr("title", expanded ? "Show only times with cards" : "Show the whole timeline");
+    expand.setAttr("aria-pressed", String(expanded));
+    expand.toggleClass("is-active", expanded);
+    expand.addEventListener("click", () => this.setViewState({ expandTimeline: !expanded }));
     if (story.zones.length > 0) {
       const zones = actions.createEl("select", { cls: "dropdown" });
       zones.setAttr("aria-label", "Show times in");
@@ -1394,8 +1481,17 @@ export class StoryBoardView extends TextFileView {
       return;
     }
     const orientation = this.orientation;
-    const layout = computeTimeLayout(story, this.zoom, orientation);
+    const expand = !!this.viewState()?.expandTimeline;
+    const layout = computeTimeLayout(story, this.zoom, orientation, expand);
     this.buckets = new Map(layout.buckets.map((b) => [b.id, b]));
+    if (layout.tooLongToExpand) {
+      // Said once per zoom, not on every redraw.
+      const key = `${this.zoom}`;
+      if (this.tooLongNoticed !== key) {
+        this.tooLongNoticed = key;
+        new Notice(`The whole timeline is more than ${MAX_EXPANDED_ROWS} rows at this zoom, so only times with cards are shown. Try a coarser zoom.`);
+      }
+    } else this.tooLongNoticed = null;
 
     if (layout.buckets.length === 0) {
       parent.createDiv({
@@ -1778,8 +1874,7 @@ export class StoryBoardView extends TextFileView {
     if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
     this.cardExtras(el, card, story);
     el.dataset.cardId = card.id;
-    if (card.id === this.panel.selected) el.addClass("is-selected");
-    el.addEventListener("click", () => this.select(card.id));
+    el.addEventListener("click", (e) => this.clickCard(e, card.id));
     this.makeDraggable(el, { kind: "card", id: card.id });
     return el;
   }
@@ -1852,11 +1947,25 @@ export class StoryBoardView extends TextFileView {
       new Notice(`"${card.title}" now happens ${bucket.label}. Refine the date in the card panel.`);
       return;
     }
-    const current = bucketDate(story.calendars[0]!, referenceDate(story, card)!, this.zoom);
+    const current = bucketDate(mainCalendar(story), referenceDate(story, card)!, this.zoom, timeBlock(story));
     if (JSON.stringify(current) === bucketId) {
+      // Cards at the same moment keep the writer's order; cards at different
+      // moments in one span are in the order of their times.
+      const sameMoment = (other: Card) => {
+        const a = cardMoment(story, card)!;
+        const b = cardMoment(story, other)!;
+        return a.key === b.key && a.precision === b.precision;
+      };
+      if (target && place !== "on" && !sameMoment(target) && target.plotLine === plotLine) {
+        new Notice(
+          `"${echoText(card)}" (${formatStoryDate(story, card.date)}) and "${echoText(target)}" (${formatStoryDate(story, target.date!)}) are in the order of their times. Change a time to reorder them.`,
+        );
+      }
       this.mutate((s) => {
         toLane(s);
         reorder(s);
+        // Dropped on the slim row at the end of the span: after the others at its moment.
+        if (!target && place === "on") placeLastInTime(s, card.id);
       });
       return;
     }
@@ -2086,8 +2195,7 @@ export class StoryBoardView extends TextFileView {
       el.createDiv({ cls: "story-planner-clash-mark", text: "In two places at once?" });
     }
     el.dataset.cardId = card.id;
-    if (card.id === this.panel.selected) el.addClass("is-selected");
-    el.addEventListener("click", () => this.select(card.id));
+    el.addEventListener("click", (e) => this.clickCard(e, card.id));
     el.addEventListener("dblclick", () => this.editTitleInPlace(el, card));
     this.makeDraggable(el, { kind: "card", id: card.id });
     return el;

@@ -1,4 +1,5 @@
 import {
+  eraYear,
   dayFromNumber,
   dayNumber,
   daysBeforeYear,
@@ -21,11 +22,23 @@ import { Orientation } from "./layout";
 // row, and a gap marker says how much time passes between rows that are not
 // next to each other, so a story that covers decades stays readable.
 
-export type Zoom = "year" | "month" | "day" | "time";
+export type Zoom = "year" | "month" | "day" | "time" | "clock";
 
-export const ZOOM_LABELS: Record<Zoom, string> = { year: "Years", month: "Months", day: "Days", time: "Times of day" };
+export const ZOOM_LABELS: Record<Zoom, string> = { year: "Years", month: "Months", day: "Days", time: "Times of day", clock: "Clock" };
 
-const ZOOM_RANK: Record<Zoom, number> = { year: 0, month: 1, day: 2, time: 3 };
+const ZOOM_RANK: Record<Zoom, number> = { year: 0, month: 1, day: 2, time: 3, clock: 4 };
+
+/** The clock zoom's block of time, in the calendar's minutes, unless a story sets its own. */
+export const DEFAULT_TIME_BLOCK = 15;
+
+/** The most rows an expanded timeline draws; a longer one stays as it is. */
+export const MAX_EXPANDED_ROWS = 500;
+
+/** A story's block of time for the clock zoom, in its calendar's minutes. */
+export function timeBlock(story: Story): number {
+  const block = story.timeBlockMinutes;
+  return block && Number.isInteger(block) && block > 0 && block <= minutesPerDay(mainCalendar(story)) ? block : DEFAULT_TIME_BLOCK;
+}
 
 /** One span of time that has cards: a row (or column) of the view. */
 export interface Bucket {
@@ -76,16 +89,110 @@ export interface TimeLayout {
   undated: Id[];
   /** How many tracks each plot line has (one each in story time). */
   laneTracks: number[];
+  /** True when the timeline was asked to show every span but is too long to at this zoom. */
+  tooLongToExpand?: boolean;
 }
 
-/** The span of time a date falls in at a zoom; a date less precise than the zoom keeps its own precision. */
-export function bucketDate(calendar: Calendar, date: StoryDate, zoom: Zoom): StoryDate {
+/** The first and last-plus-one minute of a span: a date's own, or a clock block. */
+function spanAt(calendar: Calendar, date: StoryDate, zoom: Zoom, block: number): [number, number] {
+  if (zoom === "clock" && date.minutes !== undefined && date.day !== undefined) {
+    const start = dateSpan(calendar, { ...date, minutes: 0 })[0] + date.minutes;
+    return [start, start + block];
+  }
+  return dateSpan(calendar, date);
+}
+
+/** Whether a span is as fine as the zoom goes, so an expanded timeline fills in its neighbours. */
+function atZoom(date: StoryDate, zoom: Zoom): boolean {
+  switch (zoom) {
+    case "year":
+      return date.month === undefined;
+    case "month":
+      return date.month !== undefined && date.day === undefined;
+    case "day":
+      return date.day !== undefined && date.minutes === undefined && date.dayPart === undefined;
+    case "time":
+      return date.day !== undefined && (date.dayPart !== undefined || date.minutes !== undefined);
+    case "clock":
+      return date.minutes !== undefined;
+  }
+}
+
+/**
+ * Every span at a zoom from the minute `from` up to `to`, in order; null when
+ * there would be more than `limit`.
+ */
+export function spansBetween(calendar: Calendar, zoom: Zoom, from: number, to: number, block: number, limit: number): StoryDate[] | null {
+  const perDay = minutesPerDay(calendar);
+  const out: StoryDate[] = [];
+  const dated = (line: number, month?: number, day?: number): StoryDate => {
+    const { era, year } = eraYear(calendar, line);
+    const d: StoryDate = { calendar: calendar.id, year };
+    if (era !== undefined) d.era = era;
+    if (month !== undefined) d.month = month;
+    if (day !== undefined) d.day = day;
+    return d;
+  };
+  const firstDay = Math.floor(from / perDay);
+  const lastDay = Math.floor((to - 1) / perDay);
+  const first = dayFromNumber(calendar, firstDay);
+  const last = dayFromNumber(calendar, lastDay);
+  if (zoom === "year") {
+    if (last.year - first.year + 1 > limit) return null;
+    for (let y = first.year; y <= last.year; y++) out.push(dated(y));
+    return out;
+  }
+  if (zoom === "month") {
+    const months = calendar.months.length;
+    if ((last.year - first.year) * months + last.month - first.month + 1 > limit) return null;
+    let y = first.year;
+    let m = first.month;
+    while (y < last.year || (y === last.year && m <= last.month)) {
+      out.push(dated(y, m));
+      if (m === months) {
+        y++;
+        m = 1;
+      } else m++;
+    }
+    return out;
+  }
+  if (zoom === "day" || zoom === "time") {
+    const parts = [...(calendar.dayParts ?? [])].sort((a, b) => a.startHour - b.startHour);
+    const rowsPerDay = zoom === "day" ? 1 : parts.length > 0 ? parts.length : calendar.hoursPerDay;
+    if ((lastDay - firstDay + 1) * rowsPerDay > limit) return null;
+    for (let n = firstDay; n <= lastDay; n++) {
+      const d = dayFromNumber(calendar, n);
+      const day = dated(d.year, d.month, d.day);
+      if (zoom === "day") out.push(day);
+      else if (parts.length > 0) for (const p of parts) out.push({ ...day, dayPart: p.id });
+      else for (let h = 0; h < calendar.hoursPerDay; h++) out.push({ ...day, minutes: h * calendar.minutesPerHour });
+    }
+    return out;
+  }
+  const start = Math.floor(from / block) * block;
+  if ((to - start) / block > limit) return null;
+  for (let k = start; k < to; k += block) {
+    const n = Math.floor(k / perDay);
+    const d = dayFromNumber(calendar, n);
+    out.push({ ...dated(d.year, d.month, d.day), minutes: k - n * perDay });
+  }
+  return out;
+}
+
+/**
+ * The span of time a date falls in at a zoom; a date less precise than the
+ * zoom keeps its own precision. At the clock zoom, times fall in blocks of
+ * `block` minutes.
+ */
+export function bucketDate(calendar: Calendar, date: StoryDate, zoom: Zoom, block = DEFAULT_TIME_BLOCK): StoryDate {
   const out: StoryDate = { calendar: date.calendar, year: date.year };
   if (date.era !== undefined) out.era = date.era;
   const rank = ZOOM_RANK[zoom];
   if (rank >= 1 && date.month !== undefined) out.month = date.month;
   if (rank >= 2 && out.month !== undefined && date.day !== undefined) out.day = date.day;
-  if (rank >= 3 && out.day !== undefined) {
+  if (rank >= 4 && out.day !== undefined && date.minutes !== undefined) {
+    out.minutes = Math.floor(date.minutes / block) * block;
+  } else if (rank >= 3 && out.day !== undefined) {
     if (date.dayPart !== undefined) out.dayPart = date.dayPart;
     else if (date.minutes !== undefined) {
       const hour = Math.floor(date.minutes / calendar.minutesPerHour);
@@ -120,8 +227,9 @@ export function describeGap(calendar: Calendar, from: number, to: number): strin
  * story order; a span is as tall as its tallest stack, and the space under a
  * short stack is a time cell, so every plot line accepts drops in every span.
  */
-export function computeTimeLayout(story: Story, zoom: Zoom, orientation: Orientation): TimeLayout {
+export function computeTimeLayout(story: Story, zoom: Zoom, orientation: Orientation, expand = false): TimeLayout {
   const calendar = mainCalendar(story);
+  const block = timeBlock(story);
   const laneIndex = new Map(story.plotLines.map((p, i) => [p.id, i]));
   const cards = Object.values(story.cards).filter((c) => laneIndex.has(c.plotLine));
   const dated = timeSorted(story, cards.filter((c) => c.date));
@@ -135,11 +243,11 @@ export function computeTimeLayout(story: Story, zoom: Zoom, orientation: Orienta
   // on to it; that span is shown even if no card starts there.
   const buckets = new Map<string, { bucket: Bucket; cards: Card[] }>();
   const bucketOf = (date: StoryDate) => {
-    const at = bucketDate(calendar, date, zoom);
+    const at = bucketDate(calendar, date, zoom, block);
     const id = JSON.stringify(at);
     let entry = buckets.get(id);
     if (!entry) {
-      const [start, end] = dateSpan(calendar, at);
+      const [start, end] = spanAt(calendar, at, zoom, block);
       entry = { bucket: { id, date: at, label: formatStoryDate(story, at), start, end }, cards: [] };
       buckets.set(id, entry);
     }
@@ -155,6 +263,29 @@ export function computeTimeLayout(story: Story, zoom: Zoom, orientation: Orienta
       if (last.id !== entry.bucket.id && last.start > entry.bucket.start) until.set(card.id, last.id);
     }
   }
+  // Expanded: every span at the zoom from the first to the last, with or without cards.
+  let tooLongToExpand = false;
+  if (expand) {
+    const fine = [...buckets.values()].filter((e) => atZoom(e.bucket.date, zoom));
+    if (fine.length > 0) {
+      const from = Math.min(...fine.map((e) => e.bucket.start));
+      const to = Math.max(...fine.map((e) => e.bucket.end));
+      const spans = spansBetween(calendar, zoom, from, to, block, MAX_EXPANDED_ROWS);
+      if (!spans) tooLongToExpand = true;
+      else {
+        // A span is the same span whatever its date says about the era, so they are matched by their minutes.
+        const known = new Set([...buckets.values()].map((e) => `${e.bucket.start}:${e.bucket.end}`));
+        for (const date of spans) {
+          const at = bucketDate(calendar, date, zoom, block);
+          const [start, end] = spanAt(calendar, at, zoom, block);
+          if (known.has(`${start}:${end}`)) continue;
+          known.add(`${start}:${end}`);
+          bucketOf(at);
+        }
+      }
+    }
+  }
+
   // A coarser span sorts before the finer spans it contains.
   const ordered = [...buckets.values()].sort((a, b) => a.bucket.start - b.bucket.start || b.bucket.end - a.bucket.end);
 
@@ -240,5 +371,6 @@ export function computeTimeLayout(story: Story, zoom: Zoom, orientation: Orienta
     buckets: ordered.map((b) => b.bucket),
     undated,
     laneTracks,
+    ...(tooLongToExpand ? { tooLongToExpand } : {}),
   };
 }

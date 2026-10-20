@@ -192,7 +192,6 @@ export function dateProblem(calendar: Calendar, date: StoryDate): string | null 
   if (!Number.isInteger(date.day) || date.day < 1 || date.day > length) {
     return `${calendar.months[date.month - 1]!.name} has ${length} days that year.`;
   }
-  if (date.minutes !== undefined && date.dayPart !== undefined) return "A date has either a clock time or a part of the day, not both.";
   if (date.minutes !== undefined && (!Number.isInteger(date.minutes) || date.minutes < 0 || date.minutes >= minutesPerDay(calendar))) {
     return `The time must be between 00:00 and ${clock(calendar, minutesPerDay(calendar) - 1)}.`;
   }
@@ -340,11 +339,12 @@ export function dateSpan(calendar: Calendar, date: StoryDate): [number, number] 
     return [first * perDay, (first + daysInMonth(calendar, line, date.month)) * perDay];
   }
   const day = dayNumber(calendar, line, date.month, date.day) * perDay;
+  // A clock time is more precise than a part of the day it may also name.
+  if (date.minutes !== undefined) return [day + date.minutes, day + date.minutes + calendar.minutesPerHour];
   if (date.dayPart !== undefined) {
     const part = calendar.dayParts?.find((p) => p.id === date.dayPart);
     if (part) return [day + part.startHour * calendar.minutesPerHour, day + part.endHour * calendar.minutesPerHour];
   }
-  if (date.minutes !== undefined) return [day + date.minutes, day + date.minutes + calendar.minutesPerHour];
   return [day, day + perDay];
 }
 
@@ -384,12 +384,12 @@ export function formatStoryDate(story: Story, date: StoryDate, options: { zone?:
   // A format without an era still shows one when the date has it, so dates in different eras never look alike.
   if (era && !usesToken(formats.date, "E")) text += ` ${era}`;
 
+  // A named part of the day, then the clock time; a date may have both.
   if (date.dayPart !== undefined) {
     const part = calendar?.dayParts?.find((p) => p.id === date.dayPart);
     text += ` ${part?.name ?? date.dayPart}`;
-  } else if (date.minutes !== undefined) {
-    text += ` ${formatTime(calendar, date.minutes, formats.time)}`;
   }
+  if (date.minutes !== undefined) text += ` ${formatTime(calendar, date.minutes, formats.time)}`;
 
   if (date.zone && options.zone !== false) {
     const zone = story.zones.find((z) => z.id === date.zone);

@@ -1,23 +1,29 @@
-import { dateProblem, formatStoryDate, mainCalendar, storyFormats, weekdayOf } from "../model/calendar";
-import { parseStoryDate } from "../model/dateParse";
+import { dateProblem, formatStoryDate, mainCalendar, parseClock, storyFormats, weekdayOf } from "../model/calendar";
+import { DateParts, dayPartAt, joinDateParts, splitDate } from "../model/dateParts";
 import { Story, StoryDate } from "../model/types";
 
 /**
- * One story date, typed in a single field: "2020/07/12 19:49", "20200712",
- * "12 Jul 2020", "1531 AF dawn", "~2023/09", or "+3d" for an end date. The line
- * under it shows how the date reads, or what is wrong. Enter (or leaving the
- * field) saves it; Escape puts back the saved date. A zone, when the story has
- * zones, and "approximate" sit beside it.
+ * One story date on one line: the date ("2020/07/12", "2020/07", "1531",
+ * "12 Jul 2020", "~2023/09", or "+3d" for an end date), a time of day from
+ * the calendar's parts of the day, and a clock time, the last two optional.
+ * The time of day follows the clock until the writer picks one. The line
+ * under it shows how the date reads, or what is wrong. Enter (or leaving a
+ * field) saves it; Escape puts back the saved date. A zone, when the story
+ * has zones, and "approximate" sit beside it.
  */
 export class DateEditor {
   private readonly hint: HTMLElement;
   private readonly input: HTMLInputElement;
+  private readonly part?: HTMLSelectElement;
+  private readonly clock: HTMLInputElement;
   private readonly zone?: HTMLSelectElement;
   private readonly approximate: HTMLInputElement;
-  /** The date as typed, when it can be read and is allowed; what a dialog saves. */
+  /** Whether the time of day is the clock's, rather than one the writer picked. */
+  private partAuto: boolean;
+  /** The date as entered, when it can be read and is allowed; what a dialog saves. */
   valid: StoryDate | undefined;
-  /** What the field showed when it last saved, to put back on Escape. */
-  private saved: string;
+  /** What the fields showed when they last saved, to put back on Escape. */
+  private saved: DateParts;
 
   constructor(
     parent: HTMLElement,
@@ -33,14 +39,37 @@ export class DateEditor {
     /** The start date, for an end date typed as "+3d". */
     private start?: () => StoryDate | undefined,
   ) {
+    const calendar = mainCalendar(story);
+    this.saved = splitDate(story, value);
+    this.partAuto = this.saved.partAuto;
     const row = parent.createDiv({ cls: "story-planner-date-row" });
     this.input = row.createEl("input", { cls: "story-planner-date-input" });
     this.input.type = "text";
     this.input.dataset.field = `${prefix}-text`;
-    this.input.placeholder = `${storyFormats(story).date} ${storyFormats(story).time}`;
-    this.saved = value ? this.show(value) : "";
-    this.input.value = this.saved;
+    this.input.placeholder = storyFormats(story).date;
     this.input.spellcheck = false;
+    this.input.setAttr("aria-label", "Date");
+
+    if ((calendar.dayParts ?? []).length > 0) {
+      const part = row.createEl("select", { cls: "dropdown story-planner-date-part" });
+      part.createEl("option", { text: "Time of day" }).value = "";
+      for (const p of calendar.dayParts!) part.createEl("option", { text: p.name }).value = p.id;
+      part.dataset.field = `${prefix}-part`;
+      part.setAttr("aria-label", "Time of day");
+      part.addEventListener("change", () => {
+        // Picking a part makes it the writer's; picking none goes back to following the clock.
+        this.partAuto = part.value === "" || part.value === this.clockPart();
+        this.commit();
+      });
+      this.part = part;
+    }
+
+    this.clock = row.createEl("input", { cls: "story-planner-date-clock" });
+    this.clock.type = "text";
+    this.clock.placeholder = storyFormats(story).time;
+    this.clock.dataset.field = `${prefix}-clock`;
+    this.clock.spellcheck = false;
+    this.clock.setAttr("aria-label", "Clock time");
 
     if (story.zones.length > 0) {
       const zone = row.createEl("select", { cls: "dropdown story-planner-date-zone" });
@@ -67,38 +96,60 @@ export class DateEditor {
     this.approximate.addEventListener("change", () => this.commit());
 
     this.hint = parent.createDiv({ cls: "story-planner-date-hint" });
+    this.fill(this.saved);
 
-    this.input.addEventListener("input", () => this.read());
-    this.input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        this.commit();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        this.input.value = this.saved;
+    for (const field of [this.input, this.clock]) {
+      field.addEventListener("input", () => {
+        // A first clock time takes over the time of day; while it follows the clock, it changes as the clock is typed.
+        if (field === this.clock && !this.saved.clock) this.partAuto = true;
+        if (field === this.clock && this.part && this.partAuto) this.part.value = this.clockPart();
         this.read();
-      }
-    });
-    this.input.addEventListener("blur", () => {
-      if (this.input.value !== this.saved) this.commit();
-    });
+      });
+      field.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this.commit();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          this.fill(this.saved);
+        }
+      });
+      field.addEventListener("blur", (e) => {
+        // Moving between the date's own fields saves nothing yet.
+        if (e.relatedTarget instanceof Node && row.contains(e.relatedTarget)) return;
+        if (!sameParts(this.parts(), this.saved)) this.commit();
+      });
+    }
     this.read();
   }
 
-  /** A date as the field writes it: in the story's format, without the zone (which has its own control). */
-  private show(date: StoryDate): string {
-    return formatStoryDate(this.story, { ...date, approximate: false }, { zone: false });
+  /** The part of the day the typed clock time falls in, or "". */
+  private clockPart(): string {
+    const minutes = parseClock(mainCalendar(this.story), this.clock.value);
+    return minutes === null || !this.clock.value.trim() ? "" : (dayPartAt(mainCalendar(this.story), minutes)?.id ?? "");
   }
 
-  /** Reads what is typed and says how it reads; saves nothing. */
+  private fill(parts: DateParts): void {
+    this.input.value = parts.date;
+    this.clock.value = parts.clock;
+    this.partAuto = parts.partAuto;
+    if (this.part) this.part.value = parts.part;
+    this.read();
+  }
+
+  private parts(): DateParts {
+    return { date: this.input.value, part: this.part?.value ?? "", partAuto: this.partAuto, clock: this.clock.value };
+  }
+
+  /** Reads what is entered and says how it reads; saves nothing. */
   private read(): StoryDate | undefined | null {
-    const parsed = parseStoryDate(this.story, this.input.value, this.start?.());
+    const parsed = joinDateParts(this.story, this.parts(), this.start?.());
     if (!parsed.ok) return this.say(null, parsed.error);
     if (!parsed.date) {
       this.valid = undefined;
       this.hint.toggleClass("is-problem", false);
-      this.hint.setText(this.saved ? "Empty: the date will be cleared." : "");
+      this.hint.setText(this.saved.date ? "Empty: the date will be cleared." : "");
       return undefined;
     }
     const date = { ...parsed.date };
@@ -110,18 +161,18 @@ export class DateEditor {
     return date;
   }
 
-  /** Saves what is typed, if it can be read; an empty field clears the date. */
+  /** Saves what is entered, if it can be read; an empty date clears it. */
   private commit(): void {
     const date = this.read();
     if (date === null) return;
     if (date) {
-      // Typing "~" ticks the box; the field then shows the date plainly.
+      // Typing "~" ticks the box; a time typed into the date field moves to its own fields.
       if (date.approximate) this.approximate.checked = true;
       if (date.zone && this.zone) this.zone.value = date.zone;
-      this.saved = this.show(date);
-      this.input.value = this.saved;
+      this.saved = splitDate(this.story, date);
+      this.fill(this.saved);
     } else {
-      this.saved = "";
+      this.saved = splitDate(this.story, undefined);
     }
     this.onChange(date);
   }
@@ -139,4 +190,8 @@ export class DateEditor {
     this.hint.setText(weekday !== undefined ? `${calendar.weekdays![weekday]}, ${text}` : text);
     return null;
   }
+}
+
+function sameParts(a: DateParts, b: DateParts): boolean {
+  return a.date.trim() === b.date.trim() && a.clock.trim() === b.clock.trim() && a.part === b.part;
 }

@@ -133,7 +133,7 @@ export interface StoryDate {
   year: number;
   month?: number;
   day?: number;
-  /** Clock time as minutes since midnight. Mutually exclusive with dayPart. */
+  /** Clock time as minutes since midnight. A date with one may also name a part of the day the writer chose. */
   minutes?: number;
   dayPart?: Id;
   zone?: Id;
@@ -196,6 +196,8 @@ export interface StorySetup {
   /** This story's own date and time formats, such as "D MMMM YYYY"; unset uses the plugin's. */
   dateFormat?: string;
   timeFormat?: string;
+  /** How long a block of time is at story time's clock zoom, in the calendar's minutes; unset is 15. */
+  timeBlockMinutes?: number;
 }
 
 export interface Story extends StorySetup {

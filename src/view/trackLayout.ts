@@ -4,7 +4,7 @@ import { chapterRows } from "../model/moves";
 import { findClashes, readingOrder, referenceDate, timeSorted } from "../model/storyTime";
 import { Card, CharacterRole, Id, Story } from "../model/types";
 import { Orientation } from "./layout";
-import { Bucket, bucketDate, describeGap, Zoom } from "./timeLayout";
+import { Bucket, bucketDate, describeGap, timeBlock, Zoom } from "./timeLayout";
 
 // Pure layouts of the character view, free of Obsidian and the DOM. The
 // character track is the board with characters as lanes: a card shows in the
@@ -119,7 +119,7 @@ export function computeTrackLayout(
     const dated = timeSorted(story, Object.values(story.cards).filter((c) => c.date && shown(c)));
     const byBucket = new Map<string, { bucket: Bucket; cards: Card[] }>();
     for (const card of dated) {
-      const date = bucketDate(calendar, referenceDate(story, card)!, zoom);
+      const date = bucketDate(calendar, referenceDate(story, card)!, zoom, timeBlock(story));
       const id = JSON.stringify(date);
       let entry = byBucket.get(id);
       if (!entry) {
@@ -223,7 +223,7 @@ export function computeMatrix(story: Story, axis: TrackAxis, zoom: Zoom): Matrix
     const calendar = mainCalendar(story);
     const seen = new Map<string, { label: string; start: number; end: number }>();
     for (const card of timeSorted(story, Object.values(story.cards).filter((c) => c.date))) {
-      const date = bucketDate(calendar, referenceDate(story, card)!, zoom);
+      const date = bucketDate(calendar, referenceDate(story, card)!, zoom, timeBlock(story));
       const id = JSON.stringify(date);
       if (!seen.has(id)) {
         const [start, end] = dateSpan(calendar, date);

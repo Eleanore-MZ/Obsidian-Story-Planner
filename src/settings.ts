@@ -26,6 +26,8 @@ export interface StoryViewState {
   timeOrientation?: Orientation;
   zoom?: Zoom;
   timeZoneView?: string;
+  /** Story time shows every span from the first to the last, not only those with cards. */
+  expandTimeline?: boolean;
   /** A character, tag or place to make stand out, as "character:id", "tag:id" or "location:id". */
   highlight?: string;
   /** Character view: track or matrix, the characters chosen as lanes (in order), axis and layout. */

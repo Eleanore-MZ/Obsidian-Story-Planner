@@ -3,6 +3,7 @@ import { reorderHandle } from "./reorder";
 import { colorSwatch } from "./colorPicker";
 import { formatOffset, formatStoryDate, parseOffset } from "../model/calendar";
 import { DATE_TOKENS, defaultFormats, TIME_TOKENS } from "../model/dateFormat";
+import { DEFAULT_TIME_BLOCK, timeBlock } from "./timeLayout";
 import { CALENDAR_PRESETS } from "../model/defaults";
 import {
   addCategory,
@@ -889,6 +890,24 @@ export class SetupPanel {
         }, `format:${key}`);
       });
     }
+
+    // How long a block of time is at story time's clock zoom.
+    const perHour = calendar.minutesPerHour;
+    const blocks: [number, string][] = [
+      ...[5, 10, 15, 30].filter((m) => m < perHour).map((m): [number, string] => [m, `${m} min`]),
+      ...[1, 2, 3, 6].filter((h) => h < calendar.hoursPerDay).map((h): [number, string] => [h * perHour, `${h} h`]),
+    ];
+    const current = timeBlock(story);
+    if (!blocks.some(([m]) => m === current)) blocks.unshift([current, `${current} min`]);
+    const row = this.labelled(section, "Clock blocks in story time");
+    this.dropdown(row, blocks.map(([m, label]): [string, string] => [String(m), label]), String(current), (value) =>
+      this.host.edit((s) => {
+        const minutes = Number(value);
+        if (timeBlock(s) === minutes) return false;
+        if (minutes === DEFAULT_TIME_BLOCK) delete s.timeBlockMinutes;
+        else s.timeBlockMinutes = minutes;
+      }),
+    ).dataset.field = "time-block";
   }
 
   private subheading(parent: HTMLElement, text: string): void {

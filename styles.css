@@ -2636,11 +2636,22 @@ body.story-planner-reordering * {
   opacity: 0.3;
 }
 
-/* The typed date field and how it reads. */
+/* The typed date field and how it reads; the time of day and clock beside it. */
 .story-planner .story-planner-date-input {
   flex: 1;
-  min-width: 10em;
+  min-width: 8em;
   font-variant-numeric: tabular-nums;
+}
+
+.story-planner .story-planner-date-row input.story-planner-date-clock {
+  flex: none;
+  width: 4.5em;
+  font-variant-numeric: tabular-nums;
+}
+
+.story-planner .story-planner-date-row select.story-planner-date-part {
+  flex: none;
+  width: auto;
 }
 
 .story-planner-date-hint {
@@ -2799,4 +2810,30 @@ body.story-planner-reordering * {
 .story-planner-color-custom input[type="color"]::-webkit-color-swatch {
   border: none;
   border-radius: 0;
+}
+
+/* The group editor for several selected cards. */
+.story-planner-panel-group-list {
+  max-height: 9em;
+  overflow-y: auto;
+  margin-bottom: var(--size-4-3);
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+
+.story-planner-panel-group-item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.story-planner-panel button.story-planner-tag-chip.is-partial {
+  border-style: dashed;
+  border-color: var(--tag-color);
+  background: color-mix(in srgb, var(--tag-color) 15%, transparent);
+  color: var(--text-muted);
+}
+
+.story-planner-written.is-mixed {
+  color: var(--text-muted);
 }

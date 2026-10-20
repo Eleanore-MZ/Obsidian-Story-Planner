@@ -81,22 +81,21 @@ export function reorderInTime(story: Story, cardId: Id, targetId: Id, after: boo
   return true;
 }
 
-/**
- * Puts a card after every other card at its moment, for a card just added
- * there: it takes the next `timeOrder` when the others have one.
- */
-export function placeLastInTime(story: Story, cardId: Id): void {
+/** Puts a card after every other card at its moment, as for a card just added there. */
+export function placeLastInTime(story: Story, cardId: Id, now = new Date().toISOString()): void {
   const card = story.cards[cardId];
   if (!card?.date) return;
   const m = cardMoment(story, card)!;
-  const orders = Object.values(story.cards)
-    .filter((c) => c !== card && c.date && c.timeOrder !== undefined)
-    .filter((c) => {
+  const others = timeSorted(
+    story,
+    Object.values(story.cards).filter((c) => {
+      if (c === card || !c.date) return false;
       const o = cardMoment(story, c)!;
       return o.key === m.key && o.precision === m.precision;
-    })
-    .map((c) => c.timeOrder!);
-  if (orders.length > 0) card.timeOrder = Math.max(...orders) + 1;
+    }),
+  );
+  const last = others[others.length - 1];
+  if (last) reorderInTime(story, cardId, last.id, true, now);
 }
 
 /**

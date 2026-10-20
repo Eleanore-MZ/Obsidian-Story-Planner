@@ -11,7 +11,20 @@ import { compareDates, effectiveZone, ZoneSource } from "../model/calendar";
 import { setCardDate, setCardLocation, setCardTag } from "../model/edits";
 import { locationTree, plotLineColor } from "../model/setup";
 import { chapterTitle } from "../model/chapters";
-import { CharacterRole, Id, Story } from "../model/types";
+import { Card, CharacterRole, Id, Story } from "../model/types";
+import {
+  addCharacterToCards,
+  common,
+  deleteCards,
+  moveCardsToChapter,
+  moveCardsToPlotLine,
+  selectedCards,
+  setDateOnCards,
+  setLocationOnCards,
+  setTagOnCards,
+  setWrittenOnCards,
+  tagState,
+} from "../model/groupEdits";
 import { isUntitled } from "../model/defaults";
 import { DateEditor } from "./DateEditor";
 import { addCardNote, noteName, removeCardNote } from "../model/links";
@@ -44,6 +57,8 @@ export interface CardPanelHost {
   close(): void;
   /** Called after the card was deleted from the panel. */
   deleted(title: string): void;
+  /** Called after several selected cards were deleted from the panel. */
+  deletedMany?(count: number): void;
   notes: NoteHost;
 }
 
@@ -69,6 +84,136 @@ export class CardPanel {
   }
 
   /**
+   * Shows the editor for several selected cards: what they share, and
+   * changes that apply to all of them, each as one undo step.
+   */
+  showGroup(story: Story, ids: Id[]): void {
+    this.story = story;
+    this.cardId = null;
+    const cards = selectedCards(story, ids);
+    if (cards.length < 2) {
+      this.el.hidden = true;
+      this.el.empty();
+      return;
+    }
+    const scroll = this.el.dataset.group === "true" ? this.el.scrollTop : 0;
+    const active = document.activeElement;
+    const focused = active instanceof HTMLElement && this.el.contains(active) ? active.dataset.field : undefined;
+    this.el.hidden = false;
+    this.el.dataset.group = "true";
+    this.buildGroup(story, cards);
+    this.el.scrollTop = scroll;
+    if (focused) this.el.querySelector<HTMLElement>(`[data-field="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+  }
+
+  private buildGroup(story: Story, cards: Card[]): void {
+    const el = this.el;
+    el.empty();
+    const ids = cards.map((c) => c.id);
+    const edit = (change: (s: Story) => boolean) => this.host.edit((s) => change(s));
+
+    const header = el.createDiv({ cls: "story-planner-panel-header" });
+    header.createDiv({ cls: "story-planner-panel-heading", text: `${cards.length} cards` });
+    const written = common(cards, (c) => c.written);
+    const label = header.createEl("label", { cls: "story-planner-panel-written" });
+    label.toggleClass("is-written", written === true);
+    label.createSpan({ text: "Written" });
+    const box = label.createEl("button", { cls: "story-planner-written" });
+    box.setAttr("role", "checkbox");
+    box.setAttr("aria-checked", written === "mixed" ? "mixed" : String(written));
+    box.toggleClass("is-mixed", written === "mixed");
+    if (written === true) setIcon(box, "check");
+    else if (written === "mixed") setIcon(box, "minus");
+    box.addEventListener("click", (e) => {
+      e.preventDefault();
+      edit((s) => setWrittenOnCards(s, ids, written !== true));
+    });
+    const close = header.createEl("button", { cls: "story-planner-panel-close clickable-icon", text: "×" });
+    close.setAttr("aria-label", "Clear the selection");
+    close.addEventListener("click", () => this.host.close());
+
+    const list = el.createDiv({ cls: "story-planner-panel-group-list" });
+    for (const card of cards) list.createDiv({ cls: "story-planner-panel-group-item", text: isUntitled(card.title) ? card.synopsis.split(/\r?\n/)[0] || "Untitled" : card.title });
+
+    if (story.tags.length > 0) {
+      const chips = this.field("Scene tags").createDiv({ cls: "story-planner-tag-chips" });
+      for (const tag of story.tags) {
+        const state = tagState(cards, tag.id);
+        const chip = chips.createEl("button", { cls: "story-planner-tag-chip", text: tag.name });
+        chip.toggleClass("is-on", state === "all");
+        chip.toggleClass("is-partial", state === "some");
+        chip.style.setProperty("--tag-color", tag.color);
+        chip.setAttr("aria-pressed", state === "all" ? "true" : state === "some" ? "mixed" : "false");
+        chip.setAttr("title", state === "all" ? "On every selected card. Click to take it off." : state === "some" ? "On some of them. Click to put it on all." : "Click to put it on all.");
+        chip.addEventListener("click", () => edit((s) => setTagOnCards(s, ids, tag.id, state !== "all")));
+      }
+    }
+
+    const mixed = (options: Record<string, string>, value: string | "mixed") =>
+      value === "mixed" ? { [MIXED]: "(mixed)", ...options } : options;
+    const plotLine = common(cards, (c) => c.plotLine);
+    this.select(this.field("Plot line"), mixed(Object.fromEntries(story.plotLines.map((p) => [p.id, p.name])), plotLine), plotLine === "mixed" ? MIXED : plotLine, (value) => {
+      if (value !== MIXED) edit((s) => moveCardsToPlotLine(s, ids, value));
+    });
+
+    const chapterIds = new Set(story.chapters.map((c) => c.id));
+    const chapters: Record<string, string> = Object.fromEntries(story.chapters.map((c) => [c.id, chapterTitle(story, c)]));
+    chapters[OFF_PAGE] = "Off-page";
+    const chapter = common(cards, (c) => (c.chapter && chapterIds.has(c.chapter) ? c.chapter : OFF_PAGE));
+    this.select(this.field("Chapter"), mixed(chapters, chapter), chapter === "mixed" ? MIXED : chapter, (value) => {
+      if (value !== MIXED) edit((s) => moveCardsToChapter(s, ids, value === OFF_PAGE ? null : value));
+    });
+
+    const date = common(cards, (c) => c.date);
+    const when = this.field(date === "mixed" ? "When (dates differ; a date set here goes on all)" : "When");
+    new DateEditor(when, story, date === "mixed" ? undefined : date, "group-date", "Zone: default", (value) => {
+      // An empty field never clears dates that differed.
+      if (!value && date === "mixed") return;
+      edit((s) => setDateOnCards(s, ids, value));
+    });
+
+    if (story.locations.length > 0) {
+      const location = common(cards, (c) => c.location ?? "");
+      const options: Record<string, string> = { "": "No location" };
+      for (const { location: l, depth } of locationTree(story)) options[l.id] = `${" ".repeat(depth)}${l.name}`;
+      this.select(this.field("Where"), mixed(options, location), location === "mixed" ? MIXED : location, (value) => {
+        if (value !== MIXED) edit((s) => setLocationOnCards(s, ids, value || undefined));
+      });
+    }
+
+    const add = this.field("Add a character to all").createDiv({ cls: "story-planner-panel-add-character" });
+    const input = add.createEl("input");
+    input.type = "text";
+    input.dataset.field = "group-add-character";
+    input.placeholder = "Pick one, or type a name and press Enter";
+    const listId = "story-planner-group-characters";
+    input.setAttr("list", listId);
+    const datalist = add.createEl("datalist");
+    datalist.id = listId;
+    for (const c of story.characters) datalist.createEl("option").value = c.name;
+    const submit = () => {
+      if (input.value.trim()) edit((s) => addCharacterToCards(s, ids, input.value));
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submit();
+      }
+    });
+    input.addEventListener("input", (e) => {
+      const picked = (e as InputEvent).inputType === "insertReplacementText" || (e as InputEvent).inputType === undefined;
+      if (picked && story.characters.some((c) => c.name === input.value)) submit();
+    });
+
+    const footer = el.createDiv({ cls: "story-planner-panel-footer" });
+    const remove = footer.createEl("button", { cls: "mod-warning", text: `Delete ${cards.length} cards` });
+    remove.addEventListener("click", () => {
+      edit((s) => deleteCards(s, ids));
+      this.host.deletedMany?.(cards.length);
+    });
+  }
+
+  /**
    * Shows a card, or hides the panel for null. A `soft` refresh, used while
    * typing in the panel, only updates the fields that are not being edited.
    */
@@ -78,10 +223,12 @@ export class CardPanel {
       this.cardId = null;
       this.el.hidden = true;
       this.el.empty();
+      delete this.el.dataset.group;
       return;
     }
     const sameCard = cardId === this.cardId;
     if (!sameCard) this.echoesOpen = false;
+    delete this.el.dataset.group;
     this.cardId = cardId;
     this.el.hidden = false;
     if (sameCard && soft) {
@@ -434,6 +581,9 @@ const ZONE_SOURCES: Record<ZoneSource, string> = {
 
 /** Dropdown value for the off-page group, which has no chapter id. */
 const OFF_PAGE = "";
+
+/** Dropdown value shown when the selected cards differ. */
+const MIXED = "\u0000mixed";
 
 function isTextField(el: Element | null): boolean {
   return el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && el.type === "text");

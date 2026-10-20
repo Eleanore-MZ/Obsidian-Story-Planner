@@ -107,6 +107,50 @@ describe("story-time layout", () => {
     expect(timeSorted(s, Object.values(s.cards)).map((c) => c.id)).toEqual(["b", "a", "new"]);
   });
 
+  it("groups clock times into blocks of the story's length at the clock zoom", () => {
+    const s = story();
+    add(s, "a", d(2020, 1, 1, { minutes: 9 * 60 + 5 }));
+    add(s, "b", d(2020, 1, 1, { minutes: 9 * 60 + 14 }));
+    add(s, "c", d(2020, 1, 1, { minutes: 9 * 60 + 20 }));
+    expect(rowsOf(s, "clock")).toEqual(["[2020/01/01 09:00] a", "b", "[2020/01/01 09:15] c"]);
+    s.timeBlockMinutes = 60;
+    expect(rowsOf(s, "clock")).toEqual(["[2020/01/01 09:00] a", "b", "c"]);
+  });
+
+  it("shows every span from the first to the last when expanded, without gap markers", () => {
+    const s = story();
+    add(s, "a", d(2020, 1, 1));
+    add(s, "b", d(2020, 1, 4));
+    const rows = (expand: boolean) => {
+      const layout = computeTimeLayout(s, "day", "vertical", expand);
+      return layout.items.filter((p) => p.item.kind === "time-header" || p.item.kind === "gap").map((p) => (p.item.kind === "time-header" ? p.item.bucket.label : "gap"));
+    };
+    expect(rows(false)).toEqual(["2020/01/01", "gap", "2020/01/04"]);
+    expect(rows(true)).toEqual(["2020/01/01", "2020/01/02", "2020/01/03", "2020/01/04"]);
+  });
+
+  it("expands down to clock blocks, and keeps a coarser card's own span", () => {
+    const s = story();
+    s.timeBlockMinutes = 30;
+    add(s, "y", d(2020));
+    add(s, "a", d(2020, 1, 1, { minutes: 9 * 60 }));
+    add(s, "b", d(2020, 1, 1, { minutes: 10 * 60 + 40 }));
+    const labels = computeTimeLayout(s, "clock", "vertical", true)
+      .items.filter((p) => p.item.kind === "time-header")
+      .map((p) => (p.item.kind === "time-header" ? p.item.bucket.label : ""));
+    expect(labels).toEqual(["2020", "2020/01/01 09:00", "2020/01/01 09:30", "2020/01/01 10:00", "2020/01/01 10:30"]);
+  });
+
+  it("does not expand a timeline too long for the zoom, and says so", () => {
+    const s = story();
+    add(s, "a", d(2020, 1, 1, { minutes: 60 }));
+    add(s, "b", d(2021, 1, 1, { minutes: 60 }));
+    const layout = computeTimeLayout(s, "clock", "vertical", true);
+    expect(layout.tooLongToExpand).toBe(true);
+    expect(layout.buckets).toHaveLength(2);
+    expect(computeTimeLayout(s, "month", "vertical", true).tooLongToExpand).toBeUndefined();
+  });
+
   it("lists undated cards in reading order for the tray", () => {
     const s = story();
     add(s, "x", undefined, { chapter: "c2", order: 1 });

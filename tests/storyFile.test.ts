@@ -94,6 +94,15 @@ describe("text that could break the note", () => {
     expect(parseOk(serializeStory(story)).story).toEqual(story);
   });
 
+  it("keeps the story's clock block length, and dates with both a clock time and a chosen part of the day", () => {
+    const story = sampleStory();
+    story.timeBlockMinutes = 30;
+    const card = Object.values(story.cards)[0]!;
+    card.date = { calendar: story.calendars[0]!.id, year: 2020, month: 1, day: 1, minutes: 600, dayPart: "evening" };
+    expect(parseOk(serializeStory(story)).story).toEqual(story);
+    expect("timeBlockMinutes" in parseOk(serializeStory(sampleStory())).story).toBe(false);
+  });
+
   it("does write real links for notes linked to cards", () => {
     const story = sampleStory();
     Object.values(story.cards)[0]!.notes = ["Drafts/Chapter 1.md"];

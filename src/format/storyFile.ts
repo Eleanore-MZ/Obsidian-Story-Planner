@@ -280,6 +280,9 @@ function readSetup(raw: unknown): StorySetup | string {
     referenceZone: typeof raw.referenceZone === "string" ? raw.referenceZone : undefined,
     ...(typeof raw.dateFormat === "string" && raw.dateFormat.trim() ? { dateFormat: raw.dateFormat } : {}),
     ...(typeof raw.timeFormat === "string" && raw.timeFormat.trim() ? { timeFormat: raw.timeFormat } : {}),
+    ...(typeof raw.timeBlockMinutes === "number" && Number.isInteger(raw.timeBlockMinutes) && raw.timeBlockMinutes > 0
+      ? { timeBlockMinutes: raw.timeBlockMinutes }
+      : {}),
   };
 }
 

@@ -65,6 +65,31 @@ export function orderedTabs(order: StoryTab[] | undefined): StoryTab[] {
 /** Where a clicked card opens. */
 export type CardOpening = "side" | "centre";
 
+/** What cards on the board can show besides their title. */
+export type CardShow = "chapter" | "date" | "synopsis" | "tags" | "characters" | "place" | "written" | "notes";
+
+export const CARD_SHOW_LABELS: Record<CardShow, string> = {
+  chapter: "Chapter (in story time and the character views)",
+  date: "Date and time",
+  synopsis: "Synopsis",
+  tags: "Scene tags",
+  characters: "Characters",
+  place: "Place",
+  written: "Written box",
+  notes: "Linked notes",
+};
+
+export const DEFAULT_CARD_SHOWS: Record<CardShow, boolean> = {
+  chapter: true,
+  date: true,
+  synopsis: true,
+  tags: true,
+  characters: false,
+  place: true,
+  written: true,
+  notes: true,
+};
+
 /** The key that, held while dropping a card on another plot line, adds an echo there instead of moving it. */
 export type EchoModifier = "alt" | "ctrl" | "shift" | "off";
 
@@ -77,6 +102,8 @@ export interface StoryPlannerSettings {
   echoModifier: EchoModifier;
   /** Where a clicked card opens: the side panel, or a page in the middle over the board. */
   cardOpening: CardOpening;
+  /** What cards on the board show. */
+  cardShows: Record<CardShow, boolean>;
   /** The order of the view tabs, the same for every story. */
   tabOrder: StoryTab[];
   defaultOrientation: Orientation;
@@ -103,6 +130,7 @@ export const DEFAULT_SETTINGS: StoryPlannerSettings = {
   timeFormat: DEFAULT_TIME_FORMAT,
   echoModifier: "alt",
   cardOpening: "side",
+  cardShows: { ...DEFAULT_CARD_SHOWS },
   tabOrder: [...ALL_TABS],
   defaultOrientation: "vertical",
   defaultStoryTimeOrientation: "vertical",
@@ -331,6 +359,18 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }),
       );
+
+    new Setting(containerEl).setName("Layout").setHeading();
+    containerEl.createDiv({ cls: "setting-item-description story-planner-settings-note", text: "What cards on the board show besides their title." });
+    for (const key of Object.keys(CARD_SHOW_LABELS) as CardShow[]) {
+      new Setting(containerEl).setName(CARD_SHOW_LABELS[key]).addToggle((t) =>
+        t.setValue(this.plugin.settings.cardShows[key]).onChange(async (value) => {
+          this.plugin.settings.cardShows = { ...this.plugin.settings.cardShows, [key]: value };
+          await this.plugin.saveSettings();
+          this.plugin.refreshBoards();
+        }),
+      );
+    }
 
     new Setting(containerEl).setName("Colours").setHeading();
     const palette = new Setting(containerEl).setName("Colour palette").setDesc("Offered by every colour square, and given in turn to new plot lines, characters, categories and tags.");

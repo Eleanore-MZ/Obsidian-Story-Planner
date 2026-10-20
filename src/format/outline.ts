@@ -82,14 +82,17 @@ export function outlineCardLine(story: Story, card: Card): { title: string; plot
 export function outlineMarkdown(story: Story): string {
   const out: string[] = ["---", OUTLINE_MARKER, "---", "", `# ${escapeText(story.title)}`, ""];
   const withActs = actsShown(story);
+  // Lines end in two spaces where the next line belongs to the same block,
+  // so they stay separate lines with strict line breaks on.
   const paragraph = (text: string) => {
-    for (const line of text.split(/\n+/)) if (line.trim()) out.push(escapeLine(line));
+    const lines = text.split(/\n+/).filter((line) => line.trim()).map(escapeLine);
+    lines.forEach((line, i) => out.push(i < lines.length - 1 ? `${line}  ` : line));
     out.push("");
   };
   const writeCard = (card: Card) => {
     const { title, plotLine } = outlineCardLine(story, card);
     const label = [title ? `**${escapeText(title)}**` : "", plotLine ? `(${escapeText(plotLine)})` : ""].filter(Boolean).join(" ");
-    if (label) out.push(label);
+    if (label) out.push(`${label}  `);
     if (card.synopsis.trim()) paragraph(card.synopsis.trim());
     else out.push("");
   };

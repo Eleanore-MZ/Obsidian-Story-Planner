@@ -10,7 +10,7 @@ import { EXPORT_EXTENSIONS, exportStory } from "./format/export";
 import { Card, Story } from "./model/types";
 import { SnapshotInfo } from "./model/snapshots";
 import { SnapshotStore } from "./snapshotStore";
-import { DEFAULT_SETTINGS, StoryPlannerSettings, StoryPlannerSettingTab } from "./settings";
+import { DEFAULT_CARD_SHOWS, DEFAULT_SETTINGS, StoryPlannerSettings, StoryPlannerSettingTab } from "./settings";
 import { STORY_BOARD_VIEW, StoryBoardView } from "./view/StoryBoardView";
 import { registerIcon, STORY_ICON } from "./icon";
 import { ChoiceModal, ExportChoice, ExportModal, TextPromptModal } from "./view/modals";
@@ -340,6 +340,8 @@ export default class StoryPlannerPlugin extends Plugin {
 
   async loadSettings(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, { viewState: {} }, await this.loadData());
+    // Card display options added later keep their defaults.
+    this.settings.cardShows = { ...DEFAULT_CARD_SHOWS, ...(this.settings.cardShows ?? {}) };
     setDefaultFormats({ date: this.settings.dateFormat, time: this.settings.timeFormat });
     this.settings.palette = cleanPalette(this.settings.palette);
     setPalette(this.settings.palette);

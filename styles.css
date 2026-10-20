@@ -2528,16 +2528,29 @@ body.story-planner-reordering * {
   resize: none;
 }
 
-.story-planner-panel input.story-planner-panel-title:hover,
-.story-planner-panel textarea.story-planner-panel-synopsis:hover,
-.story-planner-panel input.story-planner-panel-title:focus,
-.story-planner-panel textarea.story-planner-panel-synopsis:focus {
+/* The title and synopsis keep the same padding and border whatever the
+   pointer does, so nothing moves on hover; hover and focus only tint them. */
+.story-planner-panel input.story-planner-panel-title,
+.story-planner-panel textarea.story-planner-panel-synopsis {
   padding-left: var(--size-4-1);
   padding-right: var(--size-4-1);
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+
+.story-planner-panel input.story-planner-panel-title:hover,
+.story-planner-panel textarea.story-planner-panel-synopsis:hover {
+  background: var(--background-modifier-hover);
+}
+
+.story-planner-panel input.story-planner-panel-title:focus,
+.story-planner-panel textarea.story-planner-panel-synopsis:focus {
+  border-color: var(--background-modifier-border);
+  background: transparent;
 }
 
 /* Buttons: quiet ghost buttons with square corners. */
-.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch):not(.story-planner-tag-chip),
+.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch):not(.story-planner-tag-chip):not(.story-planner-role-cycle),
 .story-planner-form-modal button {
   height: auto;
   padding: var(--size-2-2) var(--size-4-3);
@@ -2549,7 +2562,7 @@ body.story-planner-reordering * {
   font-weight: normal;
 }
 
-.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch):not(.story-planner-tag-chip):hover,
+.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch):not(.story-planner-tag-chip):not(.story-planner-role-cycle):hover,
 .story-planner-form-modal button:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
@@ -2997,8 +3010,6 @@ body.story-planner-reordering * {
 .story-planner-panel input.story-planner-panel-title {
   width: 100%;
   margin: var(--size-4-1) 0 var(--size-4-2);
-  border: none;
-  background: transparent;
 }
 
 .story-planner-panel .story-planner-panel-tags {
@@ -3007,8 +3018,6 @@ body.story-planner-reordering * {
 
 .story-planner-panel textarea.story-planner-panel-synopsis {
   width: 100%;
-  border: none;
-  background: transparent;
 }
 
 .story-planner-props {
@@ -3079,14 +3088,18 @@ body.story-planner-reordering * {
   margin: 0;
 }
 
+/* Wide enough for "YYYY/MM/DD" and "hh:mm", placeholders included, with the field's padding. */
 .story-planner .story-planner-date-row input.story-planner-date-input {
   flex: none;
-  width: 11ch;
+  box-sizing: border-box;
+  width: calc(12ch + 2 * var(--size-4-2) + 2px);
   min-width: 0;
 }
 
 .story-planner .story-planner-date-row input.story-planner-date-clock {
-  width: 6.5ch;
+  flex: none;
+  box-sizing: border-box;
+  width: calc(6.5ch + 2 * var(--size-4-2) + 2px);
 }
 
 .story-planner .story-planner-date-row select.story-planner-date-part {
@@ -3270,4 +3283,67 @@ body.story-planner-reordering * {
 body.story-planner-marquee-active,
 body.story-planner-marquee-active * {
   user-select: none;
+}
+
+/* Characters by role, on cards and in the card panel: point of view filled
+   with the character's colour, present outlined, mentioned dashed. */
+.story-planner-card-characters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-2-2);
+  margin-top: var(--size-4-1);
+}
+
+.story-planner-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  padding: 0 var(--size-2-3);
+  border: 1px solid var(--chip-color, var(--text-faint));
+  background: transparent;
+  color: var(--text-normal);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.story-planner .story-planner-role-chip.role-pov {
+  background: color-mix(in srgb, var(--chip-color, var(--text-faint)) 45%, transparent);
+}
+
+.story-planner .story-planner-multi-chip.story-planner-role-chip:not(.role-pov) {
+  background: transparent;
+}
+
+.story-planner-role-chip.role-mentioned {
+  border-style: dashed;
+  color: var(--text-muted);
+}
+
+.story-planner-role-chip.role-mixed {
+  border-style: dotted;
+}
+
+.story-planner-role-chip.is-partial {
+  opacity: 0.7;
+}
+
+.story-planner-multi-chip.story-planner-role-chip {
+  font-size: var(--font-ui-small);
+}
+
+.story-planner button.story-planner-role-cycle {
+  height: auto;
+  padding: 0 var(--size-2-1);
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.story-planner button.story-planner-role-cycle:hover {
+  color: var(--text-normal);
+  text-decoration: underline;
 }

@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import { createCard, createEmptyStory } from "../src/model/defaults";
 import {
   addCharacterToCards,
+  characterRoles,
   common,
+  nextRole,
+  setRoleOnCards,
   deleteCards,
   moveCardsToChapter,
   moveCardsToPlotLine,
@@ -81,5 +84,17 @@ describe("editing several cards at once", () => {
     deleteCards(s, ["a", "b"], NOW);
     expect(Object.keys(s.cards).sort()).toEqual(["c", "x"]);
     expect(s.cards.c!.order).toBe(1);
+  });
+
+  it("cycles a role present, point of view, mentioned, and sets it on every card that has the character", () => {
+    expect([nextRole("present"), nextRole("pov"), nextRole("mentioned"), nextRole("mixed")]).toEqual(["pov", "mentioned", "present", "present"]);
+    const s = story();
+    addCharacterToCards(s, ["a", "b"], "Mara", NOW);
+    const mara = s.characters[0]!.id;
+    s.cards.b!.characters[0]!.role = "pov";
+    expect(characterRoles(s, selectedCards(s, ["a", "b", "c"]))).toEqual([{ id: mara, role: "mixed", onAll: false }]);
+    setRoleOnCards(s, ["a", "b", "c"], mara, "mentioned", NOW);
+    expect(characterRoles(s, selectedCards(s, ["a", "b"]))).toEqual([{ id: mara, role: "mentioned", onAll: true }]);
+    expect(s.cards.c!.characters).toEqual([]);
   });
 });

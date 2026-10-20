@@ -1,8 +1,8 @@
 import { compareDates } from "./calendar";
-import { addCharacterByName, deleteCard, setCardDate, setCardLocation, setCardTag, updateCard } from "./edits";
+import { addCharacterByName, deleteCard, setCardDate, setCardLocation, setCardTag, updateCard, updateCardCharacter } from "./edits";
 import { moveCard } from "./moves";
 import { cardsInReadingOrder } from "./search";
-import { Card, Id, Story, StoryDate } from "./types";
+import { Card, CharacterRole, Id, Story, StoryDate } from "./types";
 
 // Edits to several selected cards at once. Each is one change to the story,
 // so the board records it as one undo step. Cards are taken in reading order,
@@ -90,5 +90,29 @@ export function addCharacterToCards(story: Story, ids: Iterable<Id>, name: strin
 export function deleteCards(story: Story, ids: Iterable<Id>, now = new Date().toISOString()): boolean {
   let changed = false;
   for (const card of selectedCards(story, ids)) changed = deleteCard(story, card.id, now) || changed;
+  return changed;
+}
+
+/** The role after this one when a role is clicked: present, then point of view, then mentioned, then present again. */
+export function nextRole(role: CharacterRole | "mixed"): CharacterRole {
+  return role === "present" ? "pov" : role === "pov" ? "mentioned" : "present";
+}
+
+/** Every character on any of the cards, with their role there, or "mixed" when the cards differ, and whether all the cards have them. */
+export function characterRoles(story: Story, cards: Card[]): { id: Id; role: CharacterRole | "mixed"; onAll: boolean }[] {
+  return story.characters
+    .map((c) => {
+      const entries = cards.map((card) => card.characters.find((e) => e.id === c.id)).filter((e): e is NonNullable<typeof e> => !!e);
+      if (entries.length === 0) return null;
+      const role = entries.every((e) => e.role === entries[0]!.role) ? entries[0]!.role : "mixed";
+      return { id: c.id, role, onAll: entries.length === cards.length };
+    })
+    .filter((x): x is { id: Id; role: CharacterRole | "mixed"; onAll: boolean } => x !== null);
+}
+
+/** Gives a character one role on every card that has them. */
+export function setRoleOnCards(story: Story, ids: Iterable<Id>, characterId: Id, role: CharacterRole, now = new Date().toISOString()): boolean {
+  let changed = false;
+  for (const card of selectedCards(story, ids)) changed = updateCardCharacter(story, card.id, characterId, { role }, now) || changed;
   return changed;
 }

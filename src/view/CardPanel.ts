@@ -1,4 +1,4 @@
-import { Menu, setIcon } from "obsidian";
+import { setIcon } from "obsidian";
 import { moveCard } from "../model/moves";
 import {
   addCharacterByName,
@@ -27,6 +27,9 @@ import {
   setDateOnCards,
   setLocationOnCards,
   setTagOnCards,
+  characterRoles,
+  nextRole,
+  setRoleOnCards,
   setWrittenOnCards,
   tagState,
 } from "../model/groupEdits";
@@ -36,13 +39,11 @@ import { DateEditor } from "./DateEditor";
 import { addCardNote, noteName, removeCardNote } from "../model/links";
 
 const ROLE_LABELS: Record<CharacterRole, string> = {
-  pov: "Point of view",
+  pov: "POV",
   present: "Present",
   mentioned: "Mentioned",
 };
 
-/** The short mark a character's chip shows for its role. */
-const ROLE_MARKS: Record<CharacterRole, string> = { pov: "POV", present: "", mentioned: "mentioned" };
 
 /** Linked notes, as the board offers them to its panels. */
 export interface NoteHost {
@@ -185,11 +186,13 @@ export class CardPanel {
       });
     }
 
-    // Characters on every selected card show as chips; picking one puts it on all of them.
+    // Every character on any selected card shows as a chip with its role there ("mixed" when the
+    // cards differ); clicking the role sets the next one on all of them. Picking one in the list puts
+    // it on all the cards.
     const value = this.prop(props, "Characters", "users");
-    const onAll = story.characters.filter((c) => cards.every((card) => card.characters.some((e) => e.id === c.id)));
-    this.characterPicker(value, story, new Set(onAll.map((c) => c.id)), {
-      chip: () => undefined,
+    const roles = characterRoles(story, cards);
+    this.characterPicker(value, story, roles.map((r) => ({ id: r.id, role: r.role, partial: !r.onAll })), {
+      cycle: (characterId, role) => edit((s) => setRoleOnCards(s, ids, characterId, nextRole(role))),
       toggle: (characterId, on) => {
         if (on) edit((s) => addCharacterToCards(s, ids, story.characters.find((c) => c.id === characterId)!.name));
         else edit((s) => cards.reduce((changed, card) => removeCardCharacter(s, card.id, characterId) || changed, false));
@@ -525,86 +528,58 @@ export class CardPanel {
   /**
    * The card's characters as chips in one box, like a multi-select property
    * in Notion: clicking the box opens a list to pick from, with a field that
-   * filters it and makes a new character on Enter; clicking a chip sets the
-   * character's role. What each character does in the scene is a line below.
+   * filters it and makes a new character on Enter. Each chip shows the
+   * character's role; clicking it moves on to the next role. New characters
+   * are present.
    */
   private buildCharacters(props: HTMLElement): void {
     const card = this.card!;
     const story = this.story!;
     const id = card.id;
     const value = this.prop(props, "Characters", "users");
-    this.characterPicker(value, story, new Set(card.characters.map((c) => c.id)), {
-      chip: (characterId) => card.characters.find((c) => c.id === characterId)?.role,
-      chipMenu: (characterId, e) => {
-        const entry = card.characters.find((c) => c.id === characterId);
-        if (!entry) return;
-        const menu = new Menu();
-        for (const role of Object.keys(ROLE_LABELS) as CharacterRole[]) {
-          menu.addItem((item) =>
-            item
-              .setTitle(ROLE_LABELS[role])
-              .setChecked(entry.role === role)
-              .onClick(() => this.host.edit((s) => updateCardCharacter(s, id, characterId, { role }))),
-          );
-        }
-        menu.addSeparator();
-        menu.addItem((item) => item.setTitle("Remove from this card").setIcon("x").onClick(() => this.host.edit((s) => removeCardCharacter(s, id, characterId))));
-        menu.showAtMouseEvent(e);
-      },
+    this.characterPicker(value, story, card.characters.map((c) => ({ id: c.id, role: c.role, partial: false })), {
+      cycle: (characterId, role) => this.host.edit((s) => updateCardCharacter(s, id, characterId, { role: nextRole(role) })),
       toggle: (characterId, on) => {
         if (on) this.host.edit((s) => addCharacterByName(s, id, story.characters.find((c) => c.id === characterId)!.name));
         else this.host.edit((s) => removeCardCharacter(s, id, characterId));
       },
       create: (name) => this.host.edit((s) => addCharacterByName(s, id, name)),
     });
-
-    // What each character does in the scene.
-    for (const entry of card.characters) {
-      const character = story.characters.find((c) => c.id === entry.id);
-      const row = value.createDiv({ cls: "story-planner-panel-character-note-row" });
-      row.createSpan({ cls: "story-planner-panel-character-note-name", text: character?.name ?? "Unknown" });
-      const note = row.createEl("input", { cls: "story-planner-panel-character-note" });
-      note.type = "text";
-      note.placeholder = "What they do here";
-      note.value = entry.note ?? "";
-      note.dataset.field = `note:${entry.id}`;
-      note.addEventListener("input", () =>
-        this.host.edit((s) => updateCardCharacter(s, id, entry.id, { note: note.value }), `note:${id}:${entry.id}`),
-      );
-    }
   }
 
   /** The chip box and its drop-down list, shared by one card and by several selected cards. */
   private characterPicker(
     parent: HTMLElement,
     story: Story,
-    chosen: Set<Id>,
+    entries: { id: Id; role: CharacterRole | "mixed"; partial: boolean }[],
     on: {
-      /** A chosen character's role, to mark on its chip. */
-      chip: (characterId: Id) => CharacterRole | undefined;
-      chipMenu?: (characterId: Id, e: MouseEvent) => void;
+      /** The role was clicked: move on to the next one. */
+      cycle: (characterId: Id, role: CharacterRole | "mixed") => void;
       toggle: (characterId: Id, on: boolean) => void;
       create: (name: string) => void;
     },
   ): void {
+    // In the list, ticked means on the card (on every selected card).
+    const chosen = new Set(entries.filter((e) => !e.partial).map((e) => e.id));
     const box = parent.createDiv({ cls: "story-planner-multi" });
     box.tabIndex = 0;
     box.setAttr("role", "combobox");
     box.setAttr("aria-label", "Characters");
-    const chosenList = story.characters.filter((c) => chosen.has(c.id));
-    for (const character of chosenList) {
-      const chip = box.createSpan({ cls: "story-planner-multi-chip" });
+    const chosenList = entries
+      .map((e) => ({ entry: e, character: story.characters.find((c) => c.id === e.id) }))
+      .filter((x): x is { entry: (typeof entries)[number]; character: NonNullable<typeof x.character> } => !!x.character);
+    for (const { entry, character } of chosenList) {
+      const chip = box.createSpan({ cls: `story-planner-multi-chip story-planner-role-chip role-${entry.role}` });
+      chip.toggleClass("is-partial", entry.partial);
       chip.style.setProperty("--chip-color", character.color);
       chip.createSpan({ text: character.name });
-      const role = on.chip(character.id);
-      if (role && ROLE_MARKS[role]) chip.createSpan({ cls: "story-planner-multi-chip-role", text: ROLE_MARKS[role] });
-      if (on.chipMenu) {
-        chip.setAttr("title", "Click to set the role");
-        chip.addEventListener("click", (e) => {
-          e.stopPropagation();
-          on.chipMenu!(character.id, e);
-        });
-      }
+      if (entry.partial) chip.setAttr("title", "On some of the selected cards");
+      const role = chip.createEl("button", { cls: "story-planner-role-cycle", text: entry.role === "mixed" ? "Mixed" : ROLE_LABELS[entry.role] });
+      role.setAttr("aria-label", `Role: ${entry.role === "mixed" ? "mixed" : ROLE_LABELS[entry.role]}. Click for the next one.`);
+      role.addEventListener("click", (e) => {
+        e.stopPropagation();
+        on.cycle(character.id, entry.role);
+      });
       const x = chip.createSpan({ cls: "story-planner-multi-chip-remove", text: "×" });
       x.setAttr("aria-label", `Remove ${character.name}`);
       x.addEventListener("click", (e) => {
@@ -676,7 +651,7 @@ export class CardPanel {
           close();
           box.focus();
         } else if (e.key === "Backspace" && !input.value && chosenList.length > 0) {
-          on.toggle(chosenList[chosenList.length - 1]!.id, false);
+          on.toggle(chosenList[chosenList.length - 1]!.character.id, false);
         }
       });
       const outside = (e: PointerEvent) => {

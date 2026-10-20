@@ -1,6 +1,6 @@
 import { Menu, Notice, Scope, setIcon, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import type StoryPlannerPlugin from "../main";
-import { orderedTabs, type StoryTab } from "../settings";
+import { type CardShow, DEFAULT_CARD_SHOWS, orderedTabs, type StoryTab } from "../settings";
 import { addCardAt, addCharacterByName, deleteCard, duringChapter, echoByDrop, setCardDate, setCardDuring, updateCard } from "../model/edits";
 import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
@@ -913,6 +913,11 @@ export class StoryBoardView extends TextFileView {
     return during ? `Off-page, during ${chapterTitle(story, during)}` : "Off-page";
   }
 
+  /** Whether cards show a piece of information, by the plugin's Layout settings. */
+  private shows(what: CardShow): boolean {
+    return this.plugin.settings.cardShows?.[what] ?? DEFAULT_CARD_SHOWS[what];
+  }
+
   /** A card's title; a card without one shows none, so its synopsis leads. */
   private cardTitle(el: HTMLElement, card: Card): void {
     if (!isUntitled(card.title)) el.createDiv({ cls: "story-planner-card-title", text: card.title });
@@ -1521,9 +1526,9 @@ export class StoryBoardView extends TextFileView {
         }
         this.cardTitle(el, card);
         if (card.date) {
-          el.createDiv({ cls: "story-planner-card-date", text: formatDateRange(story, card.date, card.endDate) });
+          if (this.shows("date")) el.createDiv({ cls: "story-planner-card-date", text: formatDateRange(story, card.date, card.endDate) });
         }
-        if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
+        if (card.synopsis && this.shows("synopsis")) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
         this.cardExtras(el, card, story);
         el.dataset.cardId = card.id;
         el.addEventListener("click", (e) => this.clickCard(e, card.id));
@@ -1649,6 +1654,7 @@ export class StoryBoardView extends TextFileView {
   /** The small square on a card that marks it written or not, in one click and without opening the panel. */
   private writtenToggle(el: HTMLElement, card: Card): void {
     el.toggleClass("is-written", card.written);
+    if (!this.shows("written")) return;
     const box = el.createEl("button", { cls: "story-planner-written" });
     box.setAttr("role", "checkbox");
     box.setAttr("aria-checked", String(card.written));
@@ -1664,10 +1670,21 @@ export class StoryBoardView extends TextFileView {
 
   /** What every card shows besides title, date and synopsis: its place, tags, and the highlight. */
   private cardExtras(el: HTMLElement, card: Card, story: Story, roleNote = true): void {
-    if (card.location && story.locations.some((l) => l.id === card.location)) {
+    if (card.location && story.locations.some((l) => l.id === card.location) && this.shows("place")) {
       el.createDiv({ cls: "story-planner-card-place", text: locationPath(story, card.location) });
     }
-    if (story.tagsEnabled && card.tags.length > 0) {
+    // Characters as chips: point of view filled, present outlined, mentioned dashed.
+    if (card.characters.length > 0 && this.shows("characters") && roleNote) {
+      const chips = el.createDiv({ cls: "story-planner-card-characters" });
+      for (const entry of card.characters) {
+        const character = story.characters.find((c) => c.id === entry.id);
+        if (!character) continue;
+        const chip = chips.createSpan({ cls: `story-planner-role-chip role-${entry.role}`, text: character.name });
+        chip.style.setProperty("--chip-color", character.color);
+        chip.setAttr("title", `${character.name}: ${ROLE_LABELS[entry.role]}`);
+      }
+    }
+    if (story.tagsEnabled && card.tags.length > 0 && this.shows("tags")) {
       const chips = el.createDiv({ cls: "story-planner-card-tags" });
       for (const id of card.tags) {
         const tag = story.tags.find((t) => t.id === id);
@@ -1676,7 +1693,7 @@ export class StoryBoardView extends TextFileView {
         chip.style.setProperty("--tag-color", tag.color);
       }
     }
-    if (card.notes.length > 0) {
+    if (card.notes.length > 0 && this.shows("notes")) {
       const missing = card.notes.filter((n) => !this.plugin.noteExists(n)).length;
       const notes = el.createDiv({ cls: "story-planner-card-links", text: `${card.notes.length} ${card.notes.length === 1 ? "note" : "notes"}` });
       if (missing > 0) {
@@ -2112,15 +2129,15 @@ export class StoryBoardView extends TextFileView {
     if (!chapter) el.addClass("is-off-page");
     el.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
     this.writtenToggle(el, card);
-    el.createDiv({ cls: "story-planner-card-badge", text: this.chapterBadge(story, card) });
+    if (this.shows("chapter")) el.createDiv({ cls: "story-planner-card-badge", text: this.chapterBadge(story, card) });
     this.cardTitle(el, card);
-    if (card.date) {
+    if (card.date && this.shows("date")) {
       const when = el.createDiv({ cls: "story-planner-card-date", text: this.timeLabel(card, story) });
       const local = formatDateRange(story, card.date, card.endDate);
       if (when.textContent !== local) when.setAttr("title", `Local: ${local}`);
       if (this.shiftedDay(card, story)) when.addClass("is-shifted");
     }
-    if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
+    if (card.synopsis && this.shows("synopsis")) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
     this.cardExtras(el, card, story);
     el.dataset.cardId = card.id;
     el.addEventListener("click", (e) => this.clickCard(e, card.id));
@@ -2430,14 +2447,14 @@ export class StoryBoardView extends TextFileView {
     if (!chapter) el.addClass("is-off-page");
     el.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
     this.writtenToggle(el, card);
-    if (this.characterAxis === "time") el.createDiv({ cls: "story-planner-card-badge", text: this.chapterBadge(story, card) });
+    if (this.characterAxis === "time" && this.shows("chapter")) el.createDiv({ cls: "story-planner-card-badge", text: this.chapterBadge(story, card) });
     const role = el.createDiv({ cls: "story-planner-appearance-role" });
     role.createSpan({ cls: `story-planner-presence role-${entry.role}` }).style.setProperty("--lane-color", story.characters.find((c) => c.id === entry.id)?.color ?? "var(--text-normal)");
     role.createSpan({ text: ROLE_LABELS[entry.role] });
     this.cardTitle(el, card);
     if (entry.note) el.createDiv({ cls: "story-planner-card-note", text: entry.note });
-    if (card.date) el.createDiv({ cls: "story-planner-card-date", text: formatDateRange(story, card.date, card.endDate) });
-    if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
+    if (card.date && this.shows("date")) el.createDiv({ cls: "story-planner-card-date", text: formatDateRange(story, card.date, card.endDate) });
+    if (card.synopsis && this.shows("synopsis")) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
     this.cardExtras(el, card, story, false);
     if (clash) {
       el.addClass("has-clash");

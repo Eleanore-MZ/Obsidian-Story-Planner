@@ -1,4 +1,5 @@
 import {
+  cardMoment,
   eraYear,
   dayFromNumber,
   dayNumber,
@@ -97,7 +98,7 @@ export type TimeItem =
    * span. Every span ends with a slim row of them (`end`), so there is always
    * room to add a card after the others, as at the end of a chapter on the board.
    */
-  | { kind: "time-cell"; bucketId: string; plotLineId: Id; end?: boolean };
+  | { kind: "time-cell"; bucketId: string; plotLineId: Id; end?: boolean; rowCardId?: Id };
 
 export interface PlacedTimeItem {
   item: TimeItem;
@@ -340,14 +341,25 @@ export function computeTimeLayout(story: Story, zoom: Zoom, orientation: Orienta
 
     // A card and its echoes share a row, so an echo sits level with its card:
     // each card takes the first row below everything already in any of its plot lines.
+    // Cards at one moment in the writer's own order each start a new row
+    // below the cards before them, whatever their plot lines, as scenes do
+    // on the board; cards with no order of their own at one moment share rows.
     const stacks: (TimeItem | undefined)[][] = story.plotLines.map(() => []);
     const next = story.plotLines.map(() => 0);
+    const rowCard: Id[] = [];
+    let floor = 0;
+    let previous: string | null = null;
     for (const card of inBucket) {
+      const moment = cardMoment(story, card)!;
+      const key = `${moment.key}|${moment.precision}|${card.timeOrder ?? ""}`;
+      if (previous !== null && key !== previous) floor = Math.max(...next);
+      previous = key;
       const last = until.get(card.id);
       const extra = last ? { until: last } : {};
       const home = laneIndex.get(card.plotLine)!;
       const echoes = [...new Set(card.alsoIn)].map((id) => laneIndex.get(id)).filter((l): l is number => l !== undefined && l !== home);
-      const row = Math.max(...[home, ...echoes].map((l) => next[l]!));
+      const row = Math.max(floor, ...[home, ...echoes].map((l) => next[l]!));
+      rowCard[row] ??= card.id;
       stacks[home]![row] = { kind: "card", cardId: card.id, bucketId: bucket.id, ...extra };
       next[home] = row + 1;
       for (const lane of echoes) {
@@ -363,7 +375,10 @@ export function computeTimeLayout(story: Story, zoom: Zoom, orientation: Orienta
       for (let i = 0; i < height; i++) {
         const plotLineId = story.plotLines[lane]!.id;
         const item: TimeItem =
-          stack[i] ?? (i === height - 1 ? { kind: "time-cell", bucketId: bucket.id, plotLineId, end: true } : { kind: "time-cell", bucketId: bucket.id, plotLineId });
+          stack[i] ??
+          (i === height - 1
+            ? { kind: "time-cell", bucketId: bucket.id, plotLineId, end: true }
+            : { kind: "time-cell", bucketId: bucket.id, plotLineId, ...(rowCard[i] ? { rowCardId: rowCard[i] } : {}) });
         const laid: Laid = { item, slot: slot + i, lane: lane + 1, span: 1, depth: 0 };
         items.push(laid);
         if ((item.kind === "card" || item.kind === "echo") && item.until) long.push({ laid, last: item.until });

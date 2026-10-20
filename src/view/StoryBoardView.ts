@@ -7,7 +7,7 @@ import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
 import { cardMoment, compareDates, dateInZone, mainCalendar, effectiveZone, formatDateRange, formatStoryDate, precisionOf } from "../model/calendar";
-import { Clash, findClashes, placeLastInTime, reorderInTime, referenceDate, timeSorted } from "../model/storyTime";
+import { alignInTime, Clash, findClashes, placeLastInTime, reorderInTime, referenceDate, timeSorted } from "../model/storyTime";
 import { Card, CharacterRole, Id, Story } from "../model/types";
 import { isUntitled } from "../model/defaults";
 import { composeOutline, outlineCardLine } from "../format/outline";
@@ -128,6 +128,8 @@ export class StoryBoardView extends TextFileView {
   private gridLanes = new WeakMap<HTMLElement, { kind: LaneKind; ids: string[]; tracks: number[]; lead: number }>();
   /** The zoom at which the whole timeline was last found too long to show, so that is said only once. */
   private tooLongNoticed: string | null = null;
+  /** Set while a drag has Ctrl+Alt held: an off-page event dropped in a chapter stays off-page, during it. */
+  private backgroundDrop = false;
   /** When Ctrl+wheel last zoomed, so one notch is one step. */
   private lastWheel = 0;
   /** Cards selected together with Ctrl+click or Shift+click; two or more open the group editor. */
@@ -1397,7 +1399,7 @@ export class StoryBoardView extends TextFileView {
         // Dropping here puts the card first in the chapter.
         this.makeDropTarget(el, "card", null, () =>
           this.mutate((s) =>
-            moveToChapter(s, this.dragged!.id, {
+            moveToChapter(s, this.dragged!.id, this.backgroundDrop, {
               chapter: item.chapterId,
               plotLine: item.plotLineId,
               beforeCardId: chapterCards(s, item.chapterId).find((c) => c.id !== this.dragged!.id)?.id ?? null,
@@ -1501,7 +1503,7 @@ export class StoryBoardView extends TextFileView {
         });
         el.addEventListener("dblclick", () => this.toggleChapterFold(item.chapterId));
         this.makeDropTarget(el, "card", null, () =>
-          this.mutate((s) => moveToChapter(s, this.dragged!.id, { chapter: item.chapterId, plotLine: item.plotLineId })),
+          this.mutate((s) => moveToChapter(s, this.dragged!.id, this.backgroundDrop, { chapter: item.chapterId, plotLine: item.plotLineId })),
         );
         this.echoLane(el, item.plotLineId);
         return el;
@@ -1511,7 +1513,7 @@ export class StoryBoardView extends TextFileView {
         const el = grid.createDiv({ cls: "story-planner-chapter-end" });
         el.addEventListener("dblclick", () => this.addCard({ chapter: item.chapterId, plotLine: item.plotLineId }));
         this.makeDropTarget(el, "card", null, () =>
-          this.mutate((s) => moveToChapter(s, this.dragged!.id, { chapter: item.chapterId, plotLine: item.plotLineId })),
+          this.mutate((s) => moveToChapter(s, this.dragged!.id, this.backgroundDrop, { chapter: item.chapterId, plotLine: item.plotLineId })),
         );
         this.echoLane(el, item.plotLineId);
         return el;
@@ -2075,7 +2077,11 @@ export class StoryBoardView extends TextFileView {
       case "time-cell": {
         const el = grid.createDiv({ cls: "story-planner-cell" });
         if (item.end) el.addClass("is-end");
-        this.makeDropTarget(el, "card", null, () => this.dropInTime(item.bucketId, item.plotLineId, null, "on"));
+        // An empty cell beside a card in another plot line: the edges put a dropped card
+        // before or after that card in the order, the middle beside it, in its row.
+        const rowCard = item.rowCardId ? story.cards[item.rowCardId] : undefined;
+        if (rowCard) this.makeDropTarget(el, "card", "slot", (place) => this.dropInTime(item.bucketId, item.plotLineId, rowCard, place, true), true);
+        else this.makeDropTarget(el, "card", null, () => this.dropInTime(item.bucketId, item.plotLineId, null, "on"));
         this.echoLane(el, item.plotLineId);
         // Double-click creates an off-page event at this time; it can be given a chapter later.
         el.addEventListener("dblclick", () => {
@@ -2196,7 +2202,7 @@ export class StoryBoardView extends TextFileView {
    * takes the span's date; a dated card moved to another span gets a new date
    * only after the writer confirms it.
    */
-  private dropInTime(bucketId: string, plotLine: Id, target: Card | null, place: DropPlace): void {
+  private dropInTime(bucketId: string, plotLine: Id, target: Card | null, place: DropPlace, inRow = false): void {
     const story = this.story;
     const bucket = this.buckets.get(bucketId);
     const card = story && this.dragged ? story.cards[this.dragged.id] : undefined;
@@ -2207,6 +2213,8 @@ export class StoryBoardView extends TextFileView {
     };
     const reorder = (s: Story) => {
       if (target && place !== "on") reorderInTime(s, card.id, target.id, place === "after");
+      // On an empty cell in another card's row: the same place in the order, so the same row.
+      else if (target && inRow) alignInTime(s, card.id, target.id);
     };
 
     if (!card.date) {
@@ -2226,7 +2234,7 @@ export class StoryBoardView extends TextFileView {
         const b = cardMoment(story, other)!;
         return a.key === b.key && a.precision === b.precision;
       };
-      if (target && place !== "on" && !sameMoment(target) && target.plotLine === plotLine) {
+      if (target && (place !== "on" || inRow) && !sameMoment(target)) {
         new Notice(
           `"${echoText(card)}" (${formatStoryDate(story, card.date)}) and "${echoText(target)}" (${formatStoryDate(story, target.date!)}) are in the order of their times. Change a time to reorder them.`,
         );
@@ -2692,8 +2700,11 @@ export class StoryBoardView extends TextFileView {
         if (!ghost) return;
         clearMark();
         target = this.dropTargetAt(pointer.clientX, pointer.clientY, dragged.kind);
-        echo = dragged.kind === "card" && this.echoKeyHeld(keys) && !!target?.spec.plotLine;
-        ghost.setText(echo ? `${label}  ＋ echo` : label);
+        // Ctrl+Alt (Cmd+Alt) keeps an off-page event off-page, in the background of the chapter it lands in.
+        const background = dragged.kind === "card" && (keys.ctrlKey || keys.metaKey) && keys.altKey && this.story?.cards[dragged.id]?.chapter === null;
+        this.backgroundDrop = background;
+        echo = dragged.kind === "card" && !background && this.echoKeyHeld(keys) && !!target?.spec.plotLine;
+        ghost.setText(echo ? `${label}  ＋ echo` : background ? `${label}  ⋯ background` : label);
         ghost.toggleClass("is-echo", echo);
         this.contentEl.toggleClass("is-echo-drag", echo);
         if (target) {
@@ -2767,6 +2778,7 @@ export class StoryBoardView extends TextFileView {
           }
         }
         this.dragged = null;
+        this.backgroundDrop = false;
       };
       const onUp = (ev: PointerEvent) => {
         keys = ev;
@@ -2857,7 +2869,7 @@ export class StoryBoardView extends TextFileView {
         this.mutate((s) => {
           const id = this.dragged!.id;
           // An off-page event dropped among a chapter's scenes stays off-page, in the chapter's background.
-          if (s.cards[id]?.chapter === null && target.chapter !== null) return moveToChapter(s, id, { chapter: target.chapter, plotLine });
+          if (this.backgroundDrop && s.cards[id]?.chapter === null && target.chapter !== null) return moveToChapter(s, id, true, { chapter: target.chapter, plotLine });
           const moved = moveCard(s, id, {
             chapter: target.chapter,
             plotLine,
@@ -2951,13 +2963,13 @@ function echoText(card: Card): string {
 
 /**
  * Moves a card into a chapter, or into the off-page group, where it happens
- * during no chapter. An off-page event dropped into a chapter stays off-page
- * and happens during that chapter, in its background rows; the card panel's
- * Chapter field is what makes it a scene told in the chapter.
+ * during no chapter. With `background` (Ctrl+Alt held while dropping), an
+ * off-page event dropped into a chapter stays off-page and happens during
+ * that chapter, in its background rows.
  */
-function moveToChapter(story: Story, cardId: Id, target: CardTarget): boolean {
+function moveToChapter(story: Story, cardId: Id, background: boolean, target: CardTarget): boolean {
   const card = story.cards[cardId];
-  if (card && card.chapter === null && target.chapter !== null) {
+  if (background && card && card.chapter === null && target.chapter !== null) {
     const moved = moveCard(story, cardId, { chapter: null, plotLine: target.plotLine });
     return setCardDuring(story, cardId, target.chapter) || moved;
   }

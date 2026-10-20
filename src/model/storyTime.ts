@@ -80,6 +80,40 @@ export function reorderInTime(story: Story, cardId: Id, targetId: Id, after: boo
   return true;
 }
 
+/**
+ * Gives a card the same place in the writer's order as another card at the
+ * same moment, so they share a row in story time. Returns false when the two
+ * are not at the same moment.
+ */
+export function alignInTime(story: Story, cardId: Id, targetId: Id, now = new Date().toISOString()): boolean {
+  const card = story.cards[cardId];
+  const target = story.cards[targetId];
+  if (!card || !target || card === target || !card.date || !target.date) return false;
+  const a = cardMoment(story, card)!;
+  const b = cardMoment(story, target)!;
+  if (a.key !== b.key || a.precision !== b.precision) return false;
+  // Number the others at the moment in their present order, so every one has a place.
+  const same = timeSorted(
+    story,
+    Object.values(story.cards).filter((c) => {
+      if (!c.date || c === card) return false;
+      const m = cardMoment(story, c)!;
+      return m.key === b.key && m.precision === b.precision;
+    }),
+  );
+  same.forEach((c, i) => {
+    if (c.timeOrder !== i + 1) {
+      c.timeOrder = i + 1;
+      c.modified = now;
+    }
+  });
+  if (card.timeOrder !== target.timeOrder) {
+    card.timeOrder = target.timeOrder;
+    card.modified = now;
+  }
+  return true;
+}
+
 /** Puts a card after every other card at its moment, as for a card just added there. */
 export function placeLastInTime(story: Story, cardId: Id, now = new Date().toISOString()): void {
   const card = story.cards[cardId];

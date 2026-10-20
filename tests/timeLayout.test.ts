@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createCard, createEmptyStory } from "../src/model/defaults";
-import { placeLastInTime, reorderInTime, timeSorted } from "../src/model/storyTime";
+import { alignInTime, placeLastInTime, reorderInTime, timeSorted } from "../src/model/storyTime";
 import { Card, Story, StoryDate } from "../src/model/types";
 import { dateSpan } from "../src/model/calendar";
 import { bucketDate, computeTimeLayout, describeGap, zoomSteps } from "../src/view/timeLayout";
@@ -167,6 +167,21 @@ describe("story-time layout", () => {
     expect(computeTimeLayout(s, "clock", "vertical", false).buckets).toHaveLength(2);
   });
 
+  it("orders cards at one time across plot lines once the writer has ordered them", () => {
+    const s = story();
+    s.plotLines.push({ id: "p3", name: "C", color: "#222" });
+    add(s, "a", d(1531, 12, 2));
+    add(s, "b", d(1531, 12, 2), { plotLine: "p2" });
+    add(s, "c", d(1531, 12, 2), { plotLine: "p3" });
+    // With no order of their own they share a row.
+    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] a b c"]);
+    reorderInTime(s, "c", "a", false, NOW);
+    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] c", "a", "b"]);
+    // Given the same place in the order as another, a card shares its row.
+    alignInTime(s, "b", "a", NOW);
+    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] c", "a b"]);
+  });
+
   it("lists undated cards in reading order for the tray", () => {
     const s = story();
     add(s, "x", undefined, { chapter: "c2", order: 1 });
@@ -200,7 +215,8 @@ describe("story-time layout", () => {
     // 01:00 on 2 January in the east is 22:00 on 1 January at home.
     add(s, "east", d(1531, 1, 2, { minutes: 60, zone: "z2" }));
     add(s, "home", d(1531, 1, 1, { minutes: 23 * 60 }), { plotLine: "p2" });
-    expect(rowsOf(s, "day")).toEqual(["[1531/01/01] east home"]);
+    // East comes first (22:00 before 23:00), so it is a row above.
+    expect(rowsOf(s, "day")).toEqual(["[1531/01/01] east", "home"]);
   });
 
   it("describes gaps in words", () => {

@@ -2550,7 +2550,7 @@ body.story-planner-reordering * {
 }
 
 /* Buttons: quiet ghost buttons with square corners. */
-.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch):not(.story-planner-tag-chip):not(.story-planner-role-cycle),
+.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch):not(.story-planner-tag-chip):not(.story-planner-role-cycle):not(.story-planner-delete),
 .story-planner-form-modal button {
   height: auto;
   padding: var(--size-2-2) var(--size-4-3);
@@ -2562,7 +2562,7 @@ body.story-planner-reordering * {
   font-weight: normal;
 }
 
-.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch):not(.story-planner-tag-chip):not(.story-planner-role-cycle):hover,
+.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch):not(.story-planner-tag-chip):not(.story-planner-role-cycle):not(.story-planner-delete):hover,
 .story-planner-form-modal button:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
@@ -3256,8 +3256,14 @@ body.story-planner-reordering * {
 }
 
 .story-planner button.story-planner-delete {
-  border-color: color-mix(in srgb, #e0607a 45%, transparent);
+  height: auto;
+  padding: var(--size-2-2) var(--size-4-3);
+  border: 1px solid #e0607a;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   color: #e0607a;
+  font-weight: normal;
 }
 
 .story-planner button.story-planner-delete:hover {
@@ -3353,4 +3359,59 @@ body.story-planner-marquee-active * {
   margin-left: auto;
   padding: 0 var(--size-4-2);
   font-size: var(--font-ui-smaller);
+}
+
+/* Characters in the card panel, one row each: the name and the role at the
+   right, and what they do here on a line below (beside the name on the page
+   in the middle). */
+.story-planner-multi.is-rows {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.story-planner .story-planner-multi.is-rows .story-planner-multi-chip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  column-gap: var(--size-4-2);
+  row-gap: var(--size-2-1);
+  padding: var(--size-2-2) var(--size-4-2);
+  white-space: normal;
+}
+
+.story-planner-multi-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-planner .story-planner-multi.is-rows input.story-planner-multi-chip-note {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  padding: 0 var(--size-2-1);
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.story-planner .story-planner-multi.is-rows input.story-planner-multi-chip-note:hover {
+  background: var(--background-modifier-hover);
+}
+
+.story-planner .story-planner-multi.is-rows input.story-planner-multi-chip-note:focus {
+  border-color: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.story-planner-panel.is-centre .story-planner-multi.is-rows .story-planner-multi-chip:has(.story-planner-multi-chip-note) {
+  grid-template-columns: minmax(6em, max-content) minmax(0, 1fr) auto auto;
+}
+
+.story-planner-panel.is-centre .story-planner-multi.is-rows input.story-planner-multi-chip-note {
+  grid-row: 1;
+  grid-column: 2;
 }

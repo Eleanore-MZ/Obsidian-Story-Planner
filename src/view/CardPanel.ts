@@ -539,6 +539,10 @@ export class CardPanel {
     const value = this.prop(props, "Characters", "users");
     this.characterPicker(value, story, card.characters.map((c) => ({ id: c.id, role: c.role, partial: false })), {
       cycle: (characterId, role) => this.host.edit((s) => updateCardCharacter(s, id, characterId, { role: nextRole(role) })),
+      note: {
+        get: (characterId) => card.characters.find((c) => c.id === characterId)?.note ?? "",
+        set: (characterId, note) => this.host.edit((s) => updateCardCharacter(s, id, characterId, { note }), `note:${id}:${characterId}`),
+      },
       toggle: (characterId, on) => {
         if (on) this.host.edit((s) => addCharacterByName(s, id, story.characters.find((c) => c.id === characterId)!.name));
         else this.host.edit((s) => removeCardCharacter(s, id, characterId));
@@ -555,13 +559,17 @@ export class CardPanel {
     on: {
       /** The role was clicked: move on to the next one. */
       cycle: (characterId: Id, role: CharacterRole | "mixed") => void;
+      /** What each character does in the scene, for a single card. */
+      note?: { get: (characterId: Id) => string; set: (characterId: Id, note: string) => void };
       toggle: (characterId: Id, on: boolean) => void;
       create: (name: string) => void;
     },
   ): void {
     // In the list, ticked means on the card (on every selected card).
     const chosen = new Set(entries.filter((e) => !e.partial).map((e) => e.id));
-    const box = parent.createDiv({ cls: "story-planner-multi" });
+    // One row per character: the name, what they do here (on the page in the
+    // middle, beside the name; in the side panel, on a line below), the role at the right.
+    const box = parent.createDiv({ cls: "story-planner-multi is-rows" });
     box.tabIndex = 0;
     box.setAttr("role", "combobox");
     box.setAttr("aria-label", "Characters");
@@ -572,8 +580,18 @@ export class CardPanel {
       const chip = box.createSpan({ cls: `story-planner-multi-chip story-planner-role-chip role-${entry.role}` });
       chip.toggleClass("is-partial", entry.partial);
       chip.style.setProperty("--chip-color", character.color);
-      chip.createSpan({ text: character.name });
+      chip.createSpan({ cls: "story-planner-multi-chip-name", text: character.name });
       if (entry.partial) chip.setAttr("title", "On some of the selected cards");
+      if (on.note) {
+        const note = chip.createEl("input", { cls: "story-planner-multi-chip-note" });
+        note.type = "text";
+        note.placeholder = "What they do here";
+        note.value = on.note.get(character.id);
+        note.dataset.field = `note:${character.id}`;
+        note.addEventListener("click", (e) => e.stopPropagation());
+        note.addEventListener("keydown", (e) => e.stopPropagation());
+        note.addEventListener("input", () => on.note!.set(character.id, note.value));
+      }
       const role = chip.createEl("button", { cls: "story-planner-role-cycle", text: entry.role === "mixed" ? "Mixed" : ROLE_LABELS[entry.role] });
       role.setAttr("aria-label", `Role: ${entry.role === "mixed" ? "mixed" : ROLE_LABELS[entry.role]}. Click for the next one.`);
       role.addEventListener("click", (e) => {

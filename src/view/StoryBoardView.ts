@@ -1,7 +1,7 @@
 import { Menu, Notice, Scope, setIcon, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import type StoryPlannerPlugin from "../main";
 import { orderedTabs, type StoryTab } from "../settings";
-import { addCardAt, addCharacterByName, deleteCard, echoByDrop, setCardDate, updateCard } from "../model/edits";
+import { addCardAt, addCharacterByName, deleteCard, duringChapter, echoByDrop, setCardDate, setCardDuring, updateCard } from "../model/edits";
 import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
@@ -9,6 +9,7 @@ import { cardMoment, compareDates, dateInZone, mainCalendar, effectiveZone, form
 import { Clash, findClashes, placeLastInTime, reorderInTime, referenceDate, timeSorted } from "../model/storyTime";
 import { Card, CharacterRole, Id, Story } from "../model/types";
 import { isUntitled } from "../model/defaults";
+import { composeOutline, outlineCardLine } from "../format/outline";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree, plotLineColor } from "../model/setup";
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
@@ -60,6 +61,7 @@ const TABS: Record<StoryTab, [string, string]> = {
   board: ["Main", "columns-3"],
   time: ["Story time", "calendar-clock"],
   characters: ["Characters", "users"],
+  outline: ["Outline", "scroll-text"],
   setup: ["Setup", "settings-2"],
 };
 
@@ -189,6 +191,9 @@ export class StoryBoardView extends TextFileView {
       deletedMany: (count) => this.cardsDeleted(count),
       notes: this.noteHost(),
     });
+    // Behind a card opened in the middle: dims the board, and a click on it closes the card.
+    const backdrop = this.bodyEl.createDiv({ cls: "story-planner-peek-backdrop" });
+    backdrop.addEventListener("click", () => this.select(null));
     this.setup = new SetupPanel(this.contentEl, {
       edit: (change, coalesce) => this.mutate(change, coalesce),
       choose: (choice) => new ChoiceModal(this.app, choice).open(),
@@ -829,6 +834,14 @@ export class StoryBoardView extends TextFileView {
     this.render();
   }
 
+  /** The chapter a card is in, for its badge; an off-page event says which chapter it happens during. */
+  private chapterBadge(story: Story, card: Card): string {
+    const chapter = story.chapters.find((c) => c.id === card.chapter);
+    if (chapter) return chapterTitle(story, chapter);
+    const during = story.chapters.find((c) => c.id === duringChapter(story, card));
+    return during ? `Off-page, during ${chapterTitle(story, during)}` : "Off-page";
+  }
+
   /** A card's title; a card without one shows none, so its synopsis leads. */
   private cardTitle(el: HTMLElement, card: Card): void {
     if (!isUntitled(card.title)) el.createDiv({ cls: "story-planner-card-title", text: card.title });
@@ -1017,11 +1030,18 @@ export class StoryBoardView extends TextFileView {
     const onBoard = tab === "board";
     const onTime = tab === "time";
     const onCharacters = tab === "characters";
-    const withPanel = onBoard || onTime || onCharacters;
+    const onOutline = tab === "outline";
+    const withPanel = onBoard || onTime || onCharacters || onOutline;
     this.bodyEl.hidden = !withPanel;
     this.setup.setOpen(tab === "setup", story);
     if (onTime) this.timeActions(tabsRow.createDiv({ cls: "story-planner-tab-actions" }), story);
     if (onCharacters) this.characterActions(tabsRow.createDiv({ cls: "story-planner-tab-actions" }), story);
+    if (onOutline) {
+      const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
+      this.button(actions, "Export outline", () => {
+        if (this.file && this.story) void this.plugin.exportOutline(this.file, this.story);
+      });
+    }
     if (onBoard) {
       const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
       this.button(actions, "Add plot line", () =>
@@ -1029,18 +1049,40 @@ export class StoryBoardView extends TextFileView {
       );
       this.button(actions, "Add chapter", () => this.editChapter(null));
       this.highlightPicker(actions, story);
+      // Off-page events, shown or not.
+      const shown = !this.viewState()?.hideOffPage;
+      const offPage = this.button(actions, "Off-page", () => this.setViewState({ hideOffPage: shown }));
+      offPage.toggleClass("is-active", shown);
+      offPage.setAttr("aria-pressed", String(shown));
+      offPage.setAttr("title", shown ? "Hide off-page events" : "Show off-page events");
       // The button names the layout it switches to.
       const compact = this.button(actions, this.compact ? "Cozy" : "Compact", () => this.toggleCompact());
     }
 
     const actions = tabsRow.querySelector<HTMLElement>(".story-planner-tab-actions") ?? tabsRow.createDiv({ cls: "story-planner-tab-actions" });
-    if (withPanel) {
+    if (withPanel && !onOutline) {
       const map = this.button(actions, "Map", () => this.setViewState({ minimap: !this.viewState()?.minimap }));
       const on = !!this.viewState()?.minimap;
       map.toggleClass("is-active", on);
       map.setAttr("aria-pressed", String(on));
       map.setAttr("title", "Minimap");
     }
+    // Where cards open: the side panel, or the middle over the board. The same for every story.
+    if (withPanel) {
+      const centre = this.plugin.settings.cardOpening === "centre";
+      const opening = actions.createEl("button", { cls: "story-planner-opening-toggle clickable-icon" });
+      iconOr(opening, centre ? "app-window" : "panel-right", "layout");
+      const label = centre ? "Cards open in the middle. Click to open them in the side panel." : "Cards open in the side panel. Click to open them in the middle.";
+      opening.setAttr("aria-label", label);
+      opening.setAttr("title", label);
+      opening.addEventListener("click", () => {
+        this.plugin.settings.cardOpening = centre ? "side" : "centre";
+        void this.plugin.saveSettings();
+        this.plugin.refreshBoards();
+      });
+    }
+    this.bodyEl.toggleClass("is-peek", this.plugin.settings.cardOpening === "centre");
+
     // Story setup opens from a gear at the right, and closes back to the view it came from.
     const gear = actions.createEl("button", { cls: "story-planner-setup-toggle clickable-icon" });
     setIcon(gear, "settings");
@@ -1059,7 +1101,7 @@ export class StoryBoardView extends TextFileView {
     }
     this.setup.refresh(story, typing);
     if (withPanel) this.renderBoard(story);
-    this.minimap.setVisible(withPanel && !!this.viewState()?.minimap);
+    this.minimap.setVisible(withPanel && !onOutline && !!this.viewState()?.minimap);
   }
 
   /**
@@ -1071,6 +1113,7 @@ export class StoryBoardView extends TextFileView {
     const content = document.createElement("div");
     if (this.tab === "time") this.fillTime(content, story);
     else if (this.tab === "characters") this.fillCharacters(content, story);
+    else if (this.tab === "outline") this.fillOutline(content, story);
     else this.fillBoard(content, story);
     this.boardEl.replaceChildren(...Array.from(content.childNodes));
     this.boardEl.scrollTop = scrollTop;
@@ -1095,7 +1138,7 @@ export class StoryBoardView extends TextFileView {
       return;
     }
 
-    const layout = computeBoardLayout(story, this.orientation, this.compact, this.foldedChapters);
+    const layout = computeBoardLayout(story, this.orientation, this.compact, this.foldedChapters, !this.viewState()?.hideOffPage);
     const cls = [this.compact ? "is-compact" : "", layout.acts ? "has-acts" : ""].filter(Boolean).join(" ");
     const grid = this.spanGrid(parent, cls, layout.rows, layout.columns, "plotLine", story.plotLines.map((p) => p.id), undefined, layout.acts ? 2 : 1);
 
@@ -1218,7 +1261,7 @@ export class StoryBoardView extends TextFileView {
         // Dropping here puts the card first in the chapter.
         this.makeDropTarget(el, "card", null, () =>
           this.mutate((s) =>
-            moveCard(s, this.dragged!.id, {
+            moveToChapter(s, this.dragged!.id, {
               chapter: item.chapterId,
               plotLine: item.plotLineId,
               beforeCardId: chapterCards(s, item.chapterId).find((c) => c.id !== this.dragged!.id)?.id ?? null,
@@ -1292,6 +1335,29 @@ export class StoryBoardView extends TextFileView {
       case "act-divider":
         return grid.createDiv({ cls: "story-planner-act-divider" });
 
+      case "background-cell": {
+        // Space in a chapter's background rows: what lands here happens off-page, during the chapter.
+        const el = grid.createDiv({ cls: "story-planner-cell is-background" });
+        const during = (s: Story, id: Id) => {
+          moveCard(s, id, { chapter: null, plotLine: item.plotLineId });
+          setCardDuring(s, id, item.chapterId);
+        };
+        this.makeDropTarget(el, "card", null, () => this.mutate((s) => during(s, this.dragged!.id)));
+        this.echoLane(el, item.plotLineId);
+        el.addEventListener("dblclick", () => {
+          let id: Id | null = null;
+          this.mutate((s) => {
+            id = addCardAt(s, { chapter: null, plotLine: item.plotLineId }, "New event");
+            setCardDuring(s, id, item.chapterId);
+          });
+          if (id) {
+            this.select(id);
+            this.panel.focusTitle();
+          }
+        });
+        return el;
+      }
+
       case "chapter-folded": {
         const el = grid.createDiv({
           cls: "story-planner-folded-cell",
@@ -1299,7 +1365,7 @@ export class StoryBoardView extends TextFileView {
         });
         el.addEventListener("dblclick", () => this.toggleChapterFold(item.chapterId));
         this.makeDropTarget(el, "card", null, () =>
-          this.mutate((s) => moveCard(s, this.dragged!.id, { chapter: item.chapterId, plotLine: item.plotLineId })),
+          this.mutate((s) => moveToChapter(s, this.dragged!.id, { chapter: item.chapterId, plotLine: item.plotLineId })),
         );
         this.echoLane(el, item.plotLineId);
         return el;
@@ -1309,7 +1375,7 @@ export class StoryBoardView extends TextFileView {
         const el = grid.createDiv({ cls: "story-planner-chapter-end" });
         el.addEventListener("dblclick", () => this.addCard({ chapter: item.chapterId, plotLine: item.plotLineId }));
         this.makeDropTarget(el, "card", null, () =>
-          this.mutate((s) => moveCard(s, this.dragged!.id, { chapter: item.chapterId, plotLine: item.plotLineId })),
+          this.mutate((s) => moveToChapter(s, this.dragged!.id, { chapter: item.chapterId, plotLine: item.plotLineId })),
         );
         this.echoLane(el, item.plotLineId);
         return el;
@@ -1322,6 +1388,10 @@ export class StoryBoardView extends TextFileView {
         el.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
         if (!story.chapters.some((c) => c.id === card.chapter)) el.addClass("is-off-page");
         this.writtenToggle(el, card);
+        if (item.background) {
+          el.addClass("is-background");
+          el.createDiv({ cls: "story-planner-card-badge", text: "Background" });
+        }
         this.cardTitle(el, card);
         if (card.date) {
           el.createDiv({ cls: "story-planner-card-date", text: formatDateRange(story, card.date, card.endDate) });
@@ -1343,6 +1413,7 @@ export class StoryBoardView extends TextFileView {
         el.style.setProperty("--lane-color", plotLineColor(story, home) ?? "var(--interactive-accent)");
         el.setAttr("aria-label", `Also in ${home?.name ?? "another plot line"}`);
         if (this.highlighted(card, story) === false) el.addClass("is-dimmed");
+        if (item.background) el.addClass("is-background");
         // Clicking an echo selects the real card and brings it into view.
         el.addEventListener("click", () => {
           this.select(card.id);
@@ -1354,6 +1425,56 @@ export class StoryBoardView extends TextFileView {
         return el;
       }
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Outline: the story composed as a document, act by act and chapter by
+  // chapter, with each chapter's scenes in board order and its background.
+
+  private fillOutline(parent: HTMLElement, story: Story): void {
+    const doc = parent.createDiv({ cls: "story-planner-outline" });
+    doc.createEl("h1", { cls: "story-planner-outline-title", text: story.title });
+    const paragraphs = (el: HTMLElement, text: string, cls: string) => {
+      for (const line of text.split(/\n+/)) if (line.trim()) el.createEl("p", { cls, text: line.trim() });
+    };
+    const card = (el: HTMLElement, c: Card) => {
+      const { title, plotLine } = outlineCardLine(story, c);
+      const item = el.createDiv({ cls: "story-planner-outline-card" });
+      item.dataset.cardId = c.id;
+      const plot = story.plotLines.find((p) => p.id === c.plotLine);
+      item.style.setProperty("--lane-color", plotLineColor(story, plot) ?? "var(--interactive-accent)");
+      const head = item.createDiv({ cls: "story-planner-outline-card-head" });
+      if (title) head.createSpan({ cls: "story-planner-outline-card-title", text: title });
+      if (plotLine) head.createSpan({ cls: "story-planner-outline-card-plot", text: plotLine });
+      if (c.synopsis.trim()) paragraphs(item, c.synopsis, "story-planner-outline-card-synopsis");
+      if (this.highlighted(c, story) === false) item.addClass("is-dimmed");
+      item.addEventListener("click", (e) => this.clickCard(e, c.id));
+    };
+    const parts = composeOutline(story);
+    const withActs = actsShown(story);
+    for (const part of parts) {
+      const section = doc.createDiv({ cls: "story-planner-outline-part" });
+      if (part.act) {
+        const h = section.createEl("h2", { cls: "story-planner-outline-act", text: part.heading });
+        h.addEventListener("dblclick", () => this.editAct(part.act!.id));
+        if (part.synopsis) paragraphs(section, part.synopsis, "story-planner-outline-synopsis");
+      }
+      for (const chapter of part.chapters) {
+        const h = section.createEl(withActs && part.act ? "h3" : "h2", { cls: "story-planner-outline-chapter", text: chapter.heading });
+        if (chapter.chapter) {
+          const id = chapter.chapter.id;
+          h.addEventListener("dblclick", () => this.editChapter(id));
+        }
+        if (chapter.synopsis) paragraphs(section, chapter.synopsis, "story-planner-outline-synopsis");
+        for (const c of chapter.cards) card(section, c);
+        if (chapter.background.length > 0) {
+          const bg = section.createDiv({ cls: "story-planner-outline-background" });
+          bg.createDiv({ cls: "story-planner-outline-background-label", text: "Background" });
+          for (const c of chapter.background) card(bg, c);
+        }
+      }
+    }
+    if (Object.keys(story.cards).length === 0) doc.createDiv({ cls: "story-planner-empty", text: "No scenes yet" });
   }
 
   // -------------------------------------------------------------------------
@@ -1863,7 +1984,7 @@ export class StoryBoardView extends TextFileView {
     if (!chapter) el.addClass("is-off-page");
     el.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
     this.writtenToggle(el, card);
-    el.createDiv({ cls: "story-planner-card-badge", text: chapterTitle(story, chapter) });
+    el.createDiv({ cls: "story-planner-card-badge", text: this.chapterBadge(story, card) });
     this.cardTitle(el, card);
     if (card.date) {
       const when = el.createDiv({ cls: "story-planner-card-date", text: this.timeLabel(card, story) });
@@ -2181,7 +2302,7 @@ export class StoryBoardView extends TextFileView {
     if (!chapter) el.addClass("is-off-page");
     el.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
     this.writtenToggle(el, card);
-    if (this.characterAxis === "time") el.createDiv({ cls: "story-planner-card-badge", text: chapterTitle(story, chapter) });
+    if (this.characterAxis === "time") el.createDiv({ cls: "story-planner-card-badge", text: this.chapterBadge(story, card) });
     const role = el.createDiv({ cls: "story-planner-appearance-role" });
     role.createSpan({ cls: `story-planner-presence role-${entry.role}` }).style.setProperty("--lane-color", story.characters.find((c) => c.id === entry.id)?.color ?? "var(--text-normal)");
     role.createSpan({ text: ROLE_LABELS[entry.role] });
@@ -2584,13 +2705,18 @@ export class StoryBoardView extends TextFileView {
       "card",
       "slot",
       (place) =>
-        this.mutate((s) =>
-          moveCard(s, this.dragged!.id, {
+        this.mutate((s) => {
+          const id = this.dragged!.id;
+          const moved = moveCard(s, id, {
             chapter: target.chapter,
             plotLine,
             ...(place === "on" ? { besideCardId: target.id } : place === "after" ? { afterCardId: target.id } : { beforeCardId: target.id }),
-          }),
-        ),
+          });
+          // Beside an off-page event, a card happens during the same chapter as it (or none).
+          if (target.chapter !== null) return moved;
+          const during = duringChapter(s, s.cards[target.id] ?? target);
+          return setCardDuring(s, id, during) || moved;
+        }),
       beside,
     );
     this.echoLane(el, plotLine);
@@ -2670,4 +2796,10 @@ function stopBoardGestures(el: HTMLElement): void {
 function echoText(card: Card): string {
   if (!isUntitled(card.title)) return card.title;
   return card.synopsis.trim().split(/\r?\n/)[0] || "Untitled";
+}
+
+/** Moves a card into a chapter, or into the off-page group, where it happens during no chapter. */
+function moveToChapter(story: Story, cardId: Id, target: CardTarget): boolean {
+  const moved = moveCard(story, cardId, target);
+  return (target.chapter === null && setCardDuring(story, cardId, undefined)) || moved;
 }

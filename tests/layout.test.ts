@@ -15,6 +15,31 @@ function storyWithTwoPlotLines() {
 }
 
 describe("board layout", () => {
+  it("shows an off-page event during a chapter in a background row at the chapter's end, and can leave off-page out", () => {
+    const { story, main } = storyWithTwoPlotLines();
+    const ch = story.chapters[0]!.id;
+    const bg = createCard({ title: "Meanwhile", plotLine: main, chapter: null, order: 1 });
+    bg.during = ch;
+    const off = createCard({ title: "Long ago", plotLine: main, chapter: null, order: 2 });
+    story.cards[bg.id] = bg;
+    story.cards[off.id] = off;
+    const layout = computeBoardLayout(story, "vertical");
+    const at = (id: string) => layout.items.find((p) => p.item.kind === "card" && p.item.cardId === id)!;
+    const end = layout.items.find((p) => p.item.kind === "chapter-end" && p.item.chapterId === ch)!;
+    expect(at(bg.id).item).toMatchObject({ background: true });
+    expect(at(bg.id).row).toBe(end.row + 1);
+    expect(layout.items.some((p) => p.item.kind === "background-cell" && p.row === at(bg.id).row)).toBe(true);
+    const header = layout.items.find((p) => p.item.kind === "chapter-header" && p.item.chapterId === ch)!;
+    expect(header.row + (header.span ?? 1) - 1).toBe(at(bg.id).row);
+    // The other off-page event is in the off-page group, after the chapter.
+    expect(at(off.id).row).toBeGreaterThan(at(bg.id).row);
+    expect(layout.items.some((p) => p.item.kind === "chapter-header" && p.item.chapterId === null)).toBe(true);
+
+    const hidden = computeBoardLayout(story, "vertical", false, new Set(), false);
+    expect(hidden.items.some((p) => p.item.kind === "card" && (p.item.cardId === bg.id || p.item.cardId === off.id))).toBe(false);
+    expect(hidden.items.some((p) => p.item.kind === "chapter-header" && p.item.chapterId === null)).toBe(false);
+  });
+
   it("gives each scene its own row in vertical layout, in scene order", () => {
     const { story, first, second } = storyWithTwoPlotLines();
     const layout = computeBoardLayout(story, "vertical");

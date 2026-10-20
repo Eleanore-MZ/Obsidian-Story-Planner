@@ -13,7 +13,8 @@ import { SnapshotStore } from "./snapshotStore";
 import { DEFAULT_SETTINGS, StoryPlannerSettings, StoryPlannerSettingTab } from "./settings";
 import { STORY_BOARD_VIEW, StoryBoardView } from "./view/StoryBoardView";
 import { registerIcon, STORY_ICON } from "./icon";
-import { ExportChoice, ExportModal, TextPromptModal } from "./view/modals";
+import { ChoiceModal, ExportChoice, ExportModal, TextPromptModal } from "./view/modals";
+import { outlineMarkdown } from "./format/outline";
 
 export default class StoryPlannerPlugin extends Plugin {
   settings: StoryPlannerSettings = DEFAULT_SETTINGS;
@@ -217,6 +218,48 @@ export default class StoryPlannerPlugin extends Plugin {
       view = leaf.view instanceof StoryBoardView ? leaf.view : undefined;
     }
     view?.revealCard(cardId);
+  }
+
+  /**
+   * Writes the story's outline to "<story> outline.md" beside it. A note of
+   * that name that an earlier outline export wrote is replaced after asking;
+   * any other note of that name is never touched, and the outline goes to a
+   * new note beside it instead.
+   */
+  async exportOutline(file: TFile, story: Story): Promise<void> {
+    const folder = file.parent && file.parent.path !== "/" ? `${file.parent.path}/` : "";
+    const stem = `${folder}${file.basename} outline`;
+    const text = outlineMarkdown(story);
+    const write = async (path: string, existing?: TFile) => {
+      try {
+        const target = existing ? (await this.app.vault.modify(existing, text), existing) : await this.app.vault.create(path, text);
+        new Notice(`Exported the outline to ${target.path}.`);
+        await this.app.workspace.getLeaf("tab").openFile(target);
+      } catch (e) {
+        console.error("Story Planner: could not export the outline", e);
+        new Notice("Story Planner could not write the outline. See the developer console for details.");
+      }
+    };
+    const freePath = () => {
+      let path = normalizePath(`${stem}.md`);
+      for (let n = 2; this.app.vault.getAbstractFileByPath(path); n++) path = normalizePath(`${stem} ${n}.md`);
+      return path;
+    };
+    const existing = this.app.vault.getAbstractFileByPath(normalizePath(`${stem}.md`));
+    if (!existing) return write(normalizePath(`${stem}.md`));
+    const ours = existing instanceof TFile && this.app.metadataCache.getFileCache(existing)?.frontmatter?.[FRONTMATTER_KEY] === "outline";
+    if (!ours) return write(freePath());
+    new ChoiceModal(this.app, {
+      title: "Replace the outline?",
+      message: `${existing.path} is an outline exported earlier. Replace it with the outline as it is now, or keep it and save a new one?`,
+      options: [
+        { value: "replace", label: `Replace ${existing.name}` },
+        { value: "new", label: "Save as a new note" },
+      ],
+      confirm: "Export",
+      safe: true,
+      onChoose: (value) => void (value === "replace" ? write(existing.path, existing) : write(freePath())),
+    }).open();
   }
 
   /** Asks how to export a story, then writes the export to a new file. */

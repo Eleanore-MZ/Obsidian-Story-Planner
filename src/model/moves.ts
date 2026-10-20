@@ -67,6 +67,8 @@ export function moveCard(story: Story, cardId: Id, target: CardTarget, now = new
   else if (target.beforeCardId) rows.splice(rowIndex, 0, [card]);
   else rows.splice(rowIndex + 1, 0, [card]);
   card.chapter = target.chapter;
+  // A scene told in a chapter no longer happens in the background of one.
+  if (target.chapter !== null) delete card.during;
   renumber(rows);
 
   if (sourceChapter !== target.chapter) {

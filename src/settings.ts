@@ -10,7 +10,7 @@ import type StoryPlannerPlugin from "./main";
 import { Orientation } from "./view/layout";
 
 /** The views of a story, shown as tabs above it. */
-export type StoryTab = "board" | "time" | "characters" | "setup";
+export type StoryTab = "board" | "time" | "characters" | "outline" | "setup";
 
 /** Per-story view preferences. Kept in data.json so viewing never changes the story note. */
 export interface StoryViewState {
@@ -39,6 +39,8 @@ export interface StoryViewState {
   sharedOnly?: boolean;
   /** Show the overview minimap beside the board. */
   minimap?: boolean;
+  /** Main board: leave out off-page events, both the off-page group and chapters' background rows. */
+  hideOffPage?: boolean;
   /** Folded chapters on the main board, by id ("" is the off-page group). */
   foldedChapters?: string[];
   /** Folded lanes: plot lines (main board and story time) and characters (character track). */
@@ -50,13 +52,16 @@ export interface StoryViewState {
 }
 
 /** The views that are tabs, in the default order. Setup is not one: it opens from the gear button. */
-export const ALL_TABS: StoryTab[] = ["board", "time", "characters"];
+export const ALL_TABS: StoryTab[] = ["board", "time", "characters", "outline"];
 
 /** The tabs in the writer's order: unknown ones (and setup, from older settings) dropped, missing ones added at the end. */
 export function orderedTabs(order: StoryTab[] | undefined): StoryTab[] {
   const known = (order ?? []).filter((t, i, all) => ALL_TABS.includes(t) && all.indexOf(t) === i);
   return [...known, ...ALL_TABS.filter((t) => !known.includes(t))];
 }
+
+/** Where a clicked card opens. */
+export type CardOpening = "side" | "centre";
 
 /** The key that, held while dropping a card on another plot line, adds an echo there instead of moving it. */
 export type EchoModifier = "alt" | "ctrl" | "shift" | "off";
@@ -68,6 +73,8 @@ export interface StoryPlannerSettings {
   dateFormat: string;
   timeFormat: string;
   echoModifier: EchoModifier;
+  /** Where a clicked card opens: the side panel, or a page in the middle over the board. */
+  cardOpening: CardOpening;
   /** The order of the view tabs, the same for every story. */
   tabOrder: StoryTab[];
   defaultOrientation: Orientation;
@@ -93,6 +100,7 @@ export const DEFAULT_SETTINGS: StoryPlannerSettings = {
   dateFormat: DEFAULT_DATE_FORMAT,
   timeFormat: DEFAULT_TIME_FORMAT,
   echoModifier: "alt",
+  cardOpening: "side",
   tabOrder: [...ALL_TABS],
   defaultOrientation: "vertical",
   defaultStoryTimeOrientation: "vertical",
@@ -201,6 +209,19 @@ export class StoryPlannerSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.defaultStoryTimeOrientation = value as Orientation;
             await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName("Open cards")
+      .addDropdown((d) =>
+        d
+          .addOptions({ side: "In the side panel", centre: "In the middle, over the board" })
+          .setValue(this.plugin.settings.cardOpening)
+          .onChange(async (value) => {
+            this.plugin.settings.cardOpening = value as CardOpening;
+            await this.plugin.saveSettings();
+            this.plugin.refreshBoards();
           }),
       );
 

@@ -294,9 +294,12 @@ function readCard(raw: unknown): Card | null {
   // Before cards were simply written or not, they had a status; drafted and
   // revised scenes count as written. The old field is not kept.
   // Relationship states belonged to a feature that has been removed; they are dropped.
-  const { status, relationshipState: _dropped, ...rest } = raw as Partial<Card> & { status?: unknown; relationshipState?: unknown };
+  const { status, relationshipState: _dropped, during, ...rest } = raw as Partial<Card> & { status?: unknown; relationshipState?: unknown; during?: unknown };
+  // Only an off-page event happens during a chapter.
+  const background = typeof during === "string" && typeof raw.chapter !== "string" ? { during } : {};
   return {
     ...rest,
+    ...background,
     id: raw.id,
     title: raw.title,
     plotLine: raw.plotLine,

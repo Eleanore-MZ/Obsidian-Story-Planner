@@ -14,8 +14,11 @@ export type BoardItem =
   | { kind: "corner" }
   | { kind: "lane-header"; plotLineId: string }
   | { kind: "chapter-header"; chapterId: string | null }
-  | { kind: "card"; cardId: string }
-  | { kind: "echo"; cardId: string; plotLineId: string }
+  /** `background` marks an off-page event shown in the chapter it happens during. */
+  | { kind: "card"; cardId: string; background?: true }
+  | { kind: "echo"; cardId: string; plotLineId: string; background?: true }
+  /** Empty space in a chapter's background rows; a drop or double-click makes an off-page event during the chapter. */
+  | { kind: "background-cell"; chapterId: string; plotLineId: string }
   | { kind: "add-card"; chapterId: string | null; plotLineId: string }
   /** Empty space beside a scene in another plot line; a drop lands next to that scene. */
   | { kind: "empty"; cardId: string; plotLineId: string }
@@ -57,6 +60,11 @@ export function computeBoardLayout(
   compact = false,
   /** Folded chapters, which show as one row; null is the off-page group. */
   folded: ReadonlySet<string | null> = new Set(),
+  /**
+   * Whether off-page events show: those that happen during a chapter in rows
+   * at the end of it, the others in the off-page group at the end.
+   */
+  offPage = true,
 ): BoardLayout {
   const laneIndex = new Map(story.plotLines.map((p, i) => [p.id, i]));
   const laneCount = story.plotLines.length;
@@ -73,12 +81,38 @@ export function computeBoardLayout(
   const byOrder = (a: Card, b: Card) => a.order - b.order || a.id.localeCompare(b.id);
   const chapterIds = new Set(story.chapters.map((c) => c.id));
 
-  const groups: { chapterId: string | null; cards: Card[] }[] = story.chapters.map((c) => ({
+  const during = (c: Card) => (c.chapter === null && c.during && chapterIds.has(c.during) ? c.during : null);
+  const groups: { chapterId: string | null; cards: Card[]; background: Card[] }[] = story.chapters.map((c) => ({
     chapterId: c.id,
     cards: cards.filter((card) => card.chapter === c.id).sort(byOrder),
+    background: offPage ? cards.filter((card) => during(card) === c.id).sort(byOrder) : [],
   }));
-  const offPage = cards.filter((c) => c.chapter === null || !chapterIds.has(c.chapter)).sort(byOrder);
-  if (offPage.length > 0) groups.push({ chapterId: null, cards: offPage });
+  const rest = cards.filter((c) => (c.chapter === null || !chapterIds.has(c.chapter)) && !during(c)).sort(byOrder);
+  if (offPage && rest.length > 0) groups.push({ chapterId: null, cards: rest, background: [] });
+
+  /** A chapter's background rows, below its end: off-page events that happen during it. */
+  const backgroundRows = (group: (typeof groups)[number]) => {
+    if (group.chapterId === null || group.background.length === 0) return;
+    const chapterId = group.chapterId;
+    for (const row of sceneRows(group.background, laneIndex)) {
+      const filled = new Set<number>();
+      for (const card of row) {
+        const lane = laneIndex.get(card.plotLine)!;
+        filled.add(lane);
+        items.push({ item: { kind: "card", cardId: card.id, background: true }, slot, lane: lane + 1 });
+        for (const other of card.alsoIn) {
+          const echoLane = laneIndex.get(other);
+          if (echoLane === undefined || filled.has(echoLane)) continue;
+          filled.add(echoLane);
+          items.push({ item: { kind: "echo", cardId: card.id, plotLineId: other, background: true }, slot, lane: echoLane + 1 });
+        }
+      }
+      story.plotLines.forEach((p, i) => {
+        if (!filled.has(i)) items.push({ item: { kind: "background-cell", chapterId, plotLineId: p.id }, slot, lane: i + 1 });
+      });
+      slot++;
+    }
+  };
 
   let slot = 1;
   const hasActs = story.actsEnabled !== false && story.acts.length > 0;
@@ -143,6 +177,7 @@ export function computeBoardLayout(
         }
       });
       slot += height;
+      backgroundRows(group);
       finishHeader();
       continue;
     }
@@ -170,6 +205,7 @@ export function computeBoardLayout(
       items.push({ item: { kind: "chapter-end", chapterId: group.chapterId, plotLineId: p.id }, slot, lane: i + 1 });
     });
     slot++;
+    backgroundRows(group);
     finishHeader();
   }
 

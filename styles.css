@@ -2837,3 +2837,128 @@ body.story-planner-reordering * {
 .story-planner-written.is-mixed {
   color: var(--text-muted);
 }
+
+/* Cards opened in the middle: a page over the dimmed board, closed by
+   clicking around it or pressing Escape. */
+.story-planner-body {
+  position: relative;
+}
+
+.story-planner-peek-backdrop {
+  display: none;
+}
+
+.story-planner-body.is-peek:has(> .story-planner-panel:not([hidden])) > .story-planner-peek-backdrop {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: color-mix(in srgb, var(--background-primary) 35%, rgba(0, 0, 0, 0.45));
+}
+
+.story-planner-body.is-peek > .story-planner-panel {
+  position: absolute;
+  z-index: 31;
+  top: var(--size-4-8);
+  bottom: var(--size-4-8);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(760px, calc(100% - 2 * var(--size-4-8)));
+  height: auto;
+  max-height: calc(100% - 2 * var(--size-4-8));
+  padding: var(--size-4-6) var(--size-4-8);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: var(--shadow-l);
+}
+
+.story-planner-body.is-peek .story-planner-panel-synopsis {
+  min-height: calc(12 * 1.5em);
+}
+
+/* The Outline tab: the story as a document. */
+.story-planner-outline {
+  max-width: 46em;
+  margin: 0 auto;
+  padding: var(--size-4-6) var(--size-4-8) var(--size-4-12);
+  font-size: var(--font-text-size);
+  line-height: var(--line-height-normal);
+  user-select: text;
+}
+
+.story-planner-outline h1.story-planner-outline-title {
+  margin: 0 0 var(--size-4-6);
+}
+
+.story-planner-outline h2,
+.story-planner-outline h3 {
+  margin: var(--size-4-8) 0 var(--size-4-2);
+}
+
+.story-planner-outline-act {
+  font-variant: small-caps;
+  letter-spacing: 0.03em;
+}
+
+.story-planner-outline-synopsis {
+  margin: 0 0 var(--size-4-3);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.story-planner-outline-card {
+  margin: 0 0 var(--size-4-3);
+  padding: var(--size-2-2) var(--size-4-3);
+  border-left: 3px solid var(--lane-color);
+  cursor: pointer;
+}
+
+.story-planner-outline-card:hover {
+  background: var(--background-modifier-hover);
+}
+
+.story-planner-outline-card.is-selected {
+  background: var(--background-modifier-active-hover);
+}
+
+.story-planner-outline-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--size-4-2);
+}
+
+.story-planner-outline-card-title {
+  font-weight: var(--font-semibold);
+}
+
+.story-planner-outline-card-plot {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+.story-planner-outline-card-synopsis {
+  margin: var(--size-2-1) 0 0;
+}
+
+.story-planner-outline-background {
+  margin: var(--size-4-2) 0 var(--size-4-4) var(--size-4-4);
+  opacity: 0.75;
+}
+
+.story-planner-outline-background-label {
+  margin-bottom: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+/* A chapter's background: off-page events that happen during it, in quiet rows at its end. */
+.story-planner-cell.is-background {
+  min-height: var(--size-4-4);
+  background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--text-faint) 8%, transparent) 6px 7px);
+}
+
+.story-planner-echo.is-background {
+  opacity: 0.6;
+}

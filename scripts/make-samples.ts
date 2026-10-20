@@ -185,7 +185,7 @@ function harbourStory(): Story {
       characters: [{ id: "x2", role: "present", note: "Receives the letter." }],
     }),
     card({
-      id: "k05", title: "The harbourmaster's last meeting", plotLine: "p1", chapter: null, order: 1,
+      id: "k05", title: "The harbourmaster's last meeting", plotLine: "p1", chapter: null, during: "c1", order: 1,
       synopsis: "Off-page: Oren meets someone on the pier the night before he dies.",
       date: date(5, 3, { dayPart: "night" }), location: "l2",
       characters: [{ id: "x3", role: "present", note: "Hands over the ring." }],

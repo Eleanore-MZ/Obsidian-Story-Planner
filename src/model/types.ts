@@ -156,6 +156,8 @@ export interface Card {
   alsoIn: Id[];
   /** Null for off-page events. */
   chapter: Id | null;
+  /** For an off-page event: the chapter it happens during, in the background, untold. */
+  during?: Id;
   /** Scene order within the chapter (or within the off-page lane). */
   order: number;
   date?: StoryDate;

@@ -8,7 +8,7 @@ import {
   updateCardCharacter,
 } from "../model/edits";
 import { compareDates, effectiveZone, ZoneSource } from "../model/calendar";
-import { setCardDate, setCardLocation, setCardTag } from "../model/edits";
+import { duringChapter, setCardDate, setCardDuring, setCardLocation, setCardTag } from "../model/edits";
 import { locationTree, plotLineColor } from "../model/setup";
 import { chapterTitle } from "../model/chapters";
 import { Card, CharacterRole, Id, Story } from "../model/types";
@@ -348,12 +348,23 @@ export class CardPanel {
     const chapters: Record<string, string> = Object.fromEntries(story.chapters.map((c) => [c.id, chapterTitle(story, c)]));
     chapters[OFF_PAGE] = "Off-page";
     const currentChapter = card.chapter && chapterIds.has(card.chapter) ? card.chapter : OFF_PAGE;
-    this.select(this.field("Chapter"), chapters, currentChapter, (value) =>
+    const chapterField = this.field("Chapter");
+    this.select(chapterField, chapters, currentChapter, (value) =>
       // A new chapter puts the card at its end.
       this.host.edit((s) =>
         moveCard(s, id, { chapter: value === OFF_PAGE ? null : value, plotLine: s.cards[id]!.plotLine }),
       ),
     );
+    // An off-page event can happen during a chapter: in its background, untold.
+    if (currentChapter === OFF_PAGE && story.chapters.length > 0) {
+      const during: Record<string, string> = { "": "During no chapter" };
+      for (const c of story.chapters) during[c.id] = `During ${chapterTitle(story, c)}`;
+      const select = this.select(chapterField, during, duringChapter(story, card) ?? "", (value) =>
+        this.host.edit((s) => setCardDuring(s, id, value || undefined)),
+      );
+      select.addClass("story-planner-panel-during");
+      select.dataset.field = "during";
+    }
 
     this.buildDates();
     this.buildPlace();

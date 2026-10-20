@@ -169,6 +169,22 @@ export function setCardLocation(story: Story, cardId: Id, location: Id | undefin
   return true;
 }
 
+/** Sets the chapter an off-page event happens during, or clears it. Cards in a chapter have none. */
+export function setCardDuring(story: Story, cardId: Id, chapter: Id | undefined, now = new Date().toISOString()): boolean {
+  const card = story.cards[cardId];
+  if (!card || card.chapter !== null || card.during === chapter) return false;
+  if (chapter && !story.chapters.some((c) => c.id === chapter)) return false;
+  if (chapter) card.during = chapter;
+  else delete card.during;
+  card.modified = now;
+  return true;
+}
+
+/** The chapter an off-page event happens during, if it still exists. */
+export function duringChapter(story: Story, card: Card): Id | undefined {
+  return card.chapter === null && card.during && story.chapters.some((c) => c.id === card.during) ? card.during : undefined;
+}
+
 /** Puts a story tag on a card or takes it off. */
 export function setCardTag(story: Story, cardId: Id, tag: Id, on: boolean, now = new Date().toISOString()): boolean {
   const card = story.cards[cardId];

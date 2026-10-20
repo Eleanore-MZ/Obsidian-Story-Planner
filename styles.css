@@ -3444,3 +3444,11 @@ body.story-planner-marquee-active * {
   border-top: 1px solid var(--background-modifier-border);
   padding-top: var(--size-2-3);
 }
+
+/* The side panel stands apart from the board: a clear edge and a soft shadow. */
+.story-planner-body:not(.is-peek) > .story-planner-panel {
+  border-left: 2px solid var(--background-modifier-border-hover, var(--background-modifier-border));
+  box-shadow: -6px 0 14px -8px rgba(0, 0, 0, 0.45);
+  position: relative;
+  z-index: 5;
+}

@@ -373,7 +373,7 @@ export class SetupPanel {
       }
       const chapter = story.chapters.find((c) => c.id === entry.id)!;
       const row = section.createDiv({ cls: "story-planner-setup-row" });
-      row.toggleClass("is-in-act", !!chapter.act);
+      row.toggleClass("is-in-act", showActs && !!chapter.act);
       row.createSpan({ cls: "story-planner-setup-tag", text: chapterHeading(story, chapter, numbers).replace(/^Chapter /, "") });
       const name = this.textInput(row, chapter.name, `chapter:${chapter.id}`);
       name.placeholder = "No title";
@@ -399,7 +399,7 @@ export class SetupPanel {
       this.iconButton(row, "×", `Delete ${chapterTitle(story, chapter, numbers)}`, story.chapters.length > 1, () => this.removeChapter(story, chapter.id));
       // A chapter's synopsis shows as a quiet line under it once it has one (or is being written).
       if (chapter.summary?.trim() || this.synopsisOpen.has(chapter.id)) {
-        this.synopsisLine(section, chapter.summary ?? "", "What happens in this chapter", `chapter-summary:${chapter.id}`, (value) =>
+        const line = this.synopsisLine(section, chapter.summary ?? "", "What happens in this chapter", `chapter-summary:${chapter.id}`, (value) =>
           this.host.edit((s) => {
             const target = s.chapters.find((c) => c.id === chapter.id)!;
             if ((target.summary ?? "") === value) return false;
@@ -407,6 +407,7 @@ export class SetupPanel {
             else delete target.summary;
           }, `chapter-summary:${chapter.id}`),
         );
+        line.toggleClass("is-in-act", showActs && !!chapter.act);
       }
     });
     this.addRow(section, "New chapter (title optional)", "add-chapter", (name) => this.host.edit((s) => void addChapter(s, name.trim())), true);
@@ -1071,7 +1072,7 @@ export class SetupPanel {
   }
 
   /** A borderless line of text under a row's title that grows as it is written in. */
-  private synopsisLine(parent: HTMLElement, value: string, placeholder: string, field: string, onChange: (value: string) => void): void {
+  private synopsisLine(parent: HTMLElement, value: string, placeholder: string, field: string, onChange: (value: string) => void): HTMLTextAreaElement {
     const line = parent.createEl("textarea", { cls: "story-planner-setup-synopsis" });
     line.rows = 1;
     line.placeholder = placeholder;
@@ -1086,6 +1087,7 @@ export class SetupPanel {
       onChange(line.value);
     });
     window.requestAnimationFrame(grow);
+    return line;
   }
 
   /**

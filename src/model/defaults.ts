@@ -99,3 +99,9 @@ export function createCard(fields: Pick<Card, "title" | "plotLine" | "chapter" |
     ...fields,
   };
 }
+
+/** True for a card with no title of its own: an empty one, or the "Untitled" earlier versions filled in. */
+export function isUntitled(title: string): boolean {
+  const t = title.trim();
+  return t === "" || t === "Untitled";
+}

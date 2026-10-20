@@ -6,8 +6,9 @@ import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
 import { compareDates, dateInZone, effectiveZone, formatDateRange, formatStoryDate, precisionOf } from "../model/calendar";
-import { Clash, findClashes, reorderInTime, referenceDate } from "../model/storyTime";
+import { Clash, findClashes, placeLastInTime, reorderInTime, referenceDate } from "../model/storyTime";
 import { Card, CharacterRole, Id, Story } from "../model/types";
+import { isUntitled } from "../model/defaults";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree, plotLineColor } from "../model/setup";
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
@@ -754,14 +755,26 @@ export class StoryBoardView extends TextFileView {
     this.render();
   }
 
+  /** A card's title; a card without one shows none, so its synopsis leads. */
+  private cardTitle(el: HTMLElement, card: Card): void {
+    if (!isUntitled(card.title)) el.createDiv({ cls: "story-planner-card-title", text: card.title });
+  }
+
   /** Replaces a card's title with a text box, for renaming it in place. */
   private editTitleInPlace(cardEl: HTMLElement, card: Card): void {
-    const titleEl = cardEl.querySelector<HTMLElement>(".story-planner-card-title");
-    if (!titleEl) return;
+    let titleEl = cardEl.querySelector<HTMLElement>(".story-planner-card-title");
+    const created = !titleEl;
+    if (!titleEl) {
+      // An untitled card: the box goes where the title would be.
+      titleEl = createDiv({ cls: "story-planner-card-title" });
+      const before = cardEl.querySelector<HTMLElement>(":scope > .story-planner-card-date, :scope > .story-planner-card-synopsis, :scope > .story-planner-card-note");
+      if (before) cardEl.insertBefore(titleEl, before);
+      else cardEl.appendChild(titleEl);
+    }
     const input = document.createElement("input");
     input.className = "story-planner-card-title-input";
     input.type = "text";
-    input.value = card.title;
+    input.value = isUntitled(card.title) ? "" : card.title;
     titleEl.replaceWith(input);
     input.focus();
     input.select();
@@ -770,15 +783,17 @@ export class StoryBoardView extends TextFileView {
       if (done) return;
       done = true;
       const title = input.value.trim();
-      if (save && title && title !== card.title) {
+      if (save && title !== card.title && (title || !isUntitled(card.title))) {
         this.mutate((s) => {
           const c = s.cards[card.id];
           if (!c) return false;
           c.title = title;
           c.modified = new Date().toISOString();
         });
+      } else if (created) {
+        input.remove();
       } else {
-        input.replaceWith(titleEl);
+        input.replaceWith(titleEl!);
       }
     };
     input.addEventListener("keydown", (e) => {
@@ -1226,8 +1241,9 @@ export class StoryBoardView extends TextFileView {
         const plotLine = story.plotLines.find((p) => p.id === card.plotLine);
         const el = grid.createDiv({ cls: "story-planner-card" });
         el.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
+        if (!story.chapters.some((c) => c.id === card.chapter)) el.addClass("is-off-page");
         this.writtenToggle(el, card);
-        el.createDiv({ cls: "story-planner-card-title", text: card.title });
+        this.cardTitle(el, card);
         if (card.date) {
           el.createDiv({ cls: "story-planner-card-date", text: formatDateRange(story, card.date, card.endDate) });
         }
@@ -1245,7 +1261,7 @@ export class StoryBoardView extends TextFileView {
       case "echo": {
         const card = story.cards[item.cardId]!;
         const home = story.plotLines.find((p) => p.id === card.plotLine);
-        const el = grid.createDiv({ cls: "story-planner-echo", text: card.title });
+        const el = grid.createDiv({ cls: "story-planner-echo", text: echoText(card) });
         el.style.setProperty("--lane-color", plotLineColor(story, home) ?? "var(--interactive-accent)");
         el.setAttr("aria-label", `Also in ${home?.name ?? "another plot line"}`);
         if (this.highlighted(card, story) === false) el.addClass("is-dimmed");
@@ -1692,6 +1708,7 @@ export class StoryBoardView extends TextFileView {
 
       case "time-cell": {
         const el = grid.createDiv({ cls: "story-planner-cell" });
+        if (item.end) el.addClass("is-end");
         this.makeDropTarget(el, "card", null, () => this.dropInTime(item.bucketId, item.plotLineId, null, "on"));
         this.echoLane(el, item.plotLineId);
         // Double-click creates an off-page event at this time; it can be given a chapter later.
@@ -1702,6 +1719,7 @@ export class StoryBoardView extends TextFileView {
           this.mutate((s) => {
             id = addCardAt(s, { chapter: null, plotLine: item.plotLineId }, "New event");
             setCardDate(s, id, "date", { ...bucket.date });
+            placeLastInTime(s, id);
           });
           if (id) {
             this.select(id);
@@ -1728,7 +1746,7 @@ export class StoryBoardView extends TextFileView {
       case "echo": {
         const card = story.cards[item.cardId]!;
         const home = story.plotLines.find((p) => p.id === card.plotLine);
-        const el = grid.createDiv({ cls: "story-planner-echo", text: card.title });
+        const el = grid.createDiv({ cls: "story-planner-echo", text: echoText(card) });
         el.style.setProperty("--lane-color", plotLineColor(story, home) ?? "var(--interactive-accent)");
         el.setAttr("aria-label", `Also in ${home?.name ?? "another plot line"}`);
         if (item.until) el.addClass("is-long");
@@ -1750,7 +1768,7 @@ export class StoryBoardView extends TextFileView {
     el.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
     this.writtenToggle(el, card);
     el.createDiv({ cls: "story-planner-card-badge", text: chapterTitle(story, chapter) });
-    el.createDiv({ cls: "story-planner-card-title", text: card.title });
+    this.cardTitle(el, card);
     if (card.date) {
       const when = el.createDiv({ cls: "story-planner-card-date", text: this.timeLabel(card, story) });
       const local = formatDateRange(story, card.date, card.endDate);
@@ -2058,7 +2076,7 @@ export class StoryBoardView extends TextFileView {
     const role = el.createDiv({ cls: "story-planner-appearance-role" });
     role.createSpan({ cls: `story-planner-presence role-${entry.role}` }).style.setProperty("--lane-color", story.characters.find((c) => c.id === entry.id)?.color ?? "var(--text-normal)");
     role.createSpan({ text: ROLE_LABELS[entry.role] });
-    el.createDiv({ cls: "story-planner-card-title", text: card.title });
+    this.cardTitle(el, card);
     if (entry.note) el.createDiv({ cls: "story-planner-card-note", text: entry.note });
     if (card.date) el.createDiv({ cls: "story-planner-card-date", text: formatDateRange(story, card.date, card.endDate) });
     if (card.synopsis) el.createDiv({ cls: "story-planner-card-synopsis", text: card.synopsis });
@@ -2538,4 +2556,10 @@ function iconOr(el: HTMLElement, icon: string, fallback: string): void {
 function stopBoardGestures(el: HTMLElement): void {
   el.addEventListener("pointerdown", (e) => e.stopPropagation());
   el.addEventListener("dblclick", (e) => e.stopPropagation());
+}
+
+/** What an echo shows: the card's title, or for an untitled card the start of its synopsis. */
+function echoText(card: Card): string {
+  if (!isUntitled(card.title)) return card.title;
+  return card.synopsis.trim().split(/\r?\n/)[0] || "Untitled";
 }

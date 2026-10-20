@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createCard, createEmptyStory } from "../src/model/defaults";
-import { reorderInTime, timeSorted } from "../src/model/storyTime";
+import { placeLastInTime, reorderInTime, timeSorted } from "../src/model/storyTime";
 import { Card, Story, StoryDate } from "../src/model/types";
 import { dateSpan } from "../src/model/calendar";
 import { bucketDate, computeTimeLayout, describeGap } from "../src/view/timeLayout";
@@ -73,6 +73,38 @@ describe("story-time layout", () => {
     const s = story();
     add(s, "a", d(1531), { alsoIn: ["p2"] });
     expect(rowsOf(s, "year")).toEqual(["[1531] a ~a"]);
+  });
+
+  it("keeps an echo level with its card, even when its plot line already has cards in that span", () => {
+    const s = story();
+    add(s, "b1", d(1531), { plotLine: "p2" });
+    add(s, "b2", d(1531), { plotLine: "p2" });
+    add(s, "a", d(1531), { alsoIn: ["p2"] });
+    const layout = computeTimeLayout(s, "year", "vertical");
+    const at = (kind: string, id: string) => layout.items.find((p) => p.item.kind === kind && "cardId" in p.item && p.item.cardId === id)!;
+    expect(at("echo", "a").row).toBe(at("card", "a").row);
+    expect(at("echo", "a").row).toBeGreaterThan(at("card", "b2").row);
+  });
+
+  it("ends every span with a slim row of empty cells, so a card can always be added after the others", () => {
+    const s = story();
+    add(s, "a", d(1531));
+    add(s, "b", d(1531), { plotLine: "p2" });
+    const layout = computeTimeLayout(s, "year", "vertical");
+    const card = layout.items.find((p) => p.item.kind === "card")!;
+    const ends = layout.items.filter((p) => p.item.kind === "time-cell" && p.item.end);
+    expect(ends).toHaveLength(2);
+    expect(ends.every((p) => p.row === card.row + 1)).toBe(true);
+  });
+
+  it("puts a card added at a moment after the cards there that have an order of their own", () => {
+    const s = story();
+    add(s, "a", d(1531, 1, 1));
+    add(s, "b", d(1531, 1, 1));
+    reorderInTime(s, "b", "a", false, NOW);
+    add(s, "new", d(1531, 1, 1), { chapter: null });
+    placeLastInTime(s, "new");
+    expect(timeSorted(s, Object.values(s.cards)).map((c) => c.id)).toEqual(["b", "a", "new"]);
   });
 
   it("lists undated cards in reading order for the tray", () => {

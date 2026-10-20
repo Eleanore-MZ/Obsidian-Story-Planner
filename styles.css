@@ -232,6 +232,15 @@
   border-radius: 0;
 }
 
+/* The slim row at the end of each span in story time, like a chapter's end. */
+.story-planner-grid.is-time .story-planner-cell.is-end {
+  min-height: var(--size-4-2);
+}
+
+.story-planner.is-drag-active .story-planner-grid.is-time .story-planner-cell.is-end {
+  min-height: var(--size-4-6);
+}
+
 .story-planner.is-drag-active .story-planner-chapter-end {
   min-height: var(--size-4-6);
   border: 1px dashed var(--background-modifier-border);
@@ -692,6 +701,11 @@
   border-left-style: dashed;
 }
 
+/* Off-page events are slightly dimmed, on every view. */
+.story-planner-card.is-off-page:not(.is-dimmed):not(.is-selected):not(:hover) {
+  opacity: 0.7;
+}
+
 .story-planner-card-badge {
   font-size: var(--font-ui-smaller);
   color: var(--text-faint);
@@ -772,7 +786,29 @@
 }
 
 .story-planner-tag-chip.is-on {
-  background: color-mix(in srgb, var(--tag-color) 22%, transparent);
+  background: color-mix(in srgb, var(--tag-color) 30%, transparent);
+  color: var(--text-normal);
+}
+
+/* In the side panel: the card's tags filled with their colour, the rest quiet. */
+.story-planner-panel button.story-planner-tag-chip {
+  padding: 0 var(--size-4-2);
+  border: 1px solid color-mix(in srgb, var(--tag-color) 55%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.story-planner-panel button.story-planner-tag-chip:hover {
+  border-color: var(--tag-color);
+  color: var(--text-muted);
+}
+
+.story-planner-panel button.story-planner-tag-chip.is-on {
+  border-color: var(--tag-color);
+  background: color-mix(in srgb, var(--tag-color) 40%, transparent);
   color: var(--text-normal);
 }
 
@@ -1497,8 +1533,17 @@
   touch-action: none;
 }
 
-.story-planner-drag-handle:hover {
+.story-planner-drag-handle:hover,
+.story-planner-drag-handle:focus-visible {
   color: var(--text-normal);
+}
+
+.story-planner-drag-handle:focus-visible {
+  outline: 1px solid var(--interactive-accent);
+}
+
+.story-planner-palette-row.is-dragging {
+  opacity: 0.5;
 }
 
 .story-planner-drag-handle svg {
@@ -2053,6 +2098,16 @@ body.story-planner-reordering * {
   color: var(--text-normal);
 }
 
+/* Chapters in an act sit indented under its row. */
+.story-planner-setup-row.is-in-act {
+  padding-left: 1.5em;
+}
+
+.story-planner-setup-section textarea.story-planner-setup-synopsis.is-in-act {
+  width: calc(100% - 16px - 4.5em - 3 * var(--size-4-1) - 40px - 1.5em);
+  margin-left: calc(16px + 4.5em + 4 * var(--size-4-1) + 1.5em);
+}
+
 /* A chapter's number and title (and its fold button) stay just below the
    header row while the chapter scrolls past, as the act's label does. */
 .story-planner-grid.is-vertical .story-planner-chapter-head,
@@ -2465,6 +2520,7 @@ body.story-planner-reordering * {
 }
 
 .story-planner-panel textarea.story-planner-panel-synopsis {
+  min-height: calc(8 * 1.5em);
   padding-left: 0;
   padding-right: 0;
   font-size: var(--font-text-size, 1em);
@@ -2481,7 +2537,7 @@ body.story-planner-reordering * {
 }
 
 /* Buttons: quiet ghost buttons with square corners. */
-.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch),
+.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch):not(.story-planner-tag-chip),
 .story-planner-form-modal button {
   height: auto;
   padding: var(--size-2-2) var(--size-4-3);
@@ -2493,7 +2549,7 @@ body.story-planner-reordering * {
   font-weight: normal;
 }
 
-.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch):hover,
+.story-planner button:not(.clickable-icon):not(.story-planner-tab):not(.story-planner-title):not(.story-planner-written):not(.story-planner-setup-add-button):not(.story-planner-setup-nav-item):not(.story-planner-swatch):not(.story-planner-tag-chip):hover,
 .story-planner-form-modal button:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);

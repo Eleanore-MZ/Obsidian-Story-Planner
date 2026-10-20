@@ -141,7 +141,7 @@ export function renderOutline(story: Story): string {
     if (card.date) details.push(formatStoryDate(story, card.date));
     const parts = details.map(escapeText);
     if (card.location) parts.push(locationName.get(card.location) ?? "Unknown place");
-    out.push(`**${escapeText(card.title)}** (${parts.join(", ")})`);
+    out.push(`**${escapeText(card.title.trim() || "Untitled")}** (${parts.join(", ")})`);
     const people = card.characters
       .map((c) => characterName.get(c.id))
       .filter((n): n is string => n !== undefined);

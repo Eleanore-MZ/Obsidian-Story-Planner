@@ -12,6 +12,7 @@ import { setCardDate, setCardLocation, setCardTag } from "../model/edits";
 import { locationTree, plotLineColor } from "../model/setup";
 import { chapterTitle } from "../model/chapters";
 import { CharacterRole, Id, Story } from "../model/types";
+import { isUntitled } from "../model/defaults";
 import { DateEditor } from "./DateEditor";
 import { addCardNote, noteName, removeCardNote } from "../model/links";
 import { setIcon } from "obsidian";
@@ -119,7 +120,7 @@ export class CardPanel {
     for (const el of Array.from(this.el.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("[data-field]"))) {
       if (el === document.activeElement) continue;
       const field = el.dataset.field!;
-      if (field === "title") el.value = card.title;
+      if (field === "title") el.value = isUntitled(card.title) ? "" : card.title;
       else if (field === "synopsis") el.value = card.synopsis;
       else if (field.startsWith("note:")) {
         el.value = card.characters.find((c) => `note:${c.id}` === field)?.note ?? "";
@@ -158,17 +159,12 @@ export class CardPanel {
     // Title and synopsis save as you type.
     const title = this.field("Title").createEl("input", { cls: "story-planner-panel-title" });
     title.type = "text";
-    title.value = card.title;
+    title.value = isUntitled(card.title) ? "" : card.title;
+    title.placeholder = "Untitled";
     title.dataset.field = "title";
     title.addEventListener("input", () =>
       this.host.edit((s) => updateCard(s, id, { title: title.value }), `title:${id}`),
     );
-    title.addEventListener("blur", () => {
-      if (!title.value.trim()) {
-        title.value = "Untitled";
-        this.host.edit((s) => updateCard(s, id, { title: "Untitled" }), `title:${id}`);
-      }
-    });
     title.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
@@ -177,12 +173,19 @@ export class CardPanel {
     });
 
     const synopsis = this.field("Synopsis").createEl("textarea", { cls: "story-planner-panel-synopsis" });
-    synopsis.rows = 6;
+    synopsis.rows = 8;
     synopsis.value = card.synopsis;
     synopsis.dataset.field = "synopsis";
-    synopsis.addEventListener("input", () =>
-      this.host.edit((s) => updateCard(s, id, { synopsis: synopsis.value }), `synopsis:${id}`),
-    );
+    // At least eight lines, and taller as the text grows.
+    const grow = () => {
+      synopsis.style.height = "auto";
+      synopsis.style.height = `${synopsis.scrollHeight + 2}px`;
+    };
+    synopsis.addEventListener("input", () => {
+      grow();
+      this.host.edit((s) => updateCard(s, id, { synopsis: synopsis.value }), `synopsis:${id}`);
+    });
+    window.requestAnimationFrame(grow);
     this.buildTagsAndState();
 
     // Where the card sits on the board.

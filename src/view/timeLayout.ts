@@ -47,8 +47,12 @@ export type TimeItem =
   /** `until` is set on a card that runs on to a later span: the span its end date falls in. */
   | { kind: "card"; cardId: Id; bucketId: string; until?: string }
   | { kind: "echo"; cardId: Id; plotLineId: Id; bucketId: string; until?: string }
-  /** Empty space in a span and plot line; a drop or double-click lands in that span. */
-  | { kind: "time-cell"; bucketId: string; plotLineId: Id };
+  /**
+   * Empty space in a span and plot line; a drop or double-click lands in that
+   * span. Every span ends with a slim row of them (`end`), so there is always
+   * room to add a card after the others, as at the end of a chapter on the board.
+   */
+  | { kind: "time-cell"; bucketId: string; plotLineId: Id; end?: boolean };
 
 export interface PlacedTimeItem {
   item: TimeItem;
@@ -172,24 +176,32 @@ export function computeTimeLayout(story: Story, zoom: Zoom, orientation: Orienta
     }
     if (!reach || bucket.end > reach.end) reach = bucket;
 
-    const stacks: TimeItem[][] = story.plotLines.map(() => []);
+    // A card and its echoes share a row, so an echo sits level with its card:
+    // each card takes the first row below everything already in any of its plot lines.
+    const stacks: (TimeItem | undefined)[][] = story.plotLines.map(() => []);
+    const next = story.plotLines.map(() => 0);
     for (const card of inBucket) {
       const last = until.get(card.id);
       const extra = last ? { until: last } : {};
-      stacks[laneIndex.get(card.plotLine)!]!.push({ kind: "card", cardId: card.id, bucketId: bucket.id, ...extra });
-      for (const other of card.alsoIn) {
-        const lane = laneIndex.get(other);
-        if (lane !== undefined && other !== card.plotLine) {
-          stacks[lane]!.push({ kind: "echo", cardId: card.id, plotLineId: other, bucketId: bucket.id, ...extra });
-        }
+      const home = laneIndex.get(card.plotLine)!;
+      const echoes = [...new Set(card.alsoIn)].map((id) => laneIndex.get(id)).filter((l): l is number => l !== undefined && l !== home);
+      const row = Math.max(...[home, ...echoes].map((l) => next[l]!));
+      stacks[home]![row] = { kind: "card", cardId: card.id, bucketId: bucket.id, ...extra };
+      next[home] = row + 1;
+      for (const lane of echoes) {
+        stacks[lane]![row] = { kind: "echo", cardId: card.id, plotLineId: story.plotLines[lane]!.id, bucketId: bucket.id, ...extra };
+        next[lane] = row + 1;
       }
     }
-    const height = Math.max(1, ...stacks.map((s) => s.length));
+    // The tallest stack, and the slim row at the end.
+    const height = Math.max(...next) + 1;
     lastSlot.set(bucket.id, slot + height - 1);
     items.push({ item: { kind: "time-header", bucket }, slot, lane: 0, span: height, depth: 0 });
     stacks.forEach((stack, lane) => {
       for (let i = 0; i < height; i++) {
-        const item = stack[i] ?? { kind: "time-cell", bucketId: bucket.id, plotLineId: story.plotLines[lane]!.id };
+        const plotLineId = story.plotLines[lane]!.id;
+        const item: TimeItem =
+          stack[i] ?? (i === height - 1 ? { kind: "time-cell", bucketId: bucket.id, plotLineId, end: true } : { kind: "time-cell", bucketId: bucket.id, plotLineId });
         const laid: Laid = { item, slot: slot + i, lane: lane + 1, span: 1, depth: 0 };
         items.push(laid);
         if ((item.kind === "card" || item.kind === "echo") && item.until) long.push({ laid, last: item.until });

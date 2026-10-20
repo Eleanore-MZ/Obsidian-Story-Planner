@@ -82,6 +82,24 @@ export function reorderInTime(story: Story, cardId: Id, targetId: Id, after: boo
 }
 
 /**
+ * Puts a card after every other card at its moment, for a card just added
+ * there: it takes the next `timeOrder` when the others have one.
+ */
+export function placeLastInTime(story: Story, cardId: Id): void {
+  const card = story.cards[cardId];
+  if (!card?.date) return;
+  const m = cardMoment(story, card)!;
+  const orders = Object.values(story.cards)
+    .filter((c) => c !== card && c.date && c.timeOrder !== undefined)
+    .filter((c) => {
+      const o = cardMoment(story, c)!;
+      return o.key === m.key && o.precision === m.precision;
+    })
+    .map((c) => c.timeOrder!);
+  if (orders.length > 0) card.timeOrder = Math.max(...orders) + 1;
+}
+
+/**
  * The stretch of time a card covers on the story's line of minutes, for
  * spotting clashes: a clock time covers its hour, a part of the day its
  * hours, and a card with an end date runs to the end of that date. A card

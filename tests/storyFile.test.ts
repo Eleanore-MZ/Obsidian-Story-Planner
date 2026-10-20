@@ -86,6 +86,14 @@ describe("text that could break the note", () => {
     expect(parseOk(serializeStory(story)).story).toEqual(story);
   });
 
+  it("names an untitled card in the outline, and keeps its empty title", () => {
+    const story = sampleStory();
+    Object.values(story.cards)[0]!.title = "";
+    expect(renderOutline(story)).toContain("**Untitled** (");
+    expect(renderOutline(story)).not.toContain("****");
+    expect(parseOk(serializeStory(story)).story).toEqual(story);
+  });
+
   it("does write real links for notes linked to cards", () => {
     const story = sampleStory();
     Object.values(story.cards)[0]!.notes = ["Drafts/Chapter 1.md"];

@@ -3469,3 +3469,9 @@ body.story-planner-marquee-active * {
 .story-planner .story-planner-date-row .story-planner-date-clear {
   flex: none;
 }
+
+.story-planner-card-title.is-placeholder {
+  font-weight: normal;
+  font-style: italic;
+  color: var(--text-faint);
+}

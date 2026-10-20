@@ -1,6 +1,6 @@
 import { FuzzySuggestModal, MarkdownView, normalizePath, Notice, Plugin, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "obsidian";
 import { FRONTMATTER_KEY, FRONTMATTER_VALUE, parseStory, serializeStory } from "./format/storyFile";
-import { createEmptyStory } from "./model/defaults";
+import { createEmptyStory, isUntitled } from "./model/defaults";
 import { DEFAULT_NOTE_TEMPLATE, fillTemplate, noteFileName, noteValues, renameLinkedPath } from "./model/links";
 import { cardsInReadingOrder } from "./model/search";
 import { chapterTitleOf } from "./model/chapters";
@@ -185,7 +185,8 @@ export default class StoryPlannerPlugin extends Plugin {
     const add = (file: TFile, story: Story) => {
       for (const card of cardsInReadingOrder(story)) {
         const where = chapterTitleOf(story, card.chapter);
-        items.push({ file, cardId: card.id, text: `${card.title} · ${where} · ${story.title}` });
+        const name = isUntitled(card.title) ? card.synopsis.trim().split(/\r?\n/)[0] || "Untitled" : card.title;
+        items.push({ file, cardId: card.id, text: `${name} · ${where} · ${story.title}` });
       }
     };
     const open = new Map(this.boards().filter((v) => v.file).map((v) => [v.file!.path, v]));

@@ -8,7 +8,7 @@ import { Card, CardCharacter, CharacterRole, Id, Story, StoryDate } from "./type
 // Obsidian so they can be unit tested.
 
 /** Creates a card at a board position and returns its id. Without a position it goes last in the chapter. */
-export function addCardAt(story: Story, target: CardTarget, title = "New card", now = new Date().toISOString()): Id {
+export function addCardAt(story: Story, target: CardTarget, title = "", now = new Date().toISOString()): Id {
   const order = chapterCards(story, target.chapter).reduce((max, c) => Math.max(max, c.order), 0) + 1;
   const card = createCard({ title, plotLine: target.plotLine, chapter: target.chapter, order, modified: now });
   story.cards[card.id] = card;

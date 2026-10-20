@@ -923,6 +923,8 @@ export class StoryBoardView extends TextFileView {
   /** A card's title; a card without one shows none, so its synopsis leads. */
   private cardTitle(el: HTMLElement, card: Card): void {
     if (!isUntitled(card.title)) el.createDiv({ cls: "story-planner-card-title", text: card.title });
+    // A card with nothing written on it yet says so, faintly, so it is not an empty box.
+    else if (!card.synopsis.trim()) el.createDiv({ cls: "story-planner-card-title is-placeholder", text: "Untitled" });
   }
 
   /** Replaces a card's title with a text box, for renaming it in place. */
@@ -1481,7 +1483,7 @@ export class StoryBoardView extends TextFileView {
         el.addEventListener("dblclick", () => {
           let id: Id | null = null;
           this.mutate((s) => {
-            id = addCardAt(s, { chapter: null, plotLine: item.plotLineId }, "New event");
+            id = addCardAt(s, { chapter: null, plotLine: item.plotLineId });
             setCardDuring(s, id, item.chapterId);
           });
           if (id) {
@@ -2081,7 +2083,7 @@ export class StoryBoardView extends TextFileView {
           if (!bucket) return;
           let id: Id | null = null;
           this.mutate((s) => {
-            id = addCardAt(s, { chapter: null, plotLine: item.plotLineId }, "New event");
+            id = addCardAt(s, { chapter: null, plotLine: item.plotLineId });
             setCardDate(s, id, "date", { ...bucket.date });
             placeLastInTime(s, id);
           });
@@ -2534,7 +2536,7 @@ export class StoryBoardView extends TextFileView {
     let id: Id | null = null;
     this.mutate((s) => {
       if (bucket) {
-        id = addCardAt(s, { chapter: null, plotLine }, "New event");
+        id = addCardAt(s, { chapter: null, plotLine });
         setCardDate(s, id, "date", { ...bucket.date });
       } else {
         // The new scene gets its own row, just after the row it was made in.

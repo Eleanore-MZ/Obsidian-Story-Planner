@@ -42,7 +42,7 @@ function add(s: Story, id: string, fields: Partial<Card> = {}): void {
   s.cards[id] = { ...createCard({ title: id, plotLine: "p1", chapter: "c1", order: Object.keys(s.cards).length + 1, ...fields }), id };
 }
 
-/** The track as text, one line per row: lane by lane, "." for an empty cell. */
+/** The track as text, one line per row: lane by lane, "." for an empty cell; the slim end rows are left out. */
 function track(s: Story, ids: string[], axis: "chapters" | "time", zoom: "year" | "month" | "day" | "time" = "day"): string[] {
   const layout = computeTrackLayout(s, ids, axis, zoom, "vertical");
   const grid: string[][] = Array.from({ length: layout.rows }, () => Array.from({ length: layout.columns }, () => ""));
@@ -61,10 +61,12 @@ function track(s: Story, ids: string[], axis: "chapters" | "time", zoom: "year" 
                 ? `(${it.text})`
                 : it.kind === "appearance"
                   ? it.cardId
-                  : ".";
+                  : it.kind === "track-cell" && it.end
+                    ? ""
+                    : ".";
     grid[p.row - 1]![p.column - 1] = text;
   }
-  return grid.map((row) => row.filter((c) => c !== "").join(" "));
+  return grid.map((row) => row.filter((c) => c !== "").join(" ")).filter((line) => line !== "");
 }
 
 describe("character track", () => {
@@ -107,11 +109,22 @@ describe("character track", () => {
     ]);
   });
 
+  it("ends each chapter with scenes, and each span of time, with a row for adding a card after the others", () => {
+    const s = story();
+    add(s, "x", { characters: who(["ann", "present"]) });
+    add(s, "t", { date: d(1531, 1, 1), characters: who(["ann", "present"]) });
+    const ends = (axis: "chapters" | "time") =>
+      computeTrackLayout(s, ["ann"], axis, "day", "vertical").items.filter((p) => p.item.kind === "track-cell" && p.item.end).length;
+    expect(ends("chapters")).toBe(1);
+    expect(ends("time")).toBe(1);
+  });
+
   it("transposes, with characters as rows", () => {
     const s = story();
     add(s, "x", { characters: who(["ann", "present"]) });
     const layout = computeTrackLayout(s, ["ann", "bo"], "chapters", "day", "horizontal");
-    expect([layout.rows, layout.columns]).toEqual([3, 3]);
+    // Characters as rows (and the header), chapters along: c1 with its scene and its end slot, then c2.
+    expect([layout.rows, layout.columns]).toEqual([3, 4]);
     const x = layout.items.find((p) => p.item.kind === "appearance")!;
     expect([x.row, x.column]).toEqual([2, 2]);
   });

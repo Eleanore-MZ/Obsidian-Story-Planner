@@ -233,11 +233,11 @@
 }
 
 /* The slim row at the end of each span in story time, like a chapter's end. */
-.story-planner-grid.is-time .story-planner-cell.is-end {
+.story-planner-grid .story-planner-cell.is-end {
   min-height: var(--size-4-2);
 }
 
-.story-planner.is-drag-active .story-planner-grid.is-time .story-planner-cell.is-end {
+.story-planner.is-drag-active .story-planner-grid .story-planner-cell.is-end {
   min-height: var(--size-4-6);
 }
 
@@ -3474,4 +3474,28 @@ body.story-planner-marquee-active * {
   font-weight: normal;
   font-style: italic;
   color: var(--text-faint);
+}
+
+/* Empty space where a double-click adds a card shows a faint plus on hover. */
+.story-planner-grid .story-planner-cell:not(.is-in-folded-lane),
+.story-planner-grid .story-planner-chapter-end {
+  position: relative;
+}
+
+.story-planner-grid .story-planner-cell:not(.is-in-folded-lane):hover::after,
+.story-planner-grid .story-planner-chapter-end:hover::after {
+  content: "+";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: var(--font-ui-small);
+  pointer-events: none;
+}
+
+.story-planner.is-drag-active .story-planner-grid .story-planner-cell:hover::after,
+.story-planner.is-drag-active .story-planner-grid .story-planner-chapter-end:hover::after {
+  content: none;
 }

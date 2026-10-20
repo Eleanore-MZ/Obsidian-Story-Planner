@@ -26,7 +26,7 @@ export type TrackItem =
    * Empty space in a character's lane. On the chapter axis it belongs to the
    * row of `cardId` (or to an empty chapter); on the time axis to a span.
    */
-  | { kind: "track-cell"; characterId: Id; chapterId?: Id | null; cardId?: Id; bucketId?: string };
+  | { kind: "track-cell"; characterId: Id; chapterId?: Id | null; cardId?: Id; bucketId?: string; end?: boolean };
 
 export interface PlacedTrackItem {
   item: TrackItem;
@@ -99,7 +99,8 @@ export function computeTrackLayout(
         open = [];
       }
       if (chapterId === null && rows.length === 0) continue;
-      const height = Math.max(1, rows.length);
+      // A chapter with scenes ends with a slim row, so there is always room to add one after them.
+      const height = rows.length === 0 ? 1 : rows.length + 1;
       items.push({ item: { kind: "chapter-header", chapterId }, slot, lane: 0, span: height });
       if (rows.length === 0) {
         lanes.forEach((id, lane) => items.push({ item: { kind: "track-cell", characterId: id, chapterId }, slot, lane: lane + 1, span: 1 }));
@@ -113,6 +114,10 @@ export function computeTrackLayout(
         slot++;
       }
       if (rows.length === 0) slot++;
+      else {
+        lanes.forEach((id, lane) => items.push({ item: { kind: "track-cell", characterId: id, chapterId, end: true }, slot, lane: lane + 1, span: 1 }));
+        slot++;
+      }
     }
   } else {
     const calendar = mainCalendar(story);
@@ -140,14 +145,15 @@ export function computeTrackLayout(
       if (!reach || bucket.end > reach.end) reach = bucket;
       const stacks: Id[][] = lanes.map(() => []);
       for (const card of cards) for (const lane of lanesOf(card)) stacks[lane]!.push(card.id);
-      const height = Math.max(1, ...stacks.map((s) => s.length));
+      // The tallest stack, and a slim row at the end for adding a card after the others.
+      const height = Math.max(...stacks.map((s) => s.length), 0) + 1;
       items.push({ item: { kind: "time-header", bucket }, slot, lane: 0, span: height });
       stacks.forEach((stack, lane) => {
         for (let i = 0; i < height; i++) {
           const cardId = stack[i];
           const item: TrackItem = cardId
             ? { kind: "appearance", cardId, characterId: lanes[lane]!, bucketId: bucket.id }
-            : { kind: "track-cell", characterId: lanes[lane]!, bucketId: bucket.id };
+            : { kind: "track-cell", characterId: lanes[lane]!, bucketId: bucket.id, ...(i === height - 1 ? { end: true } : {}) };
           items.push({ item, slot: slot + i, lane: lane + 1, span: 1 });
         }
       });

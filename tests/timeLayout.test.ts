@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createCard, createEmptyStory } from "../src/model/defaults";
-import { alignInTime, placeLastInTime, reorderInTime, timeSorted } from "../src/model/storyTime";
+import { alignInTime, dropWithinSpan, placeLastInTime, reorderInTime, timeSorted } from "../src/model/storyTime";
 import { Card, Story, StoryDate } from "../src/model/types";
 import { dateSpan } from "../src/model/calendar";
 import { bucketDate, computeTimeLayout, describeGap, zoomSteps } from "../src/view/timeLayout";
@@ -167,19 +167,52 @@ describe("story-time layout", () => {
     expect(computeTimeLayout(s, "clock", "vertical", false).buckets).toHaveLength(2);
   });
 
-  it("orders cards at one time across plot lines once the writer has ordered them", () => {
+  it("orders cards at one time across plot lines, and lets any number share a row", () => {
+    const s = story();
+    s.plotLines.push({ id: "p3", name: "C", color: "#222" }, { id: "p4", name: "D", color: "#333" });
+    add(s, "a", d(1531, 12, 2));
+    add(s, "b", d(1531, 12, 2), { plotLine: "p2" });
+    add(s, "c", d(1531, 12, 2), { plotLine: "p3" });
+    add(s, "e", d(1531, 12, 2), { plotLine: "p4" });
+    // With no order of their own they share a row.
+    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] a b c e"]);
+    // One moved before the rest: the rest still share their row.
+    reorderInTime(s, "c", "a", false, NOW);
+    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] c", "a b e"]);
+    // Each in turn into c's row: three, then four, share it.
+    alignInTime(s, "a", "c", NOW);
+    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] a c", "b e"]);
+    alignInTime(s, "b", "c", NOW);
+    alignInTime(s, "e", "a", NOW);
+    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] a b c e"]);
+    // Out again, after the row, and back before it.
+    reorderInTime(s, "b", "c", true, NOW);
+    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] a c e", "b"]);
+    reorderInTime(s, "b", "a", false, NOW);
+    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] b", "a c e"]);
+  });
+
+  it("puts a card dropped in its span in the plot line it was dropped in, and orders it as the drop says", () => {
     const s = story();
     s.plotLines.push({ id: "p3", name: "C", color: "#222" });
     add(s, "a", d(1531, 12, 2));
     add(s, "b", d(1531, 12, 2), { plotLine: "p2" });
     add(s, "c", d(1531, 12, 2), { plotLine: "p3" });
-    // With no order of their own they share a row.
-    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] a b c"]);
-    reorderInTime(s, "c", "a", false, NOW);
-    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] c", "a", "b"]);
-    // Given the same place in the order as another, a card shares its row.
-    alignInTime(s, "b", "a", NOW);
-    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] c", "a b"]);
+    add(s, "late", d(1531, 12, 2, { minutes: 600 }), { plotLine: "p2" });
+    // Beside itself in another column: only the plot line changes.
+    expect(dropWithinSpan(s, "a", "p3", "a", "before", NOW)).toBe("moved");
+    expect(s.cards.a!.plotLine).toBe("p3");
+    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] b a", "c", "late"]);
+    // After a card in another column: its plot line, then after it.
+    dropWithinSpan(s, "a", "p1", "c", "after", NOW);
+    expect(s.cards.a!.plotLine).toBe("p1");
+    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] b c", "a", "late"]);
+    // On the middle of the cell beside c: shares c's row.
+    dropWithinSpan(s, "a", "p1", "c", "on", NOW);
+    expect(rowsOf(s, "day")).toEqual(["[1531/12/02] a b c", "late"]);
+    // A card at another time cannot be ordered against these; the plot line still changes.
+    expect(dropWithinSpan(s, "late", "p1", "a", "before", NOW)).toBe("times");
+    expect(s.cards.late!.plotLine).toBe("p1");
   });
 
   it("lists undated cards in reading order for the tray", () => {

@@ -1,4 +1,5 @@
 import { cardMoment, dateInZone, dateSpan, effectiveZone, mainCalendar, precisionOf } from "./calendar";
+import { moveCard } from "./moves";
 import { locationAndInside } from "./setup";
 import { Card, Id, Story, StoryDate } from "./types";
 
@@ -50,76 +51,13 @@ export function readingOrder(story: Story): Map<Id, number> {
 }
 
 /**
- * Moves a card before or after another that happens at the same moment, by
- * renumbering the writer's own order (`timeOrder`) among the cards at that
- * moment. Returns false when the two cards are not at the same moment, since
- * dates, not manual order, separate those.
+ * The cards at a card's moment (the card itself left out), in story order,
+ * in groups that share a place in the writer's order: cards with the same
+ * `timeOrder`, or with none, share a row in story time.
  */
-export function reorderInTime(story: Story, cardId: Id, targetId: Id, after: boolean, now = new Date().toISOString()): boolean {
-  const card = story.cards[cardId];
-  const target = story.cards[targetId];
-  if (!card || !target || card === target || !card.date || !target.date) return false;
-  const a = cardMoment(story, card)!;
-  const b = cardMoment(story, target)!;
-  if (a.key !== b.key || a.precision !== b.precision) return false;
-  const same = timeSorted(
-    story,
-    Object.values(story.cards).filter((c) => {
-      if (!c.date || c === card) return false;
-      const m = cardMoment(story, c)!;
-      return m.key === b.key && m.precision === b.precision;
-    }),
-  );
-  same.splice(same.indexOf(target) + (after ? 1 : 0), 0, card);
-  same.forEach((c, i) => {
-    if (c.timeOrder !== i + 1) {
-      c.timeOrder = i + 1;
-      c.modified = now;
-    }
-  });
-  return true;
-}
-
-/**
- * Gives a card the same place in the writer's order as another card at the
- * same moment, so they share a row in story time. Returns false when the two
- * are not at the same moment.
- */
-export function alignInTime(story: Story, cardId: Id, targetId: Id, now = new Date().toISOString()): boolean {
-  const card = story.cards[cardId];
-  const target = story.cards[targetId];
-  if (!card || !target || card === target || !card.date || !target.date) return false;
-  const a = cardMoment(story, card)!;
-  const b = cardMoment(story, target)!;
-  if (a.key !== b.key || a.precision !== b.precision) return false;
-  // Number the others at the moment in their present order, so every one has a place.
-  const same = timeSorted(
-    story,
-    Object.values(story.cards).filter((c) => {
-      if (!c.date || c === card) return false;
-      const m = cardMoment(story, c)!;
-      return m.key === b.key && m.precision === b.precision;
-    }),
-  );
-  same.forEach((c, i) => {
-    if (c.timeOrder !== i + 1) {
-      c.timeOrder = i + 1;
-      c.modified = now;
-    }
-  });
-  if (card.timeOrder !== target.timeOrder) {
-    card.timeOrder = target.timeOrder;
-    card.modified = now;
-  }
-  return true;
-}
-
-/** Puts a card after every other card at its moment, as for a card just added there. */
-export function placeLastInTime(story: Story, cardId: Id, now = new Date().toISOString()): void {
-  const card = story.cards[cardId];
-  if (!card?.date) return;
+function momentGroups(story: Story, card: Card): Card[][] {
   const m = cardMoment(story, card)!;
-  const others = timeSorted(
+  const same = timeSorted(
     story,
     Object.values(story.cards).filter((c) => {
       if (c === card || !c.date) return false;
@@ -127,8 +65,76 @@ export function placeLastInTime(story: Story, cardId: Id, now = new Date().toISO
       return o.key === m.key && o.precision === m.precision;
     }),
   );
-  const last = others[others.length - 1];
-  if (last) reorderInTime(story, cardId, last.id, true, now);
+  const groups: Card[][] = [];
+  let key: string | null = null;
+  for (const c of same) {
+    const k = String(c.timeOrder ?? "");
+    if (k !== key || groups.length === 0) groups.push([]);
+    groups[groups.length - 1]!.push(c);
+    key = k;
+  }
+  return groups;
+}
+
+/** Numbers the groups 1, 2, 3…, every card in a group the same. */
+function numberGroups(groups: Card[][], now: string): void {
+  groups.forEach((group, i) => {
+    for (const c of group) {
+      if (c.timeOrder !== i + 1) {
+        c.timeOrder = i + 1;
+        c.modified = now;
+      }
+    }
+  });
+}
+
+function sameMoment(story: Story, a: Card, b: Card): boolean {
+  const x = cardMoment(story, a)!;
+  const y = cardMoment(story, b)!;
+  return x.key === y.key && x.precision === y.precision;
+}
+
+/**
+ * Moves a card before or after another that happens at the same moment, by
+ * renumbering the writer's own order (`timeOrder`) among the cards at that
+ * moment; cards that shared a place keep sharing it. Returns false when the
+ * two cards are not at the same moment, since dates, not manual order,
+ * separate those.
+ */
+export function reorderInTime(story: Story, cardId: Id, targetId: Id, after: boolean, now = new Date().toISOString()): boolean {
+  const card = story.cards[cardId];
+  const target = story.cards[targetId];
+  if (!card || !target || card === target || !card.date || !target.date || !sameMoment(story, card, target)) return false;
+  const groups = momentGroups(story, card);
+  const at = groups.findIndex((g) => g.includes(target));
+  groups.splice(at + (after ? 1 : 0), 0, [card]);
+  numberGroups(groups, now);
+  return true;
+}
+
+/**
+ * Gives a card the same place in the writer's order as another card at the
+ * same moment, so they share a row in story time; any number of cards can
+ * share one. Returns false when the two are not at the same moment.
+ */
+export function alignInTime(story: Story, cardId: Id, targetId: Id, now = new Date().toISOString()): boolean {
+  const card = story.cards[cardId];
+  const target = story.cards[targetId];
+  if (!card || !target || card === target || !card.date || !target.date || !sameMoment(story, card, target)) return false;
+  const groups = momentGroups(story, card);
+  groups.find((g) => g.includes(target))!.push(card);
+  numberGroups(groups, now);
+  return true;
+}
+
+/** Puts a card after every other card at its moment, as for a card just added there. */
+export function placeLastInTime(story: Story, cardId: Id, now = new Date().toISOString()): void {
+  const card = story.cards[cardId];
+  if (!card?.date) return;
+  const groups = momentGroups(story, card);
+  if (groups.length === 0) return;
+  groups.push([card]);
+  numberGroups(groups, now);
 }
 
 /**
@@ -197,4 +203,35 @@ export function findClashes(story: Story): Clash[] {
     }
   }
   return clashes;
+}
+
+/**
+ * A card dropped within its own span of story time. It always ends up in the
+ * plot line it was dropped in. Dropped on the top or bottom of a card (or of
+ * the empty cell beside one), it goes before or after that card in the
+ * writer's order; on the middle of an empty cell beside a card, it shares that
+ * card's row; on a span's end row, after everything at its moment. Order only
+ * applies between cards at the same moment; returns "times" when the target is
+ * at another moment, so the caller can say so.
+ */
+export function dropWithinSpan(
+  story: Story,
+  cardId: Id,
+  plotLine: Id,
+  targetId: Id | null,
+  place: "before" | "after" | "on",
+  now = new Date().toISOString(),
+): "moved" | "times" | "none" {
+  const card = story.cards[cardId];
+  if (!card) return "none";
+  if (card.plotLine !== plotLine) moveCard(story, cardId, { chapter: card.chapter, plotLine, besideCardId: cardId }, now);
+  const target = targetId && targetId !== cardId ? story.cards[targetId] : undefined;
+  if (!target) {
+    if (!targetId && place === "on") placeLastInTime(story, cardId, now);
+    return "moved";
+  }
+  if (!target.date || !card.date || !sameMoment(story, card, target)) return "times";
+  if (place === "on") alignInTime(story, cardId, target.id, now);
+  else reorderInTime(story, cardId, target.id, place === "after", now);
+  return "moved";
 }

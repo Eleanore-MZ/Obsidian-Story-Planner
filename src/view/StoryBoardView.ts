@@ -7,7 +7,7 @@ import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
 import { cardMoment, compareDates, dateInZone, mainCalendar, effectiveZone, formatDateRange, formatStoryDate, precisionOf } from "../model/calendar";
-import { alignInTime, Clash, findClashes, placeLastInTime, reorderInTime, referenceDate, timeSorted } from "../model/storyTime";
+import { Clash, dropWithinSpan, findClashes, placeLastInTime, reorderInTime, referenceDate, timeSorted } from "../model/storyTime";
 import { Card, CharacterRole, Id, Story } from "../model/types";
 import { isUntitled } from "../model/defaults";
 import { composeOutline, outlineCardLine } from "../format/outline";
@@ -2206,15 +2206,19 @@ export class StoryBoardView extends TextFileView {
     const story = this.story;
     const bucket = this.buckets.get(bucketId);
     const card = story && this.dragged ? story.cards[this.dragged.id] : undefined;
-    if (!story || !bucket || !card || card === target) return;
+    if (!story || !bucket || !card) return;
+    if (card === target) {
+      // Beside itself, in another plot line's cell of its own row: only the plot line changes.
+      if (!inRow) return;
+      target = null;
+      place = "before";
+    }
 
     const toLane = (s: Story) => {
       if (s.cards[card.id]!.plotLine !== plotLine) moveCard(s, card.id, { chapter: s.cards[card.id]!.chapter, plotLine, besideCardId: card.id });
     };
     const reorder = (s: Story) => {
       if (target && place !== "on") reorderInTime(s, card.id, target.id, place === "after");
-      // On an empty cell in another card's row: the same place in the order, so the same row.
-      else if (target && inRow) alignInTime(s, card.id, target.id);
     };
 
     if (!card.date) {
@@ -2239,12 +2243,9 @@ export class StoryBoardView extends TextFileView {
           `"${echoText(card)}" (${formatStoryDate(story, card.date)}) and "${echoText(target)}" (${formatStoryDate(story, target.date!)}) are in the order of their times. Change a time to reorder them.`,
         );
       }
-      this.mutate((s) => {
-        toLane(s);
-        reorder(s);
-        // Dropped on the slim row at the end of the span: after the others at its moment.
-        if (!target && place === "on") placeLastInTime(s, card.id);
-      });
+      // Into the plot line it was dropped in, and in the writer's order as the drop says (see dropWithinSpan).
+      const targetId = target?.id ?? null;
+      this.mutate((s) => dropWithinSpan(s, card.id, plotLine, targetId, place) !== "none");
       return;
     }
     const initial = target?.date ? { ...target.date } : { ...bucket.date };
@@ -2428,6 +2429,7 @@ export class StoryBoardView extends TextFileView {
 
       case "track-cell": {
         const el = grid.createDiv({ cls: "story-planner-cell" });
+        if (item.end) el.addClass("is-end");
         this.makeDropTarget(
           el,
           "card",

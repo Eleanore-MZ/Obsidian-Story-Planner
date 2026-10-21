@@ -120,6 +120,7 @@ export function setRoleOnCards(story: Story, ids: Iterable<Id>, characterId: Id,
 /**
  * Several selected cards dropped on the board together, where `anchorId` (the
  * card held) was dropped at `target`. Every card goes to the target's plot
+ * line, unless they move to another chapter: then each keeps its own plot
  * line. Which of them go to the drop's place:
  *
  * - Dropped in another chapter than the held card's: all of them join that
@@ -150,9 +151,12 @@ export function moveCardsTo(
   const offPage = (c: Card) => c.chapter === null || !chapterIds.has(c.chapter);
   const mixed = cards.some(offPage) && cards.some((c) => !offPage(c));
   const relative = target.beforeCardId ?? target.afterCardId ?? null;
+  // Into another chapter, the cards keep their own plot lines; within one, they take the dropped-in plot line.
+  const toChapter = target.chapter !== anchor.chapter;
+  const laneOf = (card: Card) => (toChapter ? card.plotLine : target.plotLine);
 
   let joiners: Card[];
-  if (target.chapter !== anchor.chapter) joiners = mixed ? cards.filter(offPage) : cards;
+  if (toChapter) joiners = mixed ? cards.filter(offPage) : cards;
   else if (relative) joiners = cards.filter((c) => c.chapter === target.chapter);
   else joiners = [];
   // In the background, only off-page events go to the chapter, and they stay off-page.
@@ -163,19 +167,20 @@ export function moveCardsTo(
   let changed = false;
   // The rest change plot line only, each keeping its row.
   for (const card of cards) {
-    if (joining.has(card.id) || card.plotLine === target.plotLine) continue;
-    changed = moveCard(story, card.id, { chapter: card.chapter, plotLine: target.plotLine, besideCardId: card.id }, now) || changed;
+    if (joining.has(card.id) || card.plotLine === laneOf(card)) continue;
+    changed = moveCard(story, card.id, { chapter: card.chapter, plotLine: laneOf(card), besideCardId: card.id }, now) || changed;
   }
   // The others go to the drop's place one after another. Dropping before or after a selected card places them by the
   // first unselected card instead, or at the chapter's end.
   let previous: Id | null = null;
   const place = (card: Card): CardTarget => {
     const chapter = during ? null : target.chapter;
-    if (previous) return { chapter, plotLine: target.plotLine, afterCardId: previous };
-    if (during) return { chapter, plotLine: target.plotLine };
+    const plotLine = laneOf(card);
+    if (previous) return { chapter, plotLine, afterCardId: previous };
+    if (during) return { chapter, plotLine };
     const ref = target.beforeCardId ?? target.afterCardId ?? target.besideCardId;
-    if (ref && joining.has(ref)) return { chapter, plotLine: target.plotLine };
-    return { ...target, chapter };
+    if (ref && joining.has(ref)) return { chapter, plotLine };
+    return { ...target, chapter, plotLine };
   };
   for (const card of joiners) {
     changed = moveCard(story, card.id, place(card), now) || changed;

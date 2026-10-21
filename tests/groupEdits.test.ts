@@ -137,24 +137,24 @@ describe("editing several cards at once", () => {
       expect(lane(s, "x")).toEqual(["x:p1:c2"]);
     });
 
-    it("puts off-page events into a chapter, in the plot line they were dropped in, in their off-page order", () => {
+    it("puts off-page events into a chapter in their off-page order, each keeping its plot line", () => {
       const s = board();
       moveCardsTo(s, ["o1", "o2"], "o1", { chapter: "c2", plotLine: "p1" }, false, NOW);
-      expect(lane(s, "o1", "o2")).toEqual(["o1:p1:c2", "o2:p1:c2"]);
+      expect(lane(s, "o1", "o2")).toEqual(["o1:p1:c2", "o2:p2:c2"]);
       expect(chapterCards(s, "c2").map((c) => c.id)).toEqual(["x", "y", "o1", "o2"]);
     });
 
     it("keeps off-page events off-page, during the chapter, with Ctrl+Alt", () => {
       const s = board();
       moveCardsTo(s, ["o1", "o2"], "o1", { chapter: "c2", plotLine: "p2" }, true, NOW);
-      expect(lane(s, "o1", "o2")).toEqual(["o1:p2:off", "o2:p2:off"]);
+      expect(lane(s, "o1", "o2")).toEqual(["o1:p1:off", "o2:p2:off"]);
       expect([s.cards.o1!.during, s.cards.o2!.during]).toEqual(["c2", "c2"]);
     });
 
     it("with off-page events and scenes together, only the off-page ones join the chapter", () => {
       const s = board();
       moveCardsTo(s, ["o1", "a"], "o1", { chapter: "c2", plotLine: "p3" }, false, NOW);
-      expect(lane(s, "o1", "a")).toEqual(["o1:p3:c2", "a:p3:c1"]);
+      expect(lane(s, "o1", "a")).toEqual(["o1:p1:c2", "a:p1:c1"]);
     });
   });
 });

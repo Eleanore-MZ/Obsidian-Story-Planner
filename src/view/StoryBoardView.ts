@@ -1160,7 +1160,10 @@ export class StoryBoardView extends TextFileView {
       el.setAttr("aria-selected", String(id === tab));
       el.toggleClass("is-active", id === tab);
       iconOr(el.createSpan({ cls: "story-planner-tab-icon" }), icon, "layout-grid");
-      el.createSpan({ text: label });
+      el.createSpan({ cls: "story-planner-tab-label", text: label });
+      // When the window is narrow the tabs show only their icons; the name stays as a tooltip.
+      el.setAttr("aria-label", label);
+      el.setAttr("title", label);
       el.addEventListener("click", () => {
         if (!tabs.hasClass("is-reordering")) this.showTab(id);
       });
@@ -1178,39 +1181,32 @@ export class StoryBoardView extends TextFileView {
     if (onCharacters) this.characterActions(tabsRow.createDiv({ cls: "story-planner-tab-actions" }), story);
     if (onOutline) {
       const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
-      this.button(actions, "Export outline", () => {
+      this.toolIcon(actions, "file-output", "Export outline", () => {
         if (this.file && this.story) void this.plugin.exportOutline(this.file, this.story);
       });
     }
     if (onBoard) {
       const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
-      this.button(actions, "Add plot line", () =>
+      this.toolIcon(actions, "git-branch-plus", "Add plot line", () =>
         new TextPromptModal(this.app, "New plot line", "", (name) => this.mutate((s) => void addPlotLine(s, name))).open(),
       );
-      this.button(actions, "Add chapter", () => this.editChapter(null));
+      this.toolIcon(actions, "book-plus", "Add chapter", () => this.editChapter(null));
       this.highlightPicker(actions, story);
       // Off-page events, shown or not.
       const shown = !this.viewState()?.hideOffPage;
-      const offPage = this.button(actions, "Off-page", () => this.setViewState({ hideOffPage: shown }));
-      offPage.toggleClass("is-active", shown);
-      offPage.setAttr("aria-pressed", String(shown));
-      offPage.setAttr("title", shown ? "Hide off-page events" : "Show off-page events");
-      // The button names the layout it switches to.
-      const compact = this.button(actions, this.compact ? "Cozy" : "Compact", () => this.toggleCompact());
+      this.toolIcon(actions, "ghost", shown ? "Off-page events shown (click to hide)" : "Off-page events hidden (click to show)", () => this.setViewState({ hideOffPage: shown }), shown);
+      this.toolIcon(actions, "rows-4", this.compact ? "Compact layout (click for cozy)" : "Compact layout", () => this.toggleCompact(), this.compact);
     }
 
     const actions = tabsRow.querySelector<HTMLElement>(".story-planner-tab-actions") ?? tabsRow.createDiv({ cls: "story-planner-tab-actions" });
     if (withPanel && !onOutline) {
-      const map = this.button(actions, "Map", () => this.setViewState({ minimap: !this.viewState()?.minimap }));
       const on = !!this.viewState()?.minimap;
-      map.toggleClass("is-active", on);
-      map.setAttr("aria-pressed", String(on));
-      map.setAttr("title", "Minimap");
+      this.toolIcon(actions, "map", on ? "Minimap shown (click to hide)" : "Minimap", () => this.setViewState({ minimap: !on }), on);
     }
     // Where cards open: the side panel, or the middle over the board. The same for every story.
     if (withPanel) {
       const centre = this.plugin.settings.cardOpening === "centre";
-      const opening = actions.createEl("button", { cls: "story-planner-opening-toggle clickable-icon" });
+      const opening = actions.createEl("button", { cls: "story-planner-tool story-planner-opening-toggle clickable-icon" });
       iconOr(opening, centre ? "app-window" : "panel-right", "layout");
       const label = centre ? "Cards open in the middle. Click to open them in the side panel." : "Cards open in the side panel. Click to open them in the middle.";
       opening.setAttr("aria-label", label);
@@ -1750,7 +1746,7 @@ export class StoryBoardView extends TextFileView {
     zoom.addEventListener("change", () => this.setViewState({ zoom: zoom.value as Zoom }));
     // Every span from the first to the last, empty ones too, like a calendar.
     const expanded = !!this.viewState()?.expandTimeline;
-    const expand = actions.createEl("button", { cls: "clickable-icon story-planner-expand-time" });
+    const expand = actions.createEl("button", { cls: "story-planner-tool clickable-icon story-planner-expand-time" });
     iconOr(expand, expanded ? "fold-vertical" : "unfold-vertical", "chevrons-up-down");
     expand.setAttr("aria-label", expanded ? "Show only times with cards" : "Show the whole timeline");
     expand.setAttr("title", expanded ? "Show only times with cards" : "Show the whole timeline");
@@ -2384,15 +2380,14 @@ export class StoryBoardView extends TextFileView {
   }
 
   private characterActions(actions: HTMLElement, story: Story): void {
-    const modes = actions.createDiv({ cls: "story-planner-segmented" });
-    for (const [mode, label] of [
-      ["track", "Track"],
-      ["matrix", "Matrix"],
-    ] as const) {
-      const b = this.button(modes, label, () => this.setViewState({ characterMode: mode }));
-      b.toggleClass("is-active", this.characterMode === mode);
-      b.setAttr("aria-pressed", String(this.characterMode === mode));
-    }
+    // Track or matrix: one square button showing the view it switches to.
+    const toMatrix = this.characterMode === "track";
+    const mode = actions.createEl("button", { cls: "story-planner-tool clickable-icon" });
+    iconOr(mode, toMatrix ? "grid-3x3" : "kanban", "layout-grid");
+    const label = toMatrix ? "Show as a presence matrix" : "Show as a character track";
+    mode.setAttr("aria-label", label);
+    mode.setAttr("title", label);
+    mode.addEventListener("click", () => this.setViewState({ characterMode: toMatrix ? "matrix" : "track" }));
     const axis = actions.createEl("select", { cls: "dropdown" });
     axis.setAttr("aria-label", "Order");
     axis.createEl("option", { text: "By chapter" }).value = "chapters";
@@ -2408,14 +2403,14 @@ export class StoryBoardView extends TextFileView {
     }
     if (this.characterMode === "track") {
       const lanes = this.lanes(story);
-      this.button(actions, `Characters (${lanes.length})`, () =>
+      // Which characters are lanes: a square button with how many there are.
+      const pick = this.toolIcon(actions, "users", `Characters to track (${lanes.length})`, () =>
         new LaneModal(this.app, story, lanes, (chosen) => this.setViewState({ characterLanes: chosen })).open(),
       );
+      pick.createSpan({ cls: "story-planner-tool-badge", text: String(lanes.length) });
       if (lanes.length >= 2) {
-        const shared = this.button(actions, "Shared scenes", () => this.setViewState({ sharedOnly: !this.viewState()?.sharedOnly }));
         const on = !!this.viewState()?.sharedOnly;
-        shared.toggleClass("is-active", on);
-        shared.setAttr("aria-pressed", String(on));
+        this.toolIcon(actions, "link-2", on ? "Only scenes they share (click for all)" : "Only scenes they share", () => this.setViewState({ sharedOnly: !on }), on);
       }
       this.highlightPicker(actions, story);
     }
@@ -2758,9 +2753,16 @@ export class StoryBoardView extends TextFileView {
     return el;
   }
 
-  private button(parent: HTMLElement, text: string, onClick: () => void, disabled = false): HTMLButtonElement {
-    const el = parent.createEl("button", { text });
-    el.disabled = disabled;
+  /** A square icon button for the tab bar, with its name as a tooltip; a toggle shows when it is on. */
+  private toolIcon(parent: HTMLElement, icon: string, label: string, onClick: () => void, active?: boolean): HTMLButtonElement {
+    const el = parent.createEl("button", { cls: "story-planner-tool clickable-icon" });
+    iconOr(el, icon, "circle");
+    el.setAttr("aria-label", label);
+    el.setAttr("title", label);
+    if (active !== undefined) {
+      el.toggleClass("is-active", active);
+      el.setAttr("aria-pressed", String(active));
+    }
     el.addEventListener("click", onClick);
     return el;
   }

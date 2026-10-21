@@ -3549,3 +3549,44 @@ body.story-planner-marquee-active * {
 .story-planner-time-header > .story-planner-fold-count {
   flex-basis: 100%;
 }
+
+/* Narrow windows: the view tabs shrink to their icons. */
+.story-planner-tabs-row {
+  container-type: inline-size;
+}
+
+@container (max-width: 720px) {
+  .story-planner-tab .story-planner-tab-label {
+    display: none;
+  }
+}
+
+/* Square icon buttons in the tab bar; a toggle that is on is tinted with the accent. */
+.story-planner .story-planner-tab-actions .story-planner-tool {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 0;
+  color: var(--text-muted);
+}
+
+.story-planner .story-planner-tab-actions .story-planner-tool.is-active {
+  border-color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+  color: var(--text-normal);
+}
+
+.story-planner-tool-badge {
+  position: absolute;
+  right: 1px;
+  bottom: 0;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--text-muted);
+  pointer-events: none;
+}

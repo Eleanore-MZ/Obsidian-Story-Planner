@@ -2404,7 +2404,7 @@ export class StoryBoardView extends TextFileView {
     if (this.characterMode === "track") {
       const lanes = this.lanes(story);
       // Which characters are lanes: a square button with how many there are.
-      const pick = this.toolIcon(actions, "users", `Characters to track (${lanes.length})`, () =>
+      const pick = this.toolIcon(actions, "user-plus", `Characters to track (${lanes.length})`, () =>
         new LaneModal(this.app, story, lanes, (chosen) => this.setViewState({ characterLanes: chosen })).open(),
       );
       pick.createSpan({ cls: "story-planner-tool-badge", text: String(lanes.length) });

@@ -1,7 +1,7 @@
 {
   "id": "story-planner",
   "name": "Story Planner",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "minAppVersion": "1.5.7",
   "description": "Plan plots on a board of plot lines and chapters, with story time, custom calendars and characters. Each story is one note.",
   "author": "Eleanore-MZ",

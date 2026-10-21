@@ -285,7 +285,14 @@ function readSetup(raw: unknown): StorySetup | string {
       ? { timeBlockMinutes: raw.timeBlockMinutes }
       : {}),
     ...(cleanCardShows(raw.cardShows) ? { cardShows: cleanCardShows(raw.cardShows) } : {}),
+    ...(isStoredDate(raw.storyStart) ? { storyStart: withoutApproximate(raw.storyStart) } : {}),
+    ...(isStoredDate(raw.storyEnd) ? { storyEnd: withoutApproximate(raw.storyEnd) } : {}),
   };
+}
+
+/** A date as stored: an object with a calendar and a whole year at least. */
+function isStoredDate(raw: unknown): raw is StoryDate {
+  return isObject(raw) && typeof raw.calendar === "string" && typeof raw.year === "number" && Number.isInteger(raw.year);
 }
 
 function withoutApproximate(date: StoryDate): StoryDate {

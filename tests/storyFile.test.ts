@@ -125,6 +125,19 @@ describe("text that could break the note", () => {
     expect(parseOk(odd).story.cardShows).toEqual({ characters: true });
   });
 
+  it("keeps the story's own start and end, and stories without them parse as before", () => {
+    const story = sampleStory();
+    const cal = story.calendars[0]!.id;
+    story.storyStart = { calendar: cal, year: 1531, month: 12, day: 1 };
+    story.storyEnd = { calendar: cal, year: 1532, month: 1, day: 3, minutes: 600 };
+    expect(parseOk(serializeStory(story)).story).toEqual(story);
+    const plain = parseOk(serializeStory(sampleStory())).story;
+    expect("storyStart" in plain || "storyEnd" in plain).toBe(false);
+    // Something that is not a date is dropped.
+    const odd = serializeStory(story).replace(/"storyStart":\{[^}]*\}/, '"storyStart":"soon"');
+    expect("storyStart" in parseOk(odd).story).toBe(false);
+  });
+
   it("does write real links for notes linked to cards", () => {
     const story = sampleStory();
     Object.values(story.cards)[0]!.notes = ["Drafts/Chapter 1.md"];

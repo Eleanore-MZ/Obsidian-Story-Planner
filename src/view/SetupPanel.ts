@@ -1,7 +1,8 @@
 import { setIcon } from "obsidian";
 import { reorderHandle } from "./reorder";
 import { colorSwatch } from "./colorPicker";
-import { formatOffset, formatStoryDate, parseOffset } from "../model/calendar";
+import { compareDates, formatOffset, formatStoryDate, parseOffset } from "../model/calendar";
+import { DateEditor } from "./DateEditor";
 import { DATE_TOKENS, defaultFormats, TIME_TOKENS } from "../model/dateFormat";
 import { blockLabel, blockSizes, DEFAULT_TIME_BLOCK, timeBlock } from "./timeLayout";
 import { CARD_SHOW_LABELS, cardShows, type CardShow } from "../model/cardShows";
@@ -939,6 +940,36 @@ export class SetupPanel {
         else s.timeBlockMinutes = minutes;
       }),
     ).dataset.field = "time-block";
+
+    // When the story begins and ends: the whole timeline in story time runs from one to the other.
+    this.subheading(section, "Story span");
+    for (const [label, key] of [
+      ["Start", "storyStart"],
+      ["End", "storyEnd"],
+    ] as const) {
+      const row = section.createDiv({ cls: "story-planner-setup-row story-planner-setup-span" });
+      row.createSpan({ cls: "story-planner-setup-tag", text: label });
+      const cell = row.createDiv({ cls: "story-planner-setup-span-date" });
+      new DateEditor(
+        cell,
+        story,
+        story[key],
+        `span-${key}`,
+        "Zone: default",
+        (date) =>
+          this.host.edit((s) => {
+            if (JSON.stringify(s[key]) === JSON.stringify(date)) return false;
+            if (date) s[key] = { ...date };
+            else delete s[key];
+          }),
+        (date) => {
+          const other = key === "storyEnd" ? this.story?.storyStart : this.story?.storyEnd;
+          if (!other) return null;
+          const order = compareDates(this.story!, date, other);
+          return key === "storyEnd" && order < 0 ? "The end is before the start." : key === "storyStart" && order > 0 ? "The start is after the end." : null;
+        },
+      );
+    }
   }
 
   private subheading(parent: HTMLElement, text: string): void {

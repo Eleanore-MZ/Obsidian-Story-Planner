@@ -3499,3 +3499,54 @@ body.story-planner-marquee-active * {
 .story-planner.is-drag-active .story-planner-grid .story-planner-chapter-end:hover::after {
   content: none;
 }
+
+/* Story time: a year (and at the finer zooms, a day) starts with a row that folds it. */
+.story-planner-time-group {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  padding: var(--size-2-2) var(--size-4-1);
+  border-top: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  cursor: default;
+}
+
+.story-planner-time-group.is-year {
+  font-weight: var(--font-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-normal);
+  border-top: 2px solid var(--text-faint);
+}
+
+.story-planner-time-group .story-planner-time-group-label {
+  position: sticky;
+  left: var(--size-4-8);
+}
+
+.story-planner-time-group .story-planner-fold-count {
+  margin-left: var(--size-4-2);
+  font-weight: normal;
+  color: var(--text-faint);
+}
+
+/* Story setup: the story's start and end, each a date line like a card's. */
+.story-planner-setup-row.story-planner-setup-span {
+  align-items: flex-start;
+}
+
+.story-planner-setup-span-date {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+  min-width: 0;
+}
+
+/* The story's start and end on the whole timeline. */
+.story-planner-time-header.is-story-start {
+  border-top: 2px solid var(--interactive-accent);
+}
+
+.story-planner-time-header.is-story-end {
+  border-bottom: 2px solid var(--interactive-accent);
+}

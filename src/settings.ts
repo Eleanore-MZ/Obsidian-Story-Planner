@@ -28,6 +28,8 @@ export interface StoryViewState {
   timeZoneView?: string;
   /** Story time shows every span from the first to the last, not only those with cards. */
   expandTimeline?: boolean;
+  /** Folded years and days in story time, by group key ("y:1531", "d:559000"). */
+  foldedTimes?: string[];
   /** The clock zoom's block, in minutes, set with Ctrl+wheel; never shorter than the story's shortest. */
   clockBlock?: number;
   /** A character, tag or place to make stand out, as "character:id", "tag:id" or "location:id". */

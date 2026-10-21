@@ -130,6 +130,8 @@ export class StoryBoardView extends TextFileView {
   private tooLongNoticed: string | null = null;
   /** Set while a drag has Ctrl+Alt held: an off-page event dropped in a chapter stays off-page, during it. */
   private backgroundDrop = false;
+  /** The spans the story's start and end fall in, as story time last drew them. */
+  private storySpan: { start?: string; end?: string } = {};
   /** When Ctrl+wheel last zoomed, so one notch is one step. */
   private lastWheel = 0;
   /** Cards selected together with Ctrl+click or Shift+click; two or more open the group editor. */
@@ -1753,8 +1755,9 @@ export class StoryBoardView extends TextFileView {
     }
     const orientation = this.orientation;
     const expand = !!this.viewState()?.expandTimeline;
-    const layout = computeTimeLayout(story, this.zoom, orientation, expand, this.clockBlock(story));
+    const layout = computeTimeLayout(story, this.zoom, orientation, expand, this.clockBlock(story), new Set(this.viewState()?.foldedTimes ?? []));
     this.buckets = new Map(layout.buckets.map((b) => [b.id, b]));
+    this.storySpan = { start: layout.storyStartBucket, end: layout.storyEndBucket };
     if (layout.tooLongToExpand) {
       // Said once per zoom, not on every redraw.
       const key = `${this.zoom}`;
@@ -1825,6 +1828,12 @@ export class StoryBoardView extends TextFileView {
 
   private get foldedChapters(): Set<string | null> {
     return new Set((this.viewState()?.foldedChapters ?? []).map((id) => (id === "" ? null : id)));
+  }
+
+  /** Folds or unfolds a year or a day in story time. */
+  private toggleTimeFold(key: string): void {
+    const folded = this.viewState()?.foldedTimes ?? [];
+    this.setViewState({ foldedTimes: folded.includes(key) ? folded.filter((k) => k !== key) : [...folded, key] });
   }
 
   private toggleChapterFold(chapterId: string | null): void {
@@ -2053,7 +2062,7 @@ export class StoryBoardView extends TextFileView {
     }
     const along = placed.span > 1 ? ` / span ${placed.span}` : "";
     const across = (placed.cross ?? 1) > 1 ? ` / span ${placed.cross}` : "";
-    if (placed.item.kind === "gap") {
+    if (placed.item.kind === "gap" || (placed.item.kind === "time-group" && !(placed.item as { folded?: boolean }).folded)) {
       el.style.gridRow = vertical ? String(placed.row) : "1 / -1";
       el.style.gridColumn = vertical ? "1 / -1" : String(placed.column);
     } else {
@@ -2068,11 +2077,42 @@ export class StoryBoardView extends TextFileView {
       case "lane-header":
         return this.renderItem(grid, item, story);
 
-      case "time-header":
-        return this.timeHeader(grid, item.bucket.label, item.bucket.start);
+      case "time-header": {
+        const el = this.timeHeader(grid, item.bucket.label, item.bucket.start);
+        // The story's own start and end, marked lightly on the whole timeline.
+        if (item.bucket.id === this.storySpan.start) el.addClass("is-story-start");
+        if (item.bucket.id === this.storySpan.end) el.addClass("is-story-end");
+        return el;
+      }
 
       case "gap":
         return this.gap(grid, item.text);
+
+      case "time-group": {
+        // A year or a day: its label and a fold button, like a chapter on the board.
+        const el = grid.createDiv({ cls: `story-planner-time-group is-${item.level}` });
+        el.toggleClass("is-folded", item.folded);
+        const fold = el.createEl("button", { cls: "story-planner-fold clickable-icon" });
+        setIcon(fold, item.folded ? "chevron-right" : "chevron-down");
+        const what = item.level === "year" ? "year" : "day";
+        fold.setAttr("aria-label", item.folded ? `Unfold this ${what}` : `Fold this ${what}`);
+        fold.setAttr("title", item.folded ? `Unfold this ${what}` : `Fold this ${what}`);
+        stopBoardGestures(fold);
+        fold.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.toggleTimeFold(item.key);
+        });
+        el.createSpan({ cls: "story-planner-time-group-label", text: item.label });
+        if (item.folded) el.createSpan({ cls: "story-planner-fold-count", text: `${item.count} ${item.count === 1 ? "card" : "cards"}` });
+        el.addEventListener("dblclick", () => this.toggleTimeFold(item.key));
+        return el;
+      }
+
+      case "time-folded": {
+        const el = grid.createDiv({ cls: "story-planner-folded-cell", text: item.count > 0 ? `${item.count} ${item.count === 1 ? "card" : "cards"}` : "" });
+        el.addEventListener("dblclick", () => this.toggleTimeFold(item.key));
+        return el;
+      }
 
       case "time-cell": {
         const el = grid.createDiv({ cls: "story-planner-cell" });

@@ -215,6 +215,44 @@ describe("story-time layout", () => {
     expect(s.cards.late!.plotLine).toBe("p1");
   });
 
+  it("starts each year with a row that folds it, and each day at the finer zooms", () => {
+    const s = story();
+    add(s, "a", d(1530, 5, 1));
+    add(s, "b", d(1531, 1, 2, { minutes: 60 }), { alsoIn: ["p2"] });
+    add(s, "c", d(1531, 1, 2, { minutes: 600 }));
+    const groups = (zoom: Parameters<typeof computeTimeLayout>[1], folded: string[] = []) =>
+      computeTimeLayout(s, zoom, "vertical", false, undefined, new Set(folded))
+        .items.filter((p) => p.item.kind === "time-group")
+        .map((p) => (p.item.kind === "time-group" ? `${p.item.label}${p.item.folded ? ` (${p.item.count})` : ""}` : ""));
+    expect(groups("year")).toEqual([]);
+    expect(groups("day")).toEqual(["1530", "1531"]);
+    expect(groups("time")).toEqual(["1530", "1530/05/01", "1531", "1531/01/02"]);
+    // Folding 1531 hides its spans and counts its cards, an echo in its own plot line too.
+    const key = computeTimeLayout(s, "day", "vertical").items.find((p) => p.item.kind === "time-group" && p.item.label === "1531")!;
+    const yearKey = key.item.kind === "time-group" ? key.item.key : "";
+    expect(groups("day", [yearKey])).toEqual(["1530", "1531 (2)"]);
+    const layout = computeTimeLayout(s, "day", "vertical", false, undefined, new Set([yearKey]));
+    expect(layout.items.some((p) => p.item.kind === "card" && p.item.cardId === "b")).toBe(false);
+    expect(layout.items.filter((p) => p.item.kind === "time-folded").map((p) => (p.item.kind === "time-folded" ? p.item.count : 0))).toEqual([2, 1]);
+  });
+
+  it("runs the whole timeline from the story's start to its end, widened for cards outside them", () => {
+    const s = story();
+    add(s, "a", d(2020, 1, 3));
+    s.storyStart = d(2020, 1, 1);
+    s.storyEnd = d(2020, 1, 4);
+    const labels = (expand: boolean) =>
+      computeTimeLayout(s, "day", "vertical", expand)
+        .items.filter((p) => p.item.kind === "time-header")
+        .map((p) => (p.item.kind === "time-header" ? p.item.bucket.label : ""));
+    expect(labels(false)).toEqual(["2020/01/03"]);
+    expect(labels(true)).toEqual(["2020/01/01", "2020/01/02", "2020/01/03", "2020/01/04"]);
+    const layout = computeTimeLayout(s, "day", "vertical", true);
+    expect(layout.storyStartBucket).toBe(JSON.stringify(d(2020, 1, 1)));
+    add(s, "after", d(2020, 1, 6));
+    expect(labels(true).slice(-1)).toEqual(["2020/01/06"]);
+  });
+
   it("lists undated cards in reading order for the tray", () => {
     const s = story();
     add(s, "x", undefined, { chapter: "c2", order: 1 });

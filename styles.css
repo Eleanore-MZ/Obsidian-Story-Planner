@@ -117,16 +117,11 @@
   align-self: stretch;
 }
 
+/* No border of its own: the row line across the board runs through the header column too. */
 .story-planner-chapter-header {
   padding: var(--size-4-2);
   font-weight: var(--font-semibold);
   color: var(--text-muted);
-  border-top: 1px solid var(--background-modifier-border);
-}
-
-.story-planner-grid.is-horizontal .story-planner-chapter-header {
-  border-top: none;
-  border-left: 1px solid var(--background-modifier-border);
 }
 
 .story-planner-chapter-header.is-off-page {
@@ -1365,7 +1360,6 @@
   left: 0;
   /* Also covers the gap to the first lane. */
   box-shadow: var(--size-4-2) 0 0 var(--background-primary);
-  border-right: 1px solid var(--background-modifier-border);
 }
 
 .story-planner-sticky-row {
@@ -2219,6 +2213,12 @@ body.story-planner-reordering * {
   position: relative;
   z-index: 0;
   pointer-events: none;
+}
+
+/* Row lines run over the sticky header column, as one line with the board's,
+   and under the sticky header row and the act (or year) column. */
+.story-planner-row-line {
+  z-index: 2;
 }
 
 .story-planner-grid.is-vertical .story-planner-lane-line {
@@ -3533,4 +3533,19 @@ body.story-planner-marquee-active * {
 
 .story-planner-grid.is-horizontal.has-acts .story-planner-time-header {
   top: calc(var(--story-planner-act-size) + var(--size-4-2));
+}
+
+/* A date's header: the fold button and the date on one line, the count below. */
+.story-planner-grid .story-planner-time-header {
+  flex-wrap: wrap;
+}
+
+.story-planner-time-header > .story-planner-time-label {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.story-planner-time-header > .story-planner-fold-count {
+  flex-basis: 100%;
 }

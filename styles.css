@@ -32,7 +32,7 @@
   display: flex;
   align-items: center;
   gap: var(--size-4-2);
-  margin-bottom: var(--size-4-3);
+  margin-bottom: var(--size-4-1);
 }
 
 .story-planner-title {
@@ -1128,11 +1128,11 @@
   align-items: center;
   gap: var(--size-4-1);
   height: auto;
-  padding: var(--size-2-2) var(--size-4-2);
+  padding: var(--size-2-1) var(--size-4-1);
   background: transparent;
   box-shadow: none;
-  font-size: var(--h2-size, 1.6em);
-  font-weight: var(--h2-weight, 700);
+  font-size: var(--h4-size, 1.15em);
+  font-weight: var(--font-semibold);
   color: var(--text-normal);
   cursor: pointer;
 }
@@ -3589,4 +3589,10 @@ body.story-planner-marquee-active * {
   line-height: 1;
   color: var(--text-muted);
   pointer-events: none;
+}
+
+/* Plot line (and character) titles in the header row: smaller, so the row stays low. */
+.story-planner-grid .story-planner-lane-header {
+  padding: var(--size-2-3) var(--size-4-2);
+  font-size: var(--font-ui-small);
 }

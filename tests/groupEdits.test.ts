@@ -7,6 +7,7 @@ import {
   nextRole,
   setRoleOnCards,
   deleteCards,
+  moveCardsTo,
   moveCardsToChapter,
   moveCardsToPlotLine,
   selectedCards,
@@ -96,5 +97,64 @@ describe("editing several cards at once", () => {
     setRoleOnCards(s, ["a", "b", "c"], mara, "mentioned", NOW);
     expect(characterRoles(s, selectedCards(s, ["a", "b"]))).toEqual([{ id: mara, role: "mentioned", onAll: true }]);
     expect(s.cards.c!.characters).toEqual([]);
+  });
+
+  describe("dragging several cards", () => {
+    const board = () => {
+      const s = story();
+      s.plotLines.push({ id: "p3", name: "C", color: "#222" });
+      s.cards.b!.plotLine = "p2";
+      s.cards.b!.order = 1; // a and b share a row in c1
+      s.cards.c!.order = 2;
+      const add = (id: string, chapter: string | null, order: number, plotLine = "p1") =>
+        (s.cards[id] = { ...createCard({ title: id, plotLine, chapter, order }), id });
+      add("y", "c2", 2);
+      add("o1", null, 1);
+      add("o2", null, 2, "p2");
+      return s;
+    };
+    const lane = (s: Story, ...ids: string[]) => ids.map((id) => `${id}:${s.cards[id]!.plotLine}:${s.cards[id]!.chapter ?? "off"}`);
+
+    it("moves them all to another plot line, each keeping its chapter and row", () => {
+      const s = board();
+      expect(moveCardsTo(s, ["a", "b", "x"], "a", { chapter: "c1", plotLine: "p3", besideCardId: "a" }, false, NOW)).toBe(true);
+      expect(lane(s, "a", "b", "x")).toEqual(["a:p3:c1", "b:p3:c1", "x:p3:c2"]);
+      // a and b shared a row; in one plot line now, they keep their order, a first.
+      expect(chapterCards(s, "c1").map((c) => c.id)).toEqual(["a", "b", "c"]);
+    });
+
+    it("moves them into another chapter one after another, in reading order", () => {
+      const s = board();
+      moveCardsTo(s, ["c", "a"], "a", { chapter: "c2", plotLine: "p1", afterCardId: "x" }, false, NOW);
+      expect(chapterCards(s, "c2").map((c) => c.id)).toEqual(["x", "a", "c", "y"]);
+      expect(chapterCards(s, "c1").map((c) => c.id)).toEqual(["b"]);
+    });
+
+    it("moves selected cards within their chapter as a block", () => {
+      const s = board();
+      moveCardsTo(s, ["a", "c", "x"], "c", { chapter: "c1", plotLine: "p1", beforeCardId: "b" }, false, NOW);
+      expect(chapterCards(s, "c1").map((c) => c.id)).toEqual(["a", "c", "b"]);
+      expect(lane(s, "x")).toEqual(["x:p1:c2"]);
+    });
+
+    it("puts off-page events into a chapter, in the plot line they were dropped in, in their off-page order", () => {
+      const s = board();
+      moveCardsTo(s, ["o1", "o2"], "o1", { chapter: "c2", plotLine: "p1" }, false, NOW);
+      expect(lane(s, "o1", "o2")).toEqual(["o1:p1:c2", "o2:p1:c2"]);
+      expect(chapterCards(s, "c2").map((c) => c.id)).toEqual(["x", "y", "o1", "o2"]);
+    });
+
+    it("keeps off-page events off-page, during the chapter, with Ctrl+Alt", () => {
+      const s = board();
+      moveCardsTo(s, ["o1", "o2"], "o1", { chapter: "c2", plotLine: "p2" }, true, NOW);
+      expect(lane(s, "o1", "o2")).toEqual(["o1:p2:off", "o2:p2:off"]);
+      expect([s.cards.o1!.during, s.cards.o2!.during]).toEqual(["c2", "c2"]);
+    });
+
+    it("with off-page events and scenes together, only the off-page ones join the chapter", () => {
+      const s = board();
+      moveCardsTo(s, ["o1", "a"], "o1", { chapter: "c2", plotLine: "p3" }, false, NOW);
+      expect(lane(s, "o1", "a")).toEqual(["o1:p3:c2", "a:p3:c1"]);
+    });
   });
 });

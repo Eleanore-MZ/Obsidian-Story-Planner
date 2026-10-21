@@ -1,6 +1,6 @@
 import { compareDates } from "./calendar";
-import { addCharacterByName, deleteCard, setCardDate, setCardLocation, setCardTag, updateCard, updateCardCharacter } from "./edits";
-import { moveCard } from "./moves";
+import { addCharacterByName, deleteCard, setCardDate, setCardDuring, setCardLocation, setCardTag, updateCard, updateCardCharacter } from "./edits";
+import { CardTarget, moveCard } from "./moves";
 import { cardsInReadingOrder } from "./search";
 import { Card, CharacterRole, Id, Story, StoryDate } from "./types";
 
@@ -114,5 +114,77 @@ export function characterRoles(story: Story, cards: Card[]): { id: Id; role: Cha
 export function setRoleOnCards(story: Story, ids: Iterable<Id>, characterId: Id, role: CharacterRole, now = new Date().toISOString()): boolean {
   let changed = false;
   for (const card of selectedCards(story, ids)) changed = updateCardCharacter(story, card.id, characterId, { role }, now) || changed;
+  return changed;
+}
+
+/**
+ * Several selected cards dropped on the board together, where `anchorId` (the
+ * card held) was dropped at `target`. Every card goes to the target's plot
+ * line. Which of them go to the drop's place:
+ *
+ * - Dropped in another chapter than the held card's: all of them join that
+ *   chapter (or the off-page group). A selection with both off-page events and
+ *   scenes is the exception: only the off-page events join it, and the scenes
+ *   keep their chapters.
+ * - Dropped before or after a card in the held card's own chapter: the
+ *   selected cards in that chapter move there as a block; the rest keep theirs.
+ * - Dropped beside a card or in an empty cell of its own row: no card changes
+ *   chapter or row, only plot line.
+ *
+ * The cards that move to the drop's place go there one after another, in
+ * reading order. With `background`, off-page events joining a chapter stay
+ * off-page and happen during it instead. One change, so one undo step.
+ */
+export function moveCardsTo(
+  story: Story,
+  ids: Iterable<Id>,
+  anchorId: Id,
+  target: CardTarget,
+  background = false,
+  now = new Date().toISOString(),
+): boolean {
+  const cards = selectedCards(story, ids);
+  const anchor = story.cards[anchorId];
+  if (!anchor || cards.length === 0) return false;
+  const chapterIds = new Set(story.chapters.map((c) => c.id));
+  const offPage = (c: Card) => c.chapter === null || !chapterIds.has(c.chapter);
+  const mixed = cards.some(offPage) && cards.some((c) => !offPage(c));
+  const relative = target.beforeCardId ?? target.afterCardId ?? null;
+
+  let joiners: Card[];
+  if (target.chapter !== anchor.chapter) joiners = mixed ? cards.filter(offPage) : cards;
+  else if (relative) joiners = cards.filter((c) => c.chapter === target.chapter);
+  else joiners = [];
+  // In the background, only off-page events go to the chapter, and they stay off-page.
+  const during = background && target.chapter !== null ? target.chapter : null;
+  if (during) joiners = joiners.filter(offPage);
+  const joining = new Set(joiners.map((c) => c.id));
+
+  let changed = false;
+  // The rest change plot line only, each keeping its row.
+  for (const card of cards) {
+    if (joining.has(card.id) || card.plotLine === target.plotLine) continue;
+    changed = moveCard(story, card.id, { chapter: card.chapter, plotLine: target.plotLine, besideCardId: card.id }, now) || changed;
+  }
+  // The others go to the drop's place one after another. Dropping before or after a selected card places them by the
+  // first unselected card instead, or at the chapter's end.
+  let previous: Id | null = null;
+  const place = (card: Card): CardTarget => {
+    const chapter = during ? null : target.chapter;
+    if (previous) return { chapter, plotLine: target.plotLine, afterCardId: previous };
+    if (during) return { chapter, plotLine: target.plotLine };
+    const ref = target.beforeCardId ?? target.afterCardId ?? target.besideCardId;
+    if (ref && joining.has(ref)) return { chapter, plotLine: target.plotLine };
+    return { ...target, chapter };
+  };
+  for (const card of joiners) {
+    changed = moveCard(story, card.id, place(card), now) || changed;
+    if (during) changed = setCardDuring(story, card.id, during, now) || changed;
+    else if (story.cards[card.id]!.chapter !== null && story.cards[card.id]!.during) {
+      delete story.cards[card.id]!.during;
+      changed = true;
+    }
+    previous = card.id;
+  }
   return changed;
 }

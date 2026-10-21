@@ -15,7 +15,7 @@ import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFil
 import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree, plotLineColor } from "../model/setup";
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
 import { cardMatches, cardsInReadingOrder, queryTerms, searchCards } from "../model/search";
-import { deleteCards } from "../model/groupEdits";
+import { deleteCards, moveCardsTo } from "../model/groupEdits";
 import { CardPanel, NoteHost } from "./CardPanel";
 import { Minimap } from "./Minimap";
 import { guardComposition } from "./composition";
@@ -55,6 +55,8 @@ interface DropTargetSpec {
   /** With an axis, the middle half of the target means "on" rather than before or after. */
   middle: boolean;
   onDrop: (place: DropPlace) => void;
+  /** On the main board: where a drop here puts cards, for dropping several selected cards at once. */
+  board?: (place: DropPlace) => { target: CardTarget; background?: boolean };
 }
 
 /** The view tabs: label and Lucide icon name. Their order is the writer's, set by dragging. */
@@ -1423,6 +1425,14 @@ export class StoryBoardView extends TextFileView {
             }),
           ),
         );
+        this.boardTarget(el, () => ({
+          target: {
+            chapter: item.chapterId,
+            plotLine: item.plotLineId,
+            beforeCardId: chapterCards(story, item.chapterId).find((c) => !this.multi.has(c.id))?.id ?? null,
+          },
+          background: this.backgroundDrop,
+        }));
         this.echoLane(el, item.plotLineId);
         return el;
       }
@@ -1498,6 +1508,7 @@ export class StoryBoardView extends TextFileView {
           setCardDuring(s, id, item.chapterId);
         };
         this.makeDropTarget(el, "card", null, () => this.mutate((s) => during(s, this.dragged!.id)));
+        this.boardTarget(el, () => ({ target: { chapter: item.chapterId, plotLine: item.plotLineId }, background: true }));
         this.echoLane(el, item.plotLineId);
         el.addEventListener("dblclick", () => {
           let id: Id | null = null;
@@ -1522,6 +1533,7 @@ export class StoryBoardView extends TextFileView {
         this.makeDropTarget(el, "card", null, () =>
           this.mutate((s) => moveToChapter(s, this.dragged!.id, this.backgroundDrop, { chapter: item.chapterId, plotLine: item.plotLineId })),
         );
+        this.boardTarget(el, () => ({ target: { chapter: item.chapterId, plotLine: item.plotLineId }, background: this.backgroundDrop }));
         this.echoLane(el, item.plotLineId);
         return el;
       }
@@ -1532,6 +1544,7 @@ export class StoryBoardView extends TextFileView {
         this.makeDropTarget(el, "card", null, () =>
           this.mutate((s) => moveToChapter(s, this.dragged!.id, this.backgroundDrop, { chapter: item.chapterId, plotLine: item.plotLineId })),
         );
+        this.boardTarget(el, () => ({ target: { chapter: item.chapterId, plotLine: item.plotLineId }, background: this.backgroundDrop }));
         this.echoLane(el, item.plotLineId);
         return el;
       }
@@ -2787,7 +2800,9 @@ export class StoryBoardView extends TextFileView {
       let keys = { altKey: false, ctrlKey: false, metaKey: false, shiftKey: false };
       let echo = false;
       let frame = 0;
-      const label = el.innerText.split("\n")[0] ?? "";
+      // Holding one of several selected cards drags them all.
+      const many = dragged.kind === "card" && this.multi.size >= 2 && this.multi.has(dragged.id) ? [...this.multi] : null;
+      const label = many ? `${many.length} cards` : (el.innerText.split("\n")[0] ?? "");
 
       const clearMark = () => target?.el.removeClass("is-drop-target", "is-drop-before", "is-drop-after", "is-drop-echo");
 
@@ -2841,6 +2856,7 @@ export class StoryBoardView extends TextFileView {
           this.dragged = dragged;
           ghost = document.body.createDiv({ cls: "story-planner-drag-ghost", text: label });
           el.addClass("is-dragging");
+          if (many) for (const other of Array.from(this.boardEl.querySelectorAll<HTMLElement>(".story-planner-card[data-card-id]"))) if (many.includes(other.dataset.cardId!)) other.addClass("is-dragging");
           this.contentEl.addClass("is-drag-active");
         }
         ev.preventDefault();
@@ -2862,6 +2878,7 @@ export class StoryBoardView extends TextFileView {
         this.cancelDrag = () => {};
         clearMark();
         el.removeClass("is-dragging");
+        for (const other of Array.from(this.boardEl.querySelectorAll<HTMLElement>(".is-dragging"))) other.removeClass("is-dragging");
         this.contentEl.removeClass("is-drag-active", "is-echo-drag");
         if (ghost) {
           ghost.remove();
@@ -2870,7 +2887,10 @@ export class StoryBoardView extends TextFileView {
           window.setTimeout(() => (this.suppressClick = false), 0);
           if (drop && target) {
             if (echo && target.spec.plotLine) this.dropAsEcho(dragged.id, target.spec.plotLine);
-            else target.spec.onDrop(place);
+            else if (many && target.spec.board) {
+              const { target: at, background } = target.spec.board(place);
+              this.mutate((s) => moveCardsTo(s, many, dragged.id, at, !!background));
+            } else target.spec.onDrop(place);
           }
         }
         this.dragged = null;
@@ -2978,7 +2998,20 @@ export class StoryBoardView extends TextFileView {
         }),
       beside,
     );
+    this.boardTarget(el, (place) => {
+      // Beside an off-page event in a chapter's background: in that chapter's background too.
+      const during = target.chapter === null && this.story ? duringChapter(this.story, target) : undefined;
+      if (during) return { target: { chapter: during, plotLine }, background: true };
+      const relation = place === "on" ? { besideCardId: target.id } : place === "after" ? { afterCardId: target.id } : { beforeCardId: target.id };
+      return { target: { chapter: target.chapter, plotLine, ...relation }, background: this.backgroundDrop };
+    });
     this.echoLane(el, plotLine);
+  }
+
+  /** Marks a drop target on the main board with where it puts cards, so several selected cards can be dropped there. */
+  private boardTarget(el: HTMLElement, at: NonNullable<DropTargetSpec["board"]>): void {
+    const spec = this.dropTargets.get(el);
+    if (spec) spec.board = at;
   }
 
   /** Marks a card drop target as being in a plot line, for drops with the echo key held. */

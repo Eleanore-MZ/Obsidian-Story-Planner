@@ -215,25 +215,32 @@ describe("story-time layout", () => {
     expect(s.cards.late!.plotLine).toBe("p1");
   });
 
-  it("starts each year with a row that folds it, and each day at the finer zooms", () => {
+  it("groups the spans in a column before the dates, by year, month or day, and folds a span to one row", () => {
     const s = story();
     add(s, "a", d(1530, 5, 1));
     add(s, "b", d(1531, 1, 2, { minutes: 60 }), { alsoIn: ["p2"] });
     add(s, "c", d(1531, 1, 2, { minutes: 600 }));
-    const groups = (zoom: Parameters<typeof computeTimeLayout>[1], folded: string[] = []) =>
-      computeTimeLayout(s, zoom, "vertical", false, undefined, new Set(folded))
-        .items.filter((p) => p.item.kind === "time-group")
-        .map((p) => (p.item.kind === "time-group" ? `${p.item.label}${p.item.folded ? ` (${p.item.count})` : ""}` : ""));
-    expect(groups("year")).toEqual([]);
-    expect(groups("day")).toEqual(["1530", "1531"]);
-    expect(groups("time")).toEqual(["1530", "1530/05/01", "1531", "1531/01/02"]);
-    // Folding 1531 hides its spans and counts its cards, an echo in its own plot line too.
-    const key = computeTimeLayout(s, "day", "vertical").items.find((p) => p.item.kind === "time-group" && p.item.label === "1531")!;
-    const yearKey = key.item.kind === "time-group" ? key.item.key : "";
-    expect(groups("day", [yearKey])).toEqual(["1530", "1531 (2)"]);
-    const layout = computeTimeLayout(s, "day", "vertical", false, undefined, new Set([yearKey]));
-    expect(layout.items.some((p) => p.item.kind === "card" && p.item.cardId === "b")).toBe(false);
-    expect(layout.items.filter((p) => p.item.kind === "time-folded").map((p) => (p.item.kind === "time-folded" ? p.item.count : 0))).toEqual([2, 1]);
+    const bands = (zoom: Parameters<typeof computeTimeLayout>[1]) =>
+      computeTimeLayout(s, zoom, "vertical")
+        .items.filter((p) => p.item.kind === "time-band")
+        .map((p) => (p.item.kind === "time-band" ? `${p.item.label}:${p.item.bucketIds.length}` : ""));
+    expect(bands("year")).toEqual([]);
+    expect(computeTimeLayout(s, "year", "vertical").bands).toBe(false);
+    expect(bands("month")).toEqual(["1530:1", "1531:1"]);
+    expect(bands("day")).toEqual(["1530/05:1", "1531/01:1"]);
+    expect(bands("clock")).toEqual(["1530/05/01:1", "1531/01/02:2"]);
+    // The band sits in the first column, the dates in the second, the plot lines after.
+    const layout = computeTimeLayout(s, "day", "vertical");
+    const band = layout.items.find((p) => p.item.kind === "time-band")!;
+    const header = layout.items.find((p) => p.item.kind === "time-header")!;
+    expect([band.column, header.column, layout.columns]).toEqual([1, 2, 4]);
+    // A folded span is one row with its counts, an echo counted in its own plot line too.
+    const day = layout.buckets.find((b) => b.label === "1531/01/02")!.id;
+    const folded = computeTimeLayout(s, "day", "vertical", false, undefined, new Set([day]));
+    expect(folded.items.some((p) => p.item.kind === "card" && p.item.cardId === "b")).toBe(false);
+    const head = folded.items.find((p) => p.item.kind === "time-header" && p.item.bucket.id === day)!;
+    expect(head.item.kind === "time-header" && [head.item.folded, head.item.count, head.span]).toEqual([true, 2, 1]);
+    expect(folded.items.filter((p) => p.item.kind === "time-folded").map((p) => (p.item.kind === "time-folded" ? p.item.count : 0))).toEqual([2, 1]);
   });
 
   it("runs the whole timeline from the story's start to its end, widened for cards outside them", () => {

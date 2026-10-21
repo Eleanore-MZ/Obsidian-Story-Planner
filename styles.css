@@ -660,10 +660,13 @@
 /* Story time: spans of time instead of chapters, gap markers, and the undated tray. */
 
 .story-planner-time-header {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--size-2-2);
   padding: var(--size-4-2);
   font-weight: var(--font-semibold);
   color: var(--text-muted);
-  border-top: 1px solid var(--background-modifier-border);
 }
 
 .story-planner-grid.is-vertical .story-planner-time-header {
@@ -1259,7 +1262,6 @@
 .story-planner-folded-cell {
   align-self: stretch;
   padding: var(--size-4-1) var(--size-4-2);
-  border-top: 1px solid var(--background-modifier-border);
   color: var(--text-faint);
   font-size: var(--font-ui-smaller);
   text-align: center;
@@ -1955,12 +1957,7 @@ body.story-planner-reordering * {
   gap: var(--size-4-2);
   padding: var(--size-4-2) 0;
   background: var(--background-primary);
-  border-top: 2px solid var(--text-muted);
   cursor: default;
-}
-
-.story-planner-act-band.is-empty {
-  border-top-color: transparent;
 }
 
 .story-planner-grid.is-vertical .story-planner-act-band {
@@ -1990,8 +1987,6 @@ body.story-planner-reordering * {
   flex-direction: row;
   height: var(--story-planner-act-size);
   padding: 0 var(--size-4-2);
-  border-top: none;
-  border-left: 2px solid var(--text-muted);
 }
 
 .story-planner-grid.is-horizontal .story-planner-act-band .story-planner-act-label {
@@ -2041,13 +2036,7 @@ body.story-planner-reordering * {
   border-left: 2px solid var(--text-muted);
 }
 
-.story-planner-grid.is-vertical .story-planner-chapter-header.is-act-start {
-  border-top: 2px solid var(--text-muted);
-}
-
-.story-planner-grid.is-horizontal .story-planner-chapter-header.is-act-start {
-  border-left: 2px solid var(--text-muted);
-}
+/* The line between acts is the divider alone; the act and chapter cells add none of their own. */
 
 /* Story setup: acts as header rows in the chapter list, chapters indented under them. */
 /* Acts as header rows in the chapter list: a hairline above, the numeral in
@@ -3500,33 +3489,19 @@ body.story-planner-marquee-active * {
   content: none;
 }
 
-/* Story time: a year (and at the finer zooms, a day) starts with a row that folds it. */
-.story-planner-time-group {
-  display: flex;
-  align-items: center;
-  gap: var(--size-4-1);
-  padding: var(--size-2-2) var(--size-4-1);
-  border-top: 1px solid var(--background-modifier-border);
-  color: var(--text-muted);
-  font-size: var(--font-ui-small);
-  cursor: default;
-}
-
-.story-planner-time-group.is-year {
-  font-weight: var(--font-semibold);
+/* Story time: the column of years, months or days beside the dates, like acts. */
+.story-planner-time-band .story-planner-act-number {
   font-variant-numeric: tabular-nums;
-  color: var(--text-normal);
-  border-top: 2px solid var(--text-faint);
 }
 
-.story-planner-time-group .story-planner-time-group-label {
-  position: sticky;
-  left: var(--size-4-8);
+/* The fold button in a date's header, as in a chapter's. */
+.story-planner-time-header > .story-planner-fold {
+  flex: none;
 }
 
-.story-planner-time-group .story-planner-fold-count {
+.story-planner-time-header.is-folded .story-planner-fold-count {
   margin-left: var(--size-4-2);
-  font-weight: normal;
+  font-size: var(--font-ui-smaller);
   color: var(--text-faint);
 }
 
@@ -3549,4 +3524,13 @@ body.story-planner-marquee-active * {
 
 .story-planner-time-header.is-story-end {
   border-bottom: 2px solid var(--interactive-accent);
+}
+
+/* With the column of years, months or days, the dates sit after it and stay put when scrolling. */
+.story-planner-grid.is-vertical.has-acts .story-planner-time-header {
+  left: calc(var(--story-planner-act-size) + var(--size-4-2));
+}
+
+.story-planner-grid.is-horizontal.has-acts .story-planner-time-header {
+  top: calc(var(--story-planner-act-size) + var(--size-4-2));
 }

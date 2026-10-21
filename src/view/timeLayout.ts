@@ -88,7 +88,7 @@ export interface Bucket {
 export type TimeItem =
   | { kind: "corner" }
   | { kind: "lane-header"; plotLineId: Id }
-  | { kind: "time-header"; bucket: Bucket }
+  | { kind: "time-header"; bucket: Bucket; folded?: boolean; count?: number }
   | { kind: "gap"; text: string }
   /** `until` is set on a card that runs on to a later span: the span its end date falls in. */
   | { kind: "card"; cardId: Id; bucketId: string; until?: string }
@@ -100,13 +100,13 @@ export type TimeItem =
    */
   | { kind: "time-cell"; bucketId: string; plotLineId: Id; end?: boolean; rowCardId?: Id }
   /**
-   * A year (at the month zoom and finer) or a day (at the times-of-day and
-   * clock zooms) starting: a row that folds the spans in it away. `key` is
-   * what the view remembers as folded: "y:<year>" or "d:<day number>".
+   * The column before the dates, like the act column on the board: the year
+   * at the month zoom, the month at the day zoom, the day at the finer ones,
+   * running beside all of its spans. It folds them all at once.
    */
-  | { kind: "time-group"; key: string; level: "year" | "day"; label: string; folded: boolean; count: number }
-  /** A folded year's or day's row in one plot line: how many cards it has there. */
-  | { kind: "time-folded"; key: string; plotLineId: Id; count: number };
+  | { kind: "time-band"; key: string; label: string; bucketIds: string[] }
+  /** A folded span's row in one plot line: how many cards it has there. */
+  | { kind: "time-folded"; bucketId: string; plotLineId: Id; count: number };
 
 export interface PlacedTimeItem {
   item: TimeItem;
@@ -132,6 +132,8 @@ export interface TimeLayout {
   laneTracks: number[];
   /** True when the timeline was asked to show every span but is too long to at this zoom. */
   tooLongToExpand?: boolean;
+  /** True when there is a column before the dates (see "time-band"). */
+  bands: boolean;
   /** When expanded with a story start or end: the spans they fall in, to mark. */
   storyStartBucket?: string;
   storyEndBucket?: string;
@@ -277,7 +279,7 @@ export function computeTimeLayout(
   orientation: Orientation,
   expand = false,
   block = timeBlock(story),
-  /** Folded years and days, by their group keys ("y:1531", "d:559000"). */
+  /** Folded spans, by bucket id. */
   folded: ReadonlySet<string> = new Set(),
 ): TimeLayout {
   const calendar = mainCalendar(story);
@@ -365,38 +367,20 @@ export function computeTimeLayout(
   let slot = 1;
   // The span reaching furthest so far; a span that starts after it leaves a gap.
   let reach: Bucket | null = null;
-  // Years, and days at the finer zooms, each start with a row that can fold them away.
+  // The column before the dates groups the spans by the next coarser unit.
   const perDay = minutesPerDay(calendar);
-  const yearRows = ZOOM_RANK[zoom] >= 1;
-  const dayRows = ZOOM_RANK[zoom] >= 3;
-  type Group = { line: number; item: Extract<TimeItem, { kind: "time-group" }>; slot: number; lanes: Extract<TimeItem, { kind: "time-folded" }>[] };
-  let year: Group | null = null;
-  let day: Group | null = null;
-  const group = (level: "year" | "day", key: string, label: string) => {
-    const item: Extract<TimeItem, { kind: "time-group" }> = { kind: "time-group", key, level, label, folded: folded.has(key), count: 0 };
-    items.push({ item, slot, lane: 0, span: 1, depth: 0 });
-    const lanes = item.folded
-      ? story.plotLines.map((p, i) => {
-          const lane: Extract<TimeItem, { kind: "time-folded" }> = { kind: "time-folded", key, plotLineId: p.id, count: 0 };
-          items.push({ item: lane, slot, lane: i + 1, span: 1, depth: 0 });
-          return lane;
-        })
-      : [];
-    const made = { line: 0, item, slot, lanes };
-    slot++;
-    return made;
+  const bandLevel = zoom === "month" ? "year" : zoom === "day" ? "month" : zoom === "time" || zoom === "clock" ? "day" : null;
+  const bandOf = (bucket: Bucket): { key: string; label: string } | null => {
+    const n = Math.floor(bucket.start / perDay);
+    const d = dayFromNumber(calendar, n);
+    const { era, year: written } = eraYear(calendar, d.year);
+    const base = { calendar: calendar.id, year: written, ...(era ? { era } : {}) };
+    if (bandLevel === "year") return { key: `y:${d.year}`, label: formatStoryDate(story, base) };
+    if (bandLevel === "month" && bucket.date.month !== undefined) return { key: `m:${d.year}:${d.month}`, label: formatStoryDate(story, { ...base, month: d.month }) };
+    if (bandLevel === "day" && bucket.date.day !== undefined) return { key: `d:${n}`, label: formatStoryDate(story, { ...base, month: d.month, day: d.day }) };
+    return null;
   };
-  /** Counts a folded span's cards (and echoes) on its group's row. */
-  const fold = (g: Group, inBucket: Card[], bucket: Bucket) => {
-    for (const card of inBucket) {
-      g.item.count++;
-      for (const id of new Set([card.plotLine, ...card.alsoIn])) {
-        const lane = laneIndex.get(id);
-        if (lane !== undefined) g.lanes[lane]!.count++;
-      }
-    }
-    lastSlot.set(bucket.id, g.slot);
-  };
+  const bands: { key: string; label: string; start: number; end: number; bucketIds: string[] }[] = [];
   for (const { bucket, cards: inBucket } of ordered) {
     if (reach && bucket.start > reach.end) {
       items.push({ item: { kind: "gap", text: describeGap(calendar, reach.start, bucket.start) }, slot, lane: 0, span: 1, depth: 0 });
@@ -404,29 +388,30 @@ export function computeTimeLayout(
     }
     if (!reach || bucket.end > reach.end) reach = bucket;
 
-    if (yearRows) {
-      const line = dayFromNumber(calendar, Math.floor(bucket.start / perDay)).year;
-      if (!year || year.line !== line) {
-        const { era, year: written } = eraYear(calendar, line);
-        year = { ...group("year", `y:${line}`, formatStoryDate(story, { calendar: calendar.id, year: written, ...(era ? { era } : {}) })), line };
-        day = null;
-      }
-      if (year.item.folded) {
-        fold(year, inBucket, bucket);
-        continue;
-      }
+    if (bandLevel) {
+      const of = bandOf(bucket) ?? { key: "", label: "" };
+      const band = bands[bands.length - 1];
+      if (!band || band.key !== of.key || of.key === "") bands.push({ ...of, start: slot, end: slot, bucketIds: [bucket.id] });
+      else band.bucketIds.push(bucket.id);
     }
-    if (dayRows && bucket.date.day !== undefined) {
-      const n = Math.floor(bucket.start / perDay);
-      if (!day || day.line !== n) {
-        const d = dayFromNumber(calendar, n);
-        const { era, year: written } = eraYear(calendar, d.year);
-        day = { ...group("day", `d:${n}`, formatStoryDate(story, { calendar: calendar.id, year: written, ...(era ? { era } : {}), month: d.month, day: d.day })), line: n };
+
+    // A folded span: one row, with how many cards (and echoes) each plot line has in it.
+    if (folded.has(bucket.id)) {
+      const counts = story.plotLines.map(() => 0);
+      for (const card of inBucket) {
+        for (const id of new Set([card.plotLine, ...card.alsoIn])) {
+          const lane = laneIndex.get(id);
+          if (lane !== undefined) counts[lane]!++;
+        }
       }
-      if (day.item.folded) {
-        fold(day, inBucket, bucket);
-        continue;
-      }
+      items.push({ item: { kind: "time-header", bucket, folded: true, count: inBucket.length }, slot, lane: 0, span: 1, depth: 0 });
+      story.plotLines.forEach((p, lane) =>
+        items.push({ item: { kind: "time-folded", bucketId: bucket.id, plotLineId: p.id, count: counts[lane]! }, slot, lane: lane + 1, span: 1, depth: 0 }),
+      );
+      lastSlot.set(bucket.id, slot);
+      slot++;
+      if (bandLevel) bands[bands.length - 1]!.end = slot;
+      continue;
     }
 
     // A card and its echoes share a row, so an echo sits level with its card:
@@ -475,6 +460,10 @@ export function computeTimeLayout(
       }
     });
     slot += height;
+    if (bandLevel) bands[bands.length - 1]!.end = slot;
+  }
+  for (const band of bands) {
+    items.push({ item: { kind: "time-band", key: band.key, label: band.label, bucketIds: band.bucketIds }, slot: band.start, lane: -1, span: band.end - band.start, depth: 0 });
   }
 
   // A long card runs from its own row to its last span's last slot, through
@@ -491,14 +480,24 @@ export function computeTimeLayout(
   const vertical = orientation === "vertical";
   const laneCount = story.plotLines.length;
   const laneTracks = story.plotLines.map(() => 1);
-  const placed: PlacedTimeItem[] = [{ item: { kind: "corner" }, row: 1, column: 1, span: 1, cross: 1, depth: 0 }];
+  // With the column before the dates, everything across moves over by one; the corner covers both.
+  const hasBands = bands.length > 0;
+  const offset = hasBands ? 1 : 0;
+  const placed: PlacedTimeItem[] = [{ item: { kind: "corner" }, row: 1, column: 1, span: 1, cross: 1 + offset, depth: 0 }];
   story.plotLines.forEach((p, i) =>
-    placed.push({ item: { kind: "lane-header", plotLineId: p.id }, row: vertical ? 1 : i + 2, column: vertical ? i + 2 : 1, span: 1, cross: 1, depth: 0 }),
+    placed.push({
+      item: { kind: "lane-header", plotLineId: p.id },
+      row: vertical ? 1 : i + 2 + offset,
+      column: vertical ? i + 2 + offset : 1,
+      span: 1,
+      cross: 1,
+      depth: 0,
+    }),
   );
   for (const { item, slot: at, lane, span, depth } of items) {
-    placed.push({ item, row: (vertical ? at : lane) + 1, column: (vertical ? lane : at) + 1, span, cross: 1, depth });
+    placed.push({ item, row: (vertical ? at : lane + offset) + 1, column: (vertical ? lane + offset : at) + 1, span, cross: 1, depth });
   }
-  const crossCount = laneCount + 1;
+  const crossCount = laneCount + 1 + offset;
 
   return {
     rows: vertical ? slot : crossCount,
@@ -507,6 +506,7 @@ export function computeTimeLayout(
     buckets: ordered.map((b) => b.bucket),
     undated,
     laneTracks,
+    bands: hasBands,
     ...(tooLongToExpand ? { tooLongToExpand } : {}),
     ...(storyStartBucket && !tooLongToExpand ? { storyStartBucket } : {}),
     ...(storyEndBucket && !tooLongToExpand ? { storyEndBucket } : {}),

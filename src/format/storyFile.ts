@@ -308,22 +308,23 @@ function readCard(raw: unknown): Card | null {
   // Before cards were simply written or not, they had a status; drafted and
   // revised scenes count as written. The old field is not kept.
   // Relationship states belonged to a feature that has been removed; they are dropped.
-  const { status, relationshipState: _dropped, during, date, endDate, ...rest } = raw as Partial<Card> & {
+  const { status, relationshipState: _dropped, ...rest } = raw as Partial<Card> & {
     status?: unknown;
     relationshipState?: unknown;
-    during?: unknown;
   };
+  // Fields are fixed where they stand, so a card's line keeps its order and saves the same again.
+  const fields = rest as Record<string, unknown>;
   // Dates were once marked approximate; the mark is dropped.
-  const dates = {
-    ...(isObject(date) ? { date: withoutApproximate(date as StoryDate) } : {}),
-    ...(isObject(endDate) ? { endDate: withoutApproximate(endDate as StoryDate) } : {}),
-  };
+  for (const key of ["date", "endDate"] as const) {
+    if (key in fields) {
+      if (isObject(fields[key])) fields[key] = withoutApproximate(fields[key] as unknown as StoryDate);
+      else delete fields[key];
+    }
+  }
   // Only an off-page event happens during a chapter.
-  const background = typeof during === "string" && typeof raw.chapter !== "string" ? { during } : {};
+  if ("during" in fields && !(typeof fields.during === "string" && typeof raw.chapter !== "string")) delete fields.during;
   return {
     ...rest,
-    ...dates,
-    ...background,
     id: raw.id,
     title: raw.title,
     plotLine: raw.plotLine,

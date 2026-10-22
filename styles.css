@@ -3883,3 +3883,58 @@ body.story-planner-marquee-active * {
   min-width: 0;
   resize: vertical;
 }
+
+/* Event mode on the board: an event's scenes in one plot line as one block. */
+.story-planner-event-block {
+  align-self: stretch;
+  padding: var(--size-4-2) var(--size-4-3);
+  border: 1px solid color-mix(in srgb, var(--event-color) 55%, transparent);
+  border-left: 4px solid var(--event-color);
+  background: color-mix(in srgb, var(--event-color) 12%, var(--background-secondary));
+  cursor: pointer;
+}
+
+.story-planner-event-block-head {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  flex-wrap: wrap;
+}
+
+.story-planner-event-block-title {
+  font-weight: var(--font-semibold);
+}
+
+.story-planner-event-block-arc {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.story-planner-event-block-arc::after {
+  content: " ›";
+}
+
+.story-planner-event-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin: 0 0 var(--size-4-2);
+}
+
+.story-planner-event-chip {
+  padding: 0 var(--size-4-2);
+  border: 1px solid var(--event-color);
+  background: color-mix(in srgb, var(--event-color) 12%, transparent);
+  font-size: var(--font-ui-small);
+  cursor: pointer;
+}
+
+.story-planner-card-event.is-foldable {
+  cursor: pointer;
+}
+
+.story-planner-card-event.is-foldable:hover {
+  color: var(--text-normal);
+  text-decoration: underline;
+}

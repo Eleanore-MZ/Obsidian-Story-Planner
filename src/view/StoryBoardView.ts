@@ -16,7 +16,7 @@ import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree,
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
 import { cardMatches, cardsInReadingOrder, queryTerms, searchCards } from "../model/search";
 import { deleteCards, moveCardsTo, setEventOnCards } from "../model/groupEdits";
-import { addEvent, eventCards, eventOf, eventPath, eventSpan, eventTree, moveEvent, setEventParent } from "../model/events";
+import { addEvent, emptyEvents, eventCards, eventOf, eventPath, eventSpan, eventTree, moveEvent, setEventParent } from "../model/events";
 import { orgDescendants, orgTree } from "../model/entities";
 import { CardPanel, NoteHost } from "./CardPanel";
 import { Minimap } from "./Minimap";
@@ -1225,6 +1225,9 @@ export class StoryBoardView extends TextFileView {
       const shown = !this.viewState()?.hideOffPage;
       this.toolIcon(actions, "ghost", shown ? "Off-page events shown (click to hide)" : "Off-page events hidden (click to show)", () => this.setViewState({ hideOffPage: shown }), shown);
       this.toolIcon(actions, "rows-4", this.compact ? "Compact layout (click for cozy)" : "Compact layout", () => this.toggleCompact(), this.compact);
+      // Event mode: each event's scenes as one block.
+      const eventMode = !!this.viewState()?.eventMode;
+      this.toolIcon(actions, "flag", eventMode ? "Event mode (click for scenes)" : "Event mode: show events as blocks", () => this.setViewState({ eventMode: !eventMode }), eventMode);
     }
 
     const actions = tabsRow.querySelector<HTMLElement>(".story-planner-tab-actions") ?? tabsRow.createDiv({ cls: "story-planner-tab-actions" });
@@ -1318,7 +1321,35 @@ export class StoryBoardView extends TextFileView {
       return;
     }
 
-    const layout = computeBoardLayout(story, this.orientation, this.compact, this.foldedChapters, !this.viewState()?.hideOffPage);
+    const eventMode = !!this.viewState()?.eventMode && story.events.length > 0;
+    const layout = computeBoardLayout(
+      story,
+      this.orientation,
+      this.compact,
+      this.foldedChapters,
+      !this.viewState()?.hideOffPage,
+      eventMode ? { expanded: new Set(this.viewState()?.expandedEvents ?? []) } : undefined,
+    );
+    // Events without scenes have no place on the grid: they wait in a strip above it.
+    if (eventMode) {
+      const empty = emptyEvents(story);
+      if (empty.length > 0) {
+        const strip = parent.createDiv({ cls: "story-planner-event-strip" });
+        strip.createSpan({ cls: "story-planner-profile-detail", text: "Events without scenes:" });
+        for (const event of empty) {
+          const chip = strip.createSpan({ cls: "story-planner-event-chip", text: event.title || "Untitled event" });
+          chip.style.setProperty("--event-color", event.color);
+          const chapter = event.chapter ? story.chapters.find((c) => c.id === event.chapter) : undefined;
+          if (chapter) chip.createSpan({ cls: "story-planner-profile-detail", text: ` (${chapterTitle(story, chapter)})` });
+          chip.addEventListener("click", () => this.selectEvent(event.id));
+          // A scene dropped on it joins the event.
+          this.makeDropTarget(chip, "card", null, () => {
+            const ids = this.draggedMany ?? [this.dragged!.id];
+            this.mutate((s) => setEventOnCards(s, ids, event.id));
+          });
+        }
+      }
+    }
     const cls = [this.compact ? "is-compact" : "", layout.acts ? "has-acts" : ""].filter(Boolean).join(" ");
     const grid = this.spanGrid(parent, cls, layout.rows, layout.columns, "plotLine", story.plotLines.map((p) => p.id), undefined, layout.acts ? 2 : 1);
 
@@ -1550,6 +1581,37 @@ ${plotLine.synopsis.trim()}`);
               }),
           );
           menu.showAtMouseEvent(e);
+        });
+        return el;
+      }
+
+      case "event-block": {
+        // An event's scenes in this plot line, folded into one block; the arrow shows them as cards.
+        const event = story.events.find((e) => e.id === item.eventId)!;
+        const parentEvent = event.parent ? story.events.find((e) => e.id === event.parent) : undefined;
+        const el = grid.createDiv({ cls: "story-planner-event-block" });
+        el.style.setProperty("--event-color", event.color);
+        const head = el.createDiv({ cls: "story-planner-event-block-head" });
+        const open = head.createEl("button", { cls: "story-planner-fold clickable-icon" });
+        setIcon(open, "chevron-right");
+        open.setAttr("aria-label", "Show its scenes");
+        open.setAttr("title", "Show its scenes");
+        stopBoardGestures(open);
+        open.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.setViewState({ expandedEvents: [...new Set([...(this.viewState()?.expandedEvents ?? []), event.id])] });
+        });
+        if (parentEvent) head.createSpan({ cls: "story-planner-event-block-arc", text: parentEvent.title || "Untitled event" });
+        head.createSpan({ cls: "story-planner-event-block-title", text: event.title || "Untitled event" });
+        el.createDiv({ cls: "story-planner-profile-detail", text: `${item.cardIds.length} ${item.cardIds.length === 1 ? "scene" : "scenes"}` });
+        if (event.synopsis?.trim()) el.createDiv({ cls: "story-planner-card-synopsis", text: event.synopsis });
+        const matches = item.cardIds.map((id) => story.cards[id]).filter((c): c is Card => !!c).map((c) => this.highlighted(c, story));
+        if (matches.length > 0 && matches.every((m) => m === false)) el.addClass("is-dimmed");
+        el.addEventListener("click", () => this.selectEvent(event.id));
+        // A scene dropped on it joins the event.
+        this.makeDropTarget(el, "card", null, () => {
+          const ids = this.draggedMany ?? [this.dragged!.id];
+          this.mutate((s) => setEventOnCards(s, ids, event.id));
         });
         return el;
       }
@@ -1939,7 +2001,18 @@ ${plotLine.synopsis.trim()}`);
     const path = eventPath(story, card);
     if (path.length > 0 && this.shows("event")) {
       const line = el.createDiv({ cls: "story-planner-card-event", text: path.map((e) => e.title || "Untitled event").join(" › ") });
-      line.style.setProperty("--event-color", path[path.length - 1]!.color);
+      const event = path[path.length - 1]!;
+      line.style.setProperty("--event-color", event.color);
+      // In event mode, the line folds the event's scenes back into a block.
+      if (this.tab === "board" && this.viewState()?.eventMode) {
+        line.addClass("is-foldable");
+        line.setAttr("title", "Fold this event's scenes into a block");
+        stopBoardGestures(line);
+        line.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.setViewState({ expandedEvents: (this.viewState()?.expandedEvents ?? []).filter((id) => id !== event.id) });
+        });
+      }
     }
     if (story.tagsEnabled && card.tags.length > 0 && this.shows("tags")) {
       const chips = el.createDiv({ cls: "story-planner-card-tags" });

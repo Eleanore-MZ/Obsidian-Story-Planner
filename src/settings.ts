@@ -28,6 +28,9 @@ export interface StoryViewState {
   timeZoneView?: string;
   /** Story time shows every span from the first to the last, not only those with cards. */
   expandTimeline?: boolean;
+  /** Main board: events as blocks, and the events shown as their scenes instead. */
+  eventMode?: boolean;
+  expandedEvents?: string[];
   /** Folded events and arcs in the Events tab. */
   foldedEvents?: string[];
   /** Folded years and days in story time, by group key ("y:1531", "d:559000"). */

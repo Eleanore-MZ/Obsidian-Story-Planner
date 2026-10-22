@@ -15,6 +15,35 @@ function storyWithTwoPlotLines() {
 }
 
 describe("board layout", () => {
+  it("in event mode shows an event's scenes in one plot line as one block, over empty cells but never over another scene", () => {
+    const { story, main } = storyWithTwoPlotLines();
+    const ch = story.chapters[0]!.id;
+    const add = (title: string, order: number, plotLine = main) => {
+      const c = createCard({ title, plotLine, chapter: ch, order });
+      story.cards[c.id] = c;
+      return c;
+    };
+    // Rows 1 and 2 (First, Second) exist; then: e1 (row 3), other lane scene (row 4), e2 (row 5), other (row 6, same lane), e3 (row 7).
+    const e1 = add("E1", 3);
+    add("Elsewhere", 4, "p2");
+    const e2 = add("E2", 5);
+    add("Between", 6);
+    const e3 = add("E3", 7);
+    story.events = [{ id: "ev", title: "The siege", color: "#c00" }];
+    for (const c of [e1, e2, e3]) c.event = "ev";
+    const blocks = (expanded: string[] = []) =>
+      computeBoardLayout(story, "vertical", false, new Set(), true, { expanded: new Set(expanded) })
+        .items.filter((p) => p.item.kind === "event-block")
+        .map((p) => (p.item.kind === "event-block" ? p.item.cardIds.map((id) => story.cards[id]!.title).join("+") : ""));
+    // e1 and e2 have only an empty cell between them in their lane; "Between" breaks the block before e3.
+    expect(blocks()).toEqual(["E1+E2", "E3"]);
+    expect(blocks(["ev"])).toEqual([]);
+    const layout = computeBoardLayout(story, "vertical", false, new Set(), true, { expanded: new Set() });
+    expect(layout.items.some((p) => p.item.kind === "card" && p.item.cardId === e1.id)).toBe(false);
+    const block = layout.items.find((p) => p.item.kind === "event-block")!;
+    expect(block.span).toBe(3);
+  });
+
   it("shows an off-page event during a chapter in a background row at the chapter's end, and can leave off-page out", () => {
     const { story, main } = storyWithTwoPlotLines();
     const ch = story.chapters[0]!.id;

@@ -147,7 +147,7 @@ describe("acts and chapters in the story file", () => {
       { id: "c2", name: "Chapter 2: The Pier" },
       { id: "c3", name: "Epilogue" },
     ];
-    const old = serializeStory(s).replace('"schema":2', '"schema":1').replace(',"acts":[]', "");
+    const old = serializeStory(s).replace('"schema":3', '"schema":1').replace(',"acts":[]', "");
     const parsed = parseStory(old);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;

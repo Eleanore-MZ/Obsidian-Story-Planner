@@ -250,11 +250,11 @@ describe("damaged or unusual notes", () => {
     const damaged = text.replace(/\n\{"id":"k[^\n]*/, '\n{"id": broken');
     const result = parseStory(damaged);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/Card line/);
+    if (!result.ok) expect(result.error).toMatch(/Line \d+ of the data block/);
   });
 
   it("refuses stories saved by a newer version", () => {
-    const text = serializeStory(sampleStory()).replace('"schema":2', '"schema":99');
+    const text = serializeStory(sampleStory()).replace('"schema":3', '"schema":99');
     const result = parseStory(text);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/newer version/);

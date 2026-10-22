@@ -1,7 +1,19 @@
 import { formatStoryDate } from "../model/calendar";
 import { linkTarget, noteName } from "../model/links";
 import { cleanCardShows } from "../model/cardShows";
-import { Card, Chapter, STORY_SCHEMA_VERSION, Story, StoryDate, StorySetup } from "../model/types";
+import {
+  Card,
+  Chapter,
+  Character,
+  CustomFieldDef,
+  Organization,
+  STORY_SCHEMA_VERSION,
+  Story,
+  StoryDate,
+  StoryEvent,
+  StoryInfo,
+  StorySetup,
+} from "../model/types";
 import { actsShown, actTitle, chapterNumbers, chapterTitle, titleFromOldName } from "../model/chapters";
 
 // A story note has three parts:
@@ -10,9 +22,11 @@ import { actsShown, actTitle, chapterNumbers, chapterTitle, titleFromOldName } f
 //   2. A readable outline, regenerated from the data on every save. It is output
 //      only and is never parsed ("edit in the board, read anywhere").
 //   3. The data block at the end, inside an Obsidian comment so it is hidden in
-//      reading view: one JSON line for the setup, then one JSON line per card.
-//      One card per line keeps diffs readable and lets sync merges of edits to
-//      different cards land on different lines.
+//      reading view: one JSON line for the setup, then one JSON line per
+//      character, organization and event (each marked with its "kind"), then
+//      one JSON line per card. One object per line keeps diffs readable and
+//      lets sync merges of edits to different objects land on different lines.
+//      Stories saved before version 3 kept characters in the setup line.
 
 export const FRONTMATTER_KEY = "storyplanner";
 export const FRONTMATTER_VALUE = "story";
@@ -80,12 +94,31 @@ export function parseStory(text: string): ParseResult {
   if (typeof setup === "string") return { ok: false, error: setup };
 
   const cards: Record<string, Card> = {};
+  // Characters, organizations and events each have a line of their own, marked with a "kind".
+  const entities = { character: [] as Character[], organization: [] as Organization[], event: [] as StoryEvent[] };
+  const seen = new Set<string>();
   for (let i = 1; i < lines.length; i++) {
     let raw: unknown;
     try {
       raw = JSON.parse(lines[i]!);
     } catch {
-      return { ok: false, error: `Card line ${i} of the data block could not be read.` };
+      return { ok: false, error: `Line ${i} of the data block could not be read.` };
+    }
+    if (isObject(raw) && typeof raw.kind === "string") {
+      const kind = raw.kind;
+      if (kind !== "character" && kind !== "organization" && kind !== "event") {
+        return { ok: false, error: `Line ${i} of the data block is a kind of thing this version does not know ("${kind}").` };
+      }
+      const item = readEntity(kind, raw);
+      if (!item) return { ok: false, error: `Line ${i} of the data block is not a valid ${kind}.` };
+      // A sync merge can leave one twice; the first is kept.
+      if (seen.has(`${kind}:${item.id}`)) {
+        warnings.push(`A ${kind} appeared twice; kept the first.`);
+        continue;
+      }
+      seen.add(`${kind}:${item.id}`);
+      (entities[kind] as unknown[]).push(item);
+      continue;
     }
     const card = readCard(raw);
     if (card === null) {
@@ -100,6 +133,12 @@ export function parseStory(text: string): ParseResult {
     cards[card.id] = card;
   }
 
+  if (setup.schema >= 3) {
+    setup.characters = entities.character;
+    setup.organizations = entities.organization;
+    setup.events = entities.event;
+  }
+  setup.schema = STORY_SCHEMA_VERSION;
   return {
     ok: true,
     story: { ...setup, cards },
@@ -237,8 +276,12 @@ export function escapeLine(line: string): string {
 // Data block
 
 function renderDataBlock(story: Story): string {
-  const { cards, ...setup } = story;
+  const { cards, characters, organizations, events, ...setup } = story;
   const lines = [encodeLine(setup)];
+  // One line each, in the writer's order, id and name first.
+  for (const c of characters) lines.push(encodeLine({ kind: "character", ...c }));
+  for (const o of organizations) lines.push(encodeLine({ kind: "organization", ...o }));
+  for (const e of events) lines.push(encodeLine({ kind: "event", ...e }));
   // Cards sorted by id, so moving a card never moves its line.
   for (const id of Object.keys(cards).sort()) {
     const { id: cardId, title, ...rest } = cards[id]!;
@@ -260,7 +303,8 @@ function readSetup(raw: unknown): StorySetup | string {
     return "This story was saved by a newer version of Story Planner. Update the plugin to open it.";
   }
   return {
-    schema: STORY_SCHEMA_VERSION,
+    // The version it was saved with, for reading the rest; parseStory sets the current one.
+    schema,
     title: typeof raw.title === "string" ? raw.title : "Untitled story",
     // Plot lines no longer name characters (that was the removed relationships feature).
     plotLines: arrayOf<Record<string, unknown>>(raw.plotLines).map(({ characters: _dropped, ...p }) => p) as unknown as StorySetup["plotLines"],
@@ -271,7 +315,14 @@ function readSetup(raw: unknown): StorySetup | string {
     acts: arrayOf(raw.acts),
     // Before version 2 a chapter's number was part of its name: "Chapter 3: The Pier".
     chapters: schema < 2 ? arrayOf<Chapter>(raw.chapters).map((c) => ({ ...c, name: titleFromOldName(String(c.name ?? "")) })) : arrayOf(raw.chapters),
-    characters: arrayOf(raw.characters),
+    // Before version 3 characters were part of the setup line; since then each has a line of its own.
+    characters: schema < 3 ? arrayOf<Character>(raw.characters) : [],
+    organizations: [],
+    events: [],
+    customFields: arrayOf<CustomFieldDef>(raw.customFields).filter(
+      (f) => isObject(f) && typeof f.id === "string" && typeof f.name === "string" && ["text", "date", "choice"].includes(f.type),
+    ),
+    ...(isObject(raw.info) ? { info: cleanInfo(raw.info) } : {}),
     locations: arrayOf(raw.locations),
     tags: arrayOf(raw.tags),
     // Scene tags can no longer be switched off; a story that had them off shows them again.
@@ -288,6 +339,27 @@ function readSetup(raw: unknown): StorySetup | string {
     ...(isStoredDate(raw.storyStart) ? { storyStart: withoutApproximate(raw.storyStart) } : {}),
     ...(isStoredDate(raw.storyEnd) ? { storyEnd: withoutApproximate(raw.storyEnd) } : {}),
   };
+}
+
+/** A character, organization or event line, or null when it lacks an id and a name (or title). */
+function readEntity(kind: "character" | "organization" | "event", raw: Record<string, unknown>): Character | Organization | StoryEvent | null {
+  const { kind: _kind, ...rest } = raw;
+  if (typeof rest.id !== "string") return null;
+  if (kind === "event") {
+    if (typeof rest.title !== "string") return null;
+    return { ...rest, color: typeof rest.color === "string" ? rest.color : "#888888" } as unknown as StoryEvent;
+  }
+  if (typeof rest.name !== "string") return null;
+  return { ...rest, color: typeof rest.color === "string" ? rest.color : "#888888" } as unknown as Character | Organization;
+}
+
+/** The story's general information, keeping only text fields. */
+function cleanInfo(raw: Record<string, unknown>): StoryInfo {
+  const out: StoryInfo = {};
+  for (const key of ["logline", "genre", "premise", "themes", "notes"] as const) {
+    if (typeof raw[key] === "string" && raw[key]) out[key] = raw[key] as string;
+  }
+  return out;
 }
 
 /** A date as stored: an object with a calendar and a whole year at least. */

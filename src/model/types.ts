@@ -3,7 +3,7 @@
 // See docs/design.md for the reasoning behind each concept.
 
 /** Bumped whenever the stored shape changes, so older stories can be upgraded. */
-export const STORY_SCHEMA_VERSION = 2;
+export const STORY_SCHEMA_VERSION = 3;
 
 export type Id = string;
 
@@ -17,6 +17,8 @@ export interface PlotLine {
   /** The category this plot line belongs to, such as "Main story lines". */
   category?: Id;
   description?: string;
+  /** What the plot line is about, for setup and the outline. */
+  synopsis?: string;
 }
 
 /** A group of plot lines, such as "Main story lines" or "Relationship development". */
@@ -45,15 +47,97 @@ export interface Act {
   summary?: string;
 }
 
-export interface Character {
+/** A value of a story's own field on a character or organization: text, a choice's name, or a story date. */
+export type CustomValue = string | StoryDate;
+
+/** A field the writer adds to every character or organization profile, such as "Age" or "Motto". */
+export interface CustomFieldDef {
   id: Id;
   name: string;
+  type: "text" | "date" | "choice";
+  /** For a choice field: the choices. */
+  options?: string[];
+  /** Which profiles have it. */
+  appliesTo: "character" | "organization" | "both";
+}
+
+/** What characters and organizations share: a name, a colour, a summary, a note. */
+export interface Entity {
+  id: Id;
+  name: string;
+  /** A shorter name for tight spaces, such as chips on cards. */
+  shortName?: string;
   color: string;
+  /** One or two lines: who or what this is. */
+  summary?: string;
   description?: string;
+  /** Values of the story's own fields, by field id. */
+  fields?: Record<Id, CustomValue>;
+  /** Vault path of an optional note. */
+  note?: string;
+}
+
+/** A character's place in an organization, perhaps with a rank and only for a stretch of story time. */
+export interface Membership {
+  id: Id;
+  rank?: string;
+  from?: StoryDate;
+  until?: StoryDate;
+}
+
+export interface Character extends Entity {
+  /** Other names the character goes by. */
+  aliases?: string[];
+  /** The character's part in the story, in the writer's words: "Protagonist", "The mentor". */
+  role?: string;
+  orgs?: Membership[];
+  born?: StoryDate;
+  died?: StoryDate;
   /** Default time zone for cards where this character is the point of view. */
   zone?: Id;
-  /** Vault path of an optional character note. */
-  note?: string;
+}
+
+/** A group in the story: a family, a guild, a government, a crew. */
+export interface Organization extends Entity {
+  /** The organization it belongs to, such as a branch of a guild. */
+  parent?: Id;
+}
+
+/** How an organization takes part in a scene. */
+export type OrgRole = "involved" | "mentioned";
+
+export interface CardOrg {
+  id: Id;
+  role: OrgRole;
+}
+
+/**
+ * Something that happens across several scenes, such as "The siege" or "The
+ * wedding". A card belongs to at most one event; an event can sit inside one
+ * other (an arc). Its stretch of story time comes from its cards, unless the
+ * writer sets one.
+ */
+export interface StoryEvent {
+  id: Id;
+  title: string;
+  synopsis?: string;
+  color: string;
+  /** The arc this event is part of. */
+  parent?: Id;
+  status?: string;
+  start?: StoryDate;
+  end?: StoryDate;
+  /** Where an event without cards shows on the board. */
+  chapter?: Id;
+}
+
+/** What the story is: shown first in the outline. */
+export interface StoryInfo {
+  logline?: string;
+  genre?: string;
+  premise?: string;
+  themes?: string;
+  notes?: string;
 }
 
 export interface Location {
@@ -165,6 +249,10 @@ export interface Card {
   timeOrder?: number;
   location?: Id;
   characters: CardCharacter[];
+  /** The event the scene is part of. */
+  event?: Id;
+  /** Organizations in the scene. */
+  orgs?: CardOrg[];
   /** Whether the scene has been written yet. */
   written: boolean;
   tags: Id[];
@@ -187,6 +275,13 @@ export interface StorySetup {
   colorByCategory: boolean;
   chapters: Chapter[];
   characters: Character[];
+  organizations: Organization[];
+  /** Events and arcs, in the writer's order. */
+  events: StoryEvent[];
+  /** The story's own fields on character and organization profiles. */
+  customFields: CustomFieldDef[];
+  /** What the story is, for the outline: logline, genre, premise, themes. */
+  info?: StoryInfo;
   locations: Location[];
   tags: StoryTag[];
   tagsEnabled: boolean;
@@ -203,7 +298,7 @@ export interface StorySetup {
   storyStart?: StoryDate;
   storyEnd?: StoryDate;
   /** What this story's cards show, where it differs from the plugin's defaults. */
-  cardShows?: Partial<Record<"chapter" | "date" | "synopsis" | "tags" | "characters" | "place" | "written" | "notes", boolean>>;
+  cardShows?: Partial<Record<"chapter" | "date" | "synopsis" | "tags" | "characters" | "organizations" | "event" | "place" | "written" | "notes", boolean>>;
 }
 
 export interface Story extends StorySetup {

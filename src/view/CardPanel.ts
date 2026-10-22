@@ -16,7 +16,9 @@ import {
 import { compareDates, effectiveZone, ZoneSource } from "../model/calendar";
 import { locationTree, plotLineColor } from "../model/setup";
 import { chapterTitle } from "../model/chapters";
-import { Card, CharacterRole, Id, Story } from "../model/types";
+import { Card, CharacterRole, Id, OrgRole, Story } from "../model/types";
+import { addOrganization, addOrgByName, ageAt, nextOrgRole, orgRoles, setCardOrg } from "../model/entities";
+import { addEvent, eventTree, setCardEvent } from "../model/events";
 import {
   addCharacterToCards,
   common,
@@ -31,6 +33,8 @@ import {
   nextRole,
   setRoleOnCards,
   setWrittenOnCards,
+  setEventOnCards,
+  setOrgOnCards,
   tagState,
 } from "../model/groupEdits";
 import { isUntitled } from "../model/defaults";
@@ -68,6 +72,8 @@ export interface CardPanelHost {
   deleted(title: string): void;
   /** Called after several selected cards were deleted from the panel. */
   deletedMany?(count: number): void;
+  /** Opens an event's page. */
+  openEvent?(eventId: Id): void;
   /** True when the card opens as a page in the middle of the board rather than in the side panel. */
   centre?(): boolean;
   notes: NoteHost;
@@ -87,7 +93,7 @@ export class CardPanel {
   /** Whether "Also in" is unfolded; reset when another card is shown. */
   private echoesOpen = false;
   /** The character picker, kept open (with what was typed) while the panel redraws around it. */
-  private picker: { query: string } | null = null;
+  private picker: { key: string; query: string } | null = null;
   private closePicker: (() => void) | null = null;
 
   constructor(parent: HTMLElement, private host: CardPanelHost) {
@@ -168,6 +174,17 @@ export class CardPanel {
       if (value !== MIXED) edit((s) => moveCardsToChapter(s, ids, value === OFF_PAGE ? null : value));
     });
 
+    const event = common(cards, (c) => (c.event && story.events.some((e) => e.id === c.event) ? c.event : ""));
+    this.select(this.prop(props, "Event", "flag"), mixed(eventOptions(story), event), event === "mixed" ? MIXED : event, (value) => {
+      if (value === MIXED) return;
+      if (value === NEW_EVENT) {
+        edit((s) => {
+          const created = addEvent(s, "New event");
+          return setEventOnCards(s, ids, created);
+        });
+      } else edit((s) => setEventOnCards(s, ids, value || undefined));
+    });
+
     const date = common(cards, (c) => c.date);
     const when = this.prop(props, "When", "calendar");
     if (date === "mixed") when.createDiv({ cls: "story-planner-date-hint", text: "Dates differ; a date set here goes on all of them." });
@@ -192,7 +209,7 @@ export class CardPanel {
     const value = this.prop(props, "Characters", "users");
     const roles = characterRoles(story, cards);
     this.characterPicker(value, story, roles.map((r) => ({ id: r.id, role: r.role, partial: !r.onAll })), {
-      cycle: (characterId, role) => edit((s) => setRoleOnCards(s, ids, characterId, nextRole(role))),
+      cycle: (characterId, role) => edit((s) => setRoleOnCards(s, ids, characterId, nextRole(role as CharacterRole | "mixed"))),
       toggle: (characterId, on) => {
         if (on) edit((s) => addCharacterToCards(s, ids, story.characters.find((c) => c.id === characterId)!.name));
         else edit((s) => cards.reduce((changed, card) => removeCardCharacter(s, card.id, characterId) || changed, false));
@@ -200,13 +217,31 @@ export class CardPanel {
       create: (name) => edit((s) => addCharacterToCards(s, ids, name)),
     });
 
+    // Organizations, the same way.
+    const orgs = orgRoles(story, cards);
+    this.characterPicker(
+      this.prop(props, "Organizations", "landmark"),
+      story,
+      orgs.map((r) => ({ id: r.id, role: r.role, partial: !r.onAll })),
+      {
+        cycle: (orgId, role) => edit((s) => setOrgOnCards(s, ids, orgId, nextOrgRole(role as OrgRole | "mixed"), true)),
+        toggle: (orgId, on) => edit((s) => setOrgOnCards(s, ids, orgId, on ? "involved" : null)),
+        create: (name) =>
+          edit((s) => {
+            const org = addOrganization(s, name);
+            return setOrgOnCards(s, ids, org, "involved");
+          }),
+      },
+      orgKind(story),
+    );
+
     const footer = el.createDiv({ cls: "story-planner-panel-footer" });
     const remove = footer.createEl("button", { cls: "story-planner-delete", text: `Delete ${cards.length} cards` });
     remove.addEventListener("click", () => {
       edit((s) => deleteCards(s, ids));
       this.host.deletedMany?.(cards.length);
     });
-    if (reopen) this.el.querySelector<HTMLElement>(".story-planner-multi")?.click();
+    if (reopen) this.el.querySelector<HTMLElement>(`.story-planner-multi[data-picker="${reopen.key}"]`)?.click();
   }
 
   /**
@@ -394,9 +429,24 @@ export class CardPanel {
       select.dataset.field = "during";
     }
 
+    // The event the scene is part of; "New event…" makes one and puts the card in it.
+    const eventValue = this.prop(props, "Event", "flag");
+    const eventSelect = this.select(eventValue, eventOptions(story), card.event && story.events.some((e) => e.id === card.event) ? card.event : "", (value) => {
+      if (value === NEW_EVENT) {
+        this.host.edit((s) => setCardEvent(s, id, addEvent(s, isUntitled(card.title) ? "New event" : card.title)));
+      } else this.host.edit((s) => setCardEvent(s, id, value || undefined));
+    });
+    eventSelect.dataset.field = "event";
+    if (card.event && this.host.openEvent) {
+      const open = eventValue.createEl("button", { cls: "story-planner-date-add", text: "Open event" });
+      const eventId = card.event;
+      open.addEventListener("click", () => this.host.openEvent!(eventId));
+    }
+
     this.buildDates(props);
     this.buildPlace(props);
     this.buildCharacters(props);
+    this.buildOrganizations(props);
     this.buildNotes(props);
 
     const footer = el.createDiv({ cls: "story-planner-panel-footer" });
@@ -406,7 +456,7 @@ export class CardPanel {
       this.host.edit((s) => deleteCard(s, id));
       this.host.deleted(name);
     });
-    if (reopen) this.el.querySelector<HTMLElement>(".story-planner-multi")?.click();
+    if (reopen) this.el.querySelector<HTMLElement>(`.story-planner-multi[data-picker="${reopen.key}"]`)?.click();
   }
 
   /**
@@ -540,7 +590,12 @@ export class CardPanel {
     const id = card.id;
     const value = this.prop(props, "Characters", "users");
     this.characterPicker(value, story, card.characters.map((c) => ({ id: c.id, role: c.role, partial: false })), {
-      cycle: (characterId, role) => this.host.edit((s) => updateCardCharacter(s, id, characterId, { role: nextRole(role) })),
+      cycle: (characterId, role) => this.host.edit((s) => updateCardCharacter(s, id, characterId, { role: nextRole(role as CharacterRole | "mixed") })),
+      // Their age in the scene, when they have a birth date and the scene a date.
+      extra: (characterId) => {
+        const age = ageAt(story, story.characters.find((c) => c.id === characterId)?.born, card.date);
+        return age === undefined ? "" : `${age}`;
+      },
       note: {
         get: (characterId) => card.characters.find((c) => c.id === characterId)?.note ?? "",
         set: (characterId, note) => this.host.edit((s) => updateCardCharacter(s, id, characterId, { note }), `note:${id}:${characterId}`),
@@ -553,37 +608,71 @@ export class CardPanel {
     });
   }
 
+  /** The organizations in the scene, like its characters: involved or mentioned, click the role to change it. */
+  private buildOrganizations(props: HTMLElement): void {
+    const card = this.card!;
+    const story = this.story!;
+    const id = card.id;
+    this.characterPicker(
+      this.prop(props, "Organizations", "landmark"),
+      story,
+      (card.orgs ?? []).map((o) => ({ id: o.id, role: o.role, partial: false })),
+      {
+        cycle: (orgId, role) => this.host.edit((s) => setCardOrg(s, id, orgId, nextOrgRole(role as OrgRole | "mixed"))),
+        toggle: (orgId, on) => this.host.edit((s) => setCardOrg(s, id, orgId, on ? "involved" : null)),
+        create: (name) => this.host.edit((s) => addOrgByName(s, id, name)),
+      },
+      orgKind(story),
+    );
+  }
+
   /** The chip box and its drop-down list, shared by one card and by several selected cards. */
   private characterPicker(
     parent: HTMLElement,
     story: Story,
-    entries: { id: Id; role: CharacterRole | "mixed"; partial: boolean }[],
+    entries: { id: Id; role: string; partial: boolean }[],
     on: {
       /** The role was clicked: move on to the next one. */
-      cycle: (characterId: Id, role: CharacterRole | "mixed") => void;
+      cycle: (characterId: Id, role: string) => void;
+      /** A little text after the name, such as the character's age in the scene. */
+      extra?: (characterId: Id) => string;
       /** What each character does in the scene, for a single card. */
       note?: { get: (characterId: Id) => string; set: (characterId: Id, note: string) => void };
       toggle: (characterId: Id, on: boolean) => void;
       create: (name: string) => void;
     },
+    /** What is picked: characters (the default) or organizations, with their roles' names. */
+    kind: { key: string; label: string; items: { id: Id; name: string; color: string }[]; roleLabel: (role: string) => string } = {
+      key: "characters",
+      label: "Characters",
+      items: story.characters,
+      roleLabel: (role) => ROLE_LABELS[role as CharacterRole] ?? role,
+    },
   ): void {
+    const pool = kind.items;
     // In the list, ticked means on the card (on every selected card).
     const chosen = new Set(entries.filter((e) => !e.partial).map((e) => e.id));
     // One row per character: the name, what they do here (on the page in the
     // middle, beside the name; in the side panel, on a line below), the role at the right.
     const box = parent.createDiv({ cls: "story-planner-multi is-rows" });
+    box.dataset.picker = kind.key;
     box.tabIndex = 0;
     box.setAttr("role", "combobox");
-    box.setAttr("aria-label", "Characters");
+    box.setAttr("aria-label", kind.label);
     const chosenList = entries
-      .map((e) => ({ entry: e, character: story.characters.find((c) => c.id === e.id) }))
+      .map((e) => ({ entry: e, character: pool.find((c) => c.id === e.id) }))
       .filter((x): x is { entry: (typeof entries)[number]; character: NonNullable<typeof x.character> } => !!x.character);
     for (const { entry, character } of chosenList) {
       // The row is plain; the name is boxed in the role's style, and the role word takes the character's colour.
       const chip = box.createDiv({ cls: "story-planner-multi-row" });
       chip.toggleClass("is-partial", entry.partial);
       chip.style.setProperty("--chip-color", character.color);
-      chip.createSpan({ cls: `story-planner-multi-chip-name story-planner-role-chip role-${entry.role}`, text: character.name });
+      const name = chip.createSpan({ cls: `story-planner-multi-chip-name story-planner-role-chip role-${entry.role}`, text: character.name });
+      const extra = on.extra?.(character.id);
+      if (extra) {
+        name.createSpan({ cls: "story-planner-multi-chip-extra", text: extra });
+        name.setAttr("title", `${character.name}, ${extra} in this scene`);
+      }
       if (entry.partial) chip.setAttr("title", "On some of the selected cards");
       if (on.note) {
         const note = chip.createEl("input", { cls: "story-planner-multi-chip-note" });
@@ -595,9 +684,9 @@ export class CardPanel {
         note.addEventListener("keydown", (e) => e.stopPropagation());
         note.addEventListener("input", () => on.note!.set(character.id, note.value));
       }
-      const role = chip.createEl("button", { cls: "story-planner-role-cycle", text: entry.role === "mixed" ? "Mixed" : ROLE_LABELS[entry.role] });
+      const role = chip.createEl("button", { cls: "story-planner-role-cycle", text: entry.role === "mixed" ? "Mixed" : kind.roleLabel(entry.role) });
       role.toggleClass("is-mixed", entry.role === "mixed");
-      role.setAttr("aria-label", `Role: ${entry.role === "mixed" ? "mixed" : ROLE_LABELS[entry.role]}. Click for the next one.`);
+      role.setAttr("aria-label", `Role: ${entry.role === "mixed" ? "mixed" : kind.roleLabel(entry.role)}. Click for the next one.`);
       role.addEventListener("click", (e) => {
         e.stopPropagation();
         on.cycle(character.id, entry.role);
@@ -614,23 +703,23 @@ export class CardPanel {
     const open = () => {
       if (box.hasClass("is-open")) return;
       box.addClass("is-open");
-      this.picker = this.picker ?? { query: "" };
+      this.picker = this.picker?.key === kind.key ? this.picker : { key: kind.key, query: "" };
       const pop = parent.createDiv({ cls: "story-planner-multi-pop" });
       const input = pop.createEl("input", { cls: "story-planner-multi-search" });
       input.type = "text";
       input.placeholder = "Search, or type a new name";
       input.value = this.picker.query;
-      input.dataset.field = "character-search";
+      input.dataset.field = `${kind.key}-search`;
       const list = pop.createDiv({ cls: "story-planner-multi-list" });
       let active = 0;
       const items = () => {
         const q = fold(input.value.trim());
-        return story.characters.filter((c) => !q || fold(c.name).includes(q));
+        return pool.filter((c) => !q || fold(c.name).includes(q));
       };
       const draw = () => {
         list.empty();
         const shown = items();
-        const exact = story.characters.some((c) => fold(c.name) === fold(input.value.trim()));
+        const exact = pool.some((c) => fold(c.name) === fold(input.value.trim()));
         shown.forEach((c, i) => {
           const row = list.createDiv({ cls: "story-planner-multi-option" });
           row.toggleClass("is-active", i === active);
@@ -651,13 +740,13 @@ export class CardPanel {
         }
       };
       input.addEventListener("input", () => {
-        this.picker = { query: input.value };
+        this.picker = { key: kind.key, query: input.value };
         active = 0;
         draw();
       });
       input.addEventListener("keydown", (e) => {
         const shown = items();
-        const count = shown.length + (input.value.trim() && !story.characters.some((c) => fold(c.name) === fold(input.value.trim())) ? 1 : 0);
+        const count = shown.length + (input.value.trim() && !pool.some((c) => fold(c.name) === fold(input.value.trim())) ? 1 : 0);
         if (e.key === "ArrowDown" || e.key === "ArrowUp") {
           e.preventDefault();
           active = count === 0 ? 0 : (active + (e.key === "ArrowDown" ? 1 : -1) + count) % count;
@@ -734,6 +823,30 @@ const ZONE_SOURCES: Record<ZoneSource, string> = {
 
 /** Dropdown value for the off-page group, which has no chapter id. */
 const OFF_PAGE = "";
+
+/** Dropdown value for making a new event. */
+const NEW_EVENT = "\u0000new";
+
+/** The event dropdown: no event, the events (those in an arc under it), and a new one. */
+function eventOptions(story: Story): Record<string, string> {
+  const options: Record<string, string> = { "": "No event" };
+  for (const { event, children } of eventTree(story)) {
+    options[event.id] = event.title || "Untitled event";
+    for (const child of children) options[child.id] = `\u2003${child.title || "Untitled event"}`;
+  }
+  options[NEW_EVENT] = "New event…";
+  return options;
+}
+
+/** The organizations, as the chip box picks them. */
+function orgKind(story: Story) {
+  return {
+    key: "organizations",
+    label: "Organizations",
+    items: story.organizations,
+    roleLabel: (role: string) => (role === "mentioned" ? "Mentioned" : "Involved"),
+  };
+}
 
 /** Dropdown value shown when the selected cards differ. */
 const MIXED = "\u0000mixed";

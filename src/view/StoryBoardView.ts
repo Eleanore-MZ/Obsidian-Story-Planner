@@ -16,11 +16,14 @@ import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree,
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
 import { cardMatches, cardsInReadingOrder, queryTerms, searchCards } from "../model/search";
 import { deleteCards, moveCardsTo } from "../model/groupEdits";
+import { eventPath, eventTree } from "../model/events";
+import { orgDescendants, orgTree } from "../model/entities";
 import { CardPanel, NoteHost } from "./CardPanel";
 import { Minimap } from "./Minimap";
 import { guardComposition } from "./composition";
 import { STORY_ICON } from "../icon";
 import { SetupPanel } from "./SetupPanel";
+import { ProfilesView } from "./ProfilesView";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
 import { ChoiceModal, DateModal, FormField, FormModal, LaneModal, TextPromptModal } from "./modals";
 import {
@@ -134,6 +137,14 @@ export class StoryBoardView extends TextFileView {
   private backgroundDrop = false;
   /** The spans the story's start and end fall in, as story time last drew them. */
   private storySpan: { start?: string; end?: string } = {};
+  /** Character and organization profiles, in the Characters view. */
+  private profiles = new ProfilesView({
+    edit: (change, coalesce) => this.mutate(change, coalesce),
+    openCard: (id) => this.revealCard(id),
+    shown: () => ({ kind: this.viewState()?.profileKind ?? "character", id: this.viewState()?.profileId }),
+    show: (kind, id) => this.setViewState({ profileKind: kind, profileId: id }),
+    notes: this.noteHost(),
+  });
   /** When Ctrl+wheel last zoomed, so one notch is one step. */
   private lastWheel = 0;
   /** Cards selected together with Ctrl+click or Shift+click; two or more open the group editor. */
@@ -1238,7 +1249,9 @@ export class StoryBoardView extends TextFileView {
       this.panel.show(story, withPanel ? this.panel.selected : null, typing);
     }
     this.setup.refresh(story, typing);
-    if (withPanel) this.renderBoard(story);
+    // While typing on the board itself (a profile, the outline), it is not redrawn under the cursor.
+    const typingOnBoard = typing && this.boardEl.contains(document.activeElement);
+    if (withPanel && !typingOnBoard) this.renderBoard(story);
     this.minimap.setVisible(withPanel && !onOutline && !!this.viewState()?.minimap);
   }
 
@@ -1248,6 +1261,11 @@ export class StoryBoardView extends TextFileView {
    */
   private renderBoard(story: Story): void {
     const { scrollTop, scrollLeft } = this.boardEl;
+    // A field on the board being edited (a profile's, the outline's) gets the cursor back after the redraw.
+    const active = document.activeElement;
+    const focused = active instanceof HTMLElement && this.boardEl.contains(active) ? active.dataset.field : undefined;
+    const caret =
+      active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement ? [active.selectionStart, active.selectionEnd] : null;
     const content = document.createElement("div");
     if (this.tab === "time") this.fillTime(content, story);
     else if (this.tab === "characters") this.fillCharacters(content, story);
@@ -1256,6 +1274,11 @@ export class StoryBoardView extends TextFileView {
     this.boardEl.replaceChildren(...Array.from(content.childNodes));
     this.boardEl.scrollTop = scrollTop;
     this.boardEl.scrollLeft = scrollLeft;
+    if (focused) {
+      const again = this.boardEl.querySelector<HTMLElement>(`[data-field="${CSS.escape(focused)}"]`);
+      again?.focus({ preventScroll: true });
+      if (caret && (again instanceof HTMLInputElement || again instanceof HTMLTextAreaElement)) again.setSelectionRange(caret[0] ?? null, caret[1] ?? null);
+    }
     // Act and chapter labels stay just below the header row while their rows scroll past.
     const grid = this.boardEl.querySelector<HTMLElement>(".story-planner-grid");
     const headerRow = grid?.querySelector<HTMLElement>(".story-planner-lane-header");
@@ -1348,12 +1371,27 @@ export class StoryBoardView extends TextFileView {
         el.createSpan({ cls: "story-planner-lane-name", text: plotLine?.name ?? "" });
         this.laneControls(el, "plotLine", item.plotLineId, plotLine?.name ?? "this plot line");
         el.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
+        if (plotLine?.synopsis?.trim()) el.setAttr("title", `${plotLine.name}
+
+${plotLine.synopsis.trim()}`);
+        // Double-click edits its name and synopsis.
         el.addEventListener("dblclick", () => {
           if (!plotLine) return;
-          new TextPromptModal(this.app, "Rename plot line", plotLine.name, (name) =>
-            this.mutate((s) => {
-              s.plotLines.find((p) => p.id === plotLine.id)!.name = name;
-            }),
+          new FormModal(
+            this.app,
+            `Edit ${plotLine.name}`,
+            [
+              { key: "name", label: "Name", kind: "text", value: plotLine.name },
+              { key: "synopsis", label: "Synopsis", kind: "textarea", value: plotLine.synopsis ?? "", placeholder: "What this plot line is about" },
+            ],
+            (values) =>
+              this.mutate((s) => {
+                const p = s.plotLines.find((x) => x.id === plotLine.id)!;
+                if (values.name?.trim()) p.name = values.name.trim();
+                const synopsis = values.synopsis?.trim();
+                if (synopsis) p.synopsis = synopsis;
+                else delete p.synopsis;
+              }),
           ).open();
         });
         this.makeDraggable(el, { kind: "plotLine", id: item.plotLineId });
@@ -1665,6 +1703,17 @@ export class StoryBoardView extends TextFileView {
       for (const [value, text] of items) el.createEl("option", { text }).value = value;
     };
     group("Characters", story.characters.map((c) => [`character:${c.id}`, c.name]));
+    group(
+      "Organizations",
+      orgTree(story).flatMap(({ org, depth }): [string, string][] => [
+        [`org:${org.id}`, `${" ".repeat(depth)}${org.name}`],
+        [`orgmembers:${org.id}`, `${" ".repeat(depth)}${org.name} and its members`],
+      ]),
+    );
+    group("Events", eventTree(story).flatMap(({ event, children }): [string, string][] => [
+      [`event:${event.id}`, event.title || "Untitled event"],
+      ...children.map((c): [string, string] => [`event:${c.id}`, ` ${c.title || "Untitled event"}`]),
+    ]));
     group("Scene tags", story.tags.map((t) => [`tag:${t.id}`, t.name]));
     group("Places", locationTree(story).map(({ location, depth }) => [`location:${location.id}`, `${"\u2003".repeat(depth)}${location.name}`]));
     select.value = this.highlight;
@@ -1680,6 +1729,18 @@ export class StoryBoardView extends TextFileView {
     if (!kind || !id) return undefined;
     if (kind === "character") return story.characters.some((c) => c.id === id) ? card.characters.some((c) => c.id === id) : undefined;
     if (kind === "tag") return story.tags.some((t) => t.id === id) ? card.tags.includes(id) : undefined;
+    if (kind === "org" || kind === "orgmembers") {
+      if (!story.organizations.some((o) => o.id === id)) return undefined;
+      // An organization stands for the ones inside it too.
+      const ids = new Set([id, ...orgDescendants(story, id)]);
+      if (card.orgs?.some((o) => ids.has(o.id))) return true;
+      if (kind === "org") return false;
+      return card.characters.some((e) => story.characters.find((c) => c.id === e.id)?.orgs?.some((m) => ids.has(m.id)));
+    }
+    if (kind === "event") {
+      if (!story.events.some((e) => e.id === id)) return undefined;
+      return eventPath(story, card).some((e) => e.id === id);
+    }
     if (kind === "location") {
       if (!story.locations.some((l) => l.id === id)) return undefined;
       return !!card.location && locationAndInside(story, id).has(card.location);
@@ -1719,6 +1780,23 @@ export class StoryBoardView extends TextFileView {
         chip.style.setProperty("--chip-color", character.color);
         chip.setAttr("title", `${character.name}: ${ROLE_LABELS[entry.role]}`);
       }
+    }
+    // Organizations the same way: involved outlined, mentioned dashed.
+    if (card.orgs && card.orgs.length > 0 && this.shows("organizations")) {
+      const chips = el.createDiv({ cls: "story-planner-card-characters" });
+      for (const entry of card.orgs) {
+        const org = story.organizations.find((o) => o.id === entry.id);
+        if (!org) continue;
+        const chip = chips.createSpan({ cls: `story-planner-role-chip role-${entry.role}`, text: org.shortName || org.name });
+        chip.style.setProperty("--chip-color", org.color);
+        chip.setAttr("title", `${org.name}: ${entry.role === "mentioned" ? "mentioned" : "involved"}`);
+      }
+    }
+    // The event the scene is part of, with its arc.
+    const path = eventPath(story, card);
+    if (path.length > 0 && this.shows("event")) {
+      const line = el.createDiv({ cls: "story-planner-card-event", text: path.map((e) => e.title || "Untitled event").join(" › ") });
+      line.style.setProperty("--event-color", path[path.length - 1]!.color);
     }
     if (story.tagsEnabled && card.tags.length > 0 && this.shows("tags")) {
       const chips = el.createDiv({ cls: "story-planner-card-tags" });
@@ -2377,8 +2455,9 @@ export class StoryBoardView extends TextFileView {
     return path ? this.plugin.settings.viewState[path] : undefined;
   }
 
-  private get characterMode(): "track" | "matrix" {
-    return this.viewState()?.characterMode ?? "track";
+  /** The Characters view shows the presence matrix or the profiles; the track is set aside for now. */
+  private get characterMode(): "matrix" | "profiles" {
+    return this.viewState()?.characterMode === "profiles" ? "profiles" : "matrix";
   }
 
   private get characterAxis(): TrackAxis {
@@ -2393,14 +2472,16 @@ export class StoryBoardView extends TextFileView {
   }
 
   private characterActions(actions: HTMLElement, story: Story): void {
-    // Track or matrix: one square button showing the view it switches to.
-    const toMatrix = this.characterMode === "track";
-    const mode = actions.createEl("button", { cls: "story-planner-tool clickable-icon" });
-    iconOr(mode, toMatrix ? "grid-3x3" : "kanban", "layout-grid");
-    const label = toMatrix ? "Show as a presence matrix" : "Show as a character track";
-    mode.setAttr("aria-label", label);
-    mode.setAttr("title", label);
-    mode.addEventListener("click", () => this.setViewState({ characterMode: toMatrix ? "matrix" : "track" }));
+    // Matrix or profiles: one square button showing the view it switches to.
+    const toProfiles = this.characterMode === "matrix";
+    this.toolIcon(actions, toProfiles ? "contact" : "grid-3x3", toProfiles ? "Show the profiles" : "Show the presence matrix", () =>
+      this.setViewState({ characterMode: toProfiles ? "profiles" : "matrix" }),
+    );
+    if (this.characterMode === "profiles") return;
+    // Characters or organizations down the matrix.
+    const orgs = this.viewState()?.matrixOf === "organizations";
+    this.toolIcon(actions, "landmark", orgs ? "Organizations (click for characters)" : "Show organizations instead of characters", () =>
+      this.setViewState({ matrixOf: orgs ? "characters" : "organizations" }), orgs);
     const axis = actions.createEl("select", { cls: "dropdown" });
     axis.setAttr("aria-label", "Order");
     axis.createEl("option", { text: "By chapter" }).value = "chapters";
@@ -2414,22 +2495,22 @@ export class StoryBoardView extends TextFileView {
       zoom.value = this.zoom;
       zoom.addEventListener("change", () => this.setViewState({ zoom: zoom.value as Zoom }));
     }
-    if (this.characterMode === "track") {
-      const lanes = this.lanes(story);
-      // Which characters are lanes: a square button with how many there are.
-      const pick = this.toolIcon(actions, "user-plus", `Characters to track (${lanes.length})`, () =>
-        new LaneModal(this.app, story, lanes, (chosen) => this.setViewState({ characterLanes: chosen })).open(),
-      );
-      pick.createSpan({ cls: "story-planner-tool-badge", text: String(lanes.length) });
-      if (lanes.length >= 2) {
-        const on = !!this.viewState()?.sharedOnly;
-        this.toolIcon(actions, "link-2", on ? "Only scenes they share (click for all)" : "Only scenes they share", () => this.setViewState({ sharedOnly: !on }), on);
-      }
-      this.highlightPicker(actions, story);
-    }
   }
 
   private fillCharacters(parent: HTMLElement, story: Story): void {
+    if (this.characterMode === "profiles") {
+      this.profiles.render(parent, story);
+      return;
+    }
+    const of = this.viewState()?.matrixOf === "organizations" ? "organizations" : "characters";
+    if (of === "organizations") {
+      if (story.organizations.length === 0) {
+        parent.createDiv({ cls: "story-planner-empty", text: "No organizations yet. Add them in the profiles, or name them on a card." });
+        return;
+      }
+      this.fillMatrix(parent, story, [], "organizations");
+      return;
+    }
     if (story.characters.length === 0) {
       parent.createDiv({
         cls: "story-planner-empty",
@@ -2438,10 +2519,8 @@ export class StoryBoardView extends TextFileView {
       return;
     }
     const clashes = findClashes(story);
-    if (this.characterMode === "matrix") {
-      this.fillMatrix(parent, story, clashes);
-      return;
-    }
+    this.fillMatrix(parent, story, clashes);
+    return;
     if (clashes.length > 0) {
       const note = parent.createDiv({ cls: "story-planner-clash-summary" });
       note.createSpan({ text: `${clashes.length} possible ${clashes.length === 1 ? "clash" : "clashes"}: a character in two places at once. ` });
@@ -2660,9 +2739,9 @@ export class StoryBoardView extends TextFileView {
     }
   }
 
-  private fillMatrix(parent: HTMLElement, story: Story, clashes: Clash[]): void {
+  private fillMatrix(parent: HTMLElement, story: Story, clashes: Clash[], of: "characters" | "organizations" = "characters"): void {
     const axis = this.characterAxis;
-    const matrix = computeMatrix(story, axis, this.zoom);
+    const matrix = computeMatrix(story, axis, this.zoom, of);
     const wrap = parent.createDiv({ cls: "story-planner-matrix-wrap" });
     if (matrix.columns.length === 0) {
       wrap.createDiv({
@@ -2672,10 +2751,10 @@ export class StoryBoardView extends TextFileView {
     } else {
       // The legend uses the same marks as the cells: a square, a dot and a ring, each a different size.
       const legend = wrap.createDiv({ cls: "story-planner-panel-hint story-planner-matrix-legend" });
-      for (const role of ["pov", "present", "mentioned"] as const) {
+      for (const role of of === "organizations" ? (["present", "mentioned"] as const) : (["pov", "present", "mentioned"] as const)) {
         const item = legend.createSpan({ cls: "story-planner-legend-item" });
         item.createSpan({ cls: `story-planner-presence role-${role}` });
-        item.createSpan({ text: ROLE_LABELS[role].toLowerCase() });
+        item.createSpan({ text: of === "organizations" && role === "present" ? "involved" : ROLE_LABELS[role].toLowerCase() });
       }
       const table = wrap.createEl("table", { cls: "story-planner-matrix" });
       const thead = table.createEl("thead");
@@ -2704,16 +2783,15 @@ export class StoryBoardView extends TextFileView {
       head.createEl("th", { text: "Scenes" });
       const body = table.createEl("tbody");
       for (const row of matrix.rows) {
-        const character = story.characters.find((c) => c.id === row.characterId)!;
+        const character = (of === "organizations" ? story.organizations : story.characters).find((c) => c.id === row.characterId)!;
         const tr = body.createEl("tr");
         if (row.total === 0) tr.addClass("is-absent");
         const name = tr.createEl("th", { cls: "story-planner-matrix-name", text: character.name });
         name.style.setProperty("--lane-color", character.color);
-        name.setAttr("title", `Follow ${character.name} in the track`);
-        name.addEventListener("click", () => {
-          const lanes = this.lanes(story);
-          this.setViewState({ characterMode: "track", characterLanes: lanes.includes(character.id) ? lanes : [...lanes, character.id] });
-        });
+        name.setAttr("title", `Open ${character.name}'s profile`);
+        name.addEventListener("click", () =>
+          this.setViewState({ characterMode: "profiles", profileKind: of === "organizations" ? "organization" : "character", profileId: character.id }),
+        );
         row.cells.forEach((cell, i) => {
           const td = tr.createEl("td");
           if (!cell.role) return;
@@ -2723,7 +2801,8 @@ export class StoryBoardView extends TextFileView {
           if (cell.cards.length > 1) td.createSpan({ cls: "story-planner-matrix-count", text: String(cell.cards.length) });
           const titles = cell.cards.map((id) => story.cards[id]?.title ?? "").join(", ");
           const clash = cell.clashes.length > 0 ? ". Possibly in two places at once." : "";
-          td.setAttr("title", `${character.name} in ${matrix.columns[i]!.title ?? matrix.columns[i]!.label}, ${ROLE_LABELS[cell.role].toLowerCase()}: ${titles}${clash}`);
+          const roleWord = of === "organizations" ? (cell.role === "mentioned" ? "mentioned" : "involved") : ROLE_LABELS[cell.role].toLowerCase();
+          td.setAttr("title", `${character.name} in ${matrix.columns[i]!.title ?? matrix.columns[i]!.label}, ${roleWord}: ${titles}${clash}`);
           if (clash) td.addClass("has-clash");
           // A click opens the first scene, or the first one with a clash.
           td.addEventListener("click", () => this.select(cell.clashes[0] ?? cell.cards[0]!));
@@ -2731,7 +2810,7 @@ export class StoryBoardView extends TextFileView {
         tr.createEl("td", { cls: "story-planner-matrix-total", text: String(row.total) });
       }
     }
-    this.renderClashes(wrap, story, clashes);
+    if (of === "characters") this.renderClashes(wrap, story, clashes);
   }
 
   /** The list of possible clashes, under the matrix. Advisory only: a story may mean it. */

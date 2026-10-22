@@ -2,7 +2,9 @@ import { compareDates } from "./calendar";
 import { addCharacterByName, deleteCard, setCardDate, setCardDuring, setCardLocation, setCardTag, updateCard, updateCardCharacter } from "./edits";
 import { CardTarget, moveCard } from "./moves";
 import { cardsInReadingOrder } from "./search";
-import { Card, CharacterRole, Id, Story, StoryDate } from "./types";
+import { setCardOrg } from "./entities";
+import { setCardEvent } from "./events";
+import { Card, CharacterRole, Id, OrgRole, Story, StoryDate } from "./types";
 
 // Edits to several selected cards at once. Each is one change to the story,
 // so the board records it as one undo step. Cards are taken in reading order,
@@ -191,5 +193,24 @@ export function moveCardsTo(
     }
     previous = card.id;
   }
+  return changed;
+}
+
+/** Puts an organization on every card (involved), or takes it off with null; or gives it one role on every card that has it. */
+export function setOrgOnCards(story: Story, ids: Iterable<Id>, orgId: Id, role: OrgRole | null, onlyWhereItIs = false, now = new Date().toISOString()): boolean {
+  let changed = false;
+  for (const card of selectedCards(story, ids)) {
+    const has = card.orgs?.some((o) => o.id === orgId);
+    if (onlyWhereItIs && !has) continue;
+    if (role === "involved" && has && !onlyWhereItIs) continue;
+    changed = setCardOrg(story, card.id, orgId, role, now) || changed;
+  }
+  return changed;
+}
+
+/** Puts every card in an event, or in none with undefined. */
+export function setEventOnCards(story: Story, ids: Iterable<Id>, eventId: Id | undefined, now = new Date().toISOString()): boolean {
+  let changed = false;
+  for (const card of selectedCards(story, ids)) changed = setCardEvent(story, card.id, eventId, now) || changed;
   return changed;
 }

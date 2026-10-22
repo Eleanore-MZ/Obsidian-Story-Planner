@@ -3,7 +3,7 @@ import { Story } from "./types";
 // What cards on the board show besides their title. The plugin settings hold
 // the defaults; a story can set its own for any of them, kept in its note.
 
-export type CardShow = "chapter" | "date" | "synopsis" | "tags" | "characters" | "place" | "written" | "notes";
+export type CardShow = "chapter" | "date" | "synopsis" | "tags" | "characters" | "organizations" | "event" | "place" | "written" | "notes";
 
 export const CARD_SHOW_LABELS: Record<CardShow, string> = {
   chapter: "Chapter (in story time and the character views)",
@@ -11,6 +11,8 @@ export const CARD_SHOW_LABELS: Record<CardShow, string> = {
   synopsis: "Synopsis",
   tags: "Scene tags",
   characters: "Characters",
+  organizations: "Organizations",
+  event: "Event",
   place: "Place",
   written: "Written box",
   notes: "Linked notes",
@@ -22,6 +24,8 @@ export const DEFAULT_CARD_SHOWS: Record<CardShow, boolean> = {
   synopsis: true,
   tags: true,
   characters: false,
+  organizations: false,
+  event: true,
   place: true,
   written: true,
   notes: true,

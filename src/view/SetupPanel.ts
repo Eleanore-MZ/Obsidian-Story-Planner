@@ -2,6 +2,16 @@ import { setIcon } from "obsidian";
 import { reorderHandle } from "./reorder";
 import { colorSwatch } from "./colorPicker";
 import { compareDates, formatOffset, formatStoryDate, parseOffset } from "../model/calendar";
+import {
+  addCustomField,
+  addOrganization,
+  deleteCustomField,
+  deleteOrganization,
+  orgAppearances,
+  orgDescendants,
+  orgTree,
+  setOrgParent,
+} from "../model/entities";
 import { DateEditor } from "./DateEditor";
 import { DATE_TOKENS, defaultFormats, TIME_TOKENS } from "../model/dateFormat";
 import { blockLabel, blockSizes, DEFAULT_TIME_BLOCK, timeBlock } from "./timeLayout";
@@ -209,6 +219,7 @@ export class SetupPanel {
       title.addEventListener("input", () => {
         if (title.value.trim()) this.host.edit((s) => void (s.title = title.value.trim()), "story-title");
       });
+      this.buildStoryInfo(story);
       this.buildPlotLines(story);
       this.buildCategories(story);
       this.buildTags(story);
@@ -218,6 +229,8 @@ export class SetupPanel {
       this.buildChapters(story);
     } else if (current === "characters") {
       this.buildCharacters(story);
+      this.buildOrganizations(story);
+      this.buildProfileFields(story);
     } else if (current === "time") {
       this.buildCalendar(story);
       this.buildZones(story);
@@ -282,6 +295,14 @@ export class SetupPanel {
       this.count(row, cardsInPlotLine(story, plotLine.id).length);
       this.dragHandle(row, "plotlines", i, (to) => this.host.edit((s) => moveIndex(s.plotLines, i, to)));
       this.iconButton(row, "×", `Delete ${plotLine.name}`, story.plotLines.length > 1, () => this.removePlotLine(story, plotLine.id));
+      this.synopsisLine(section, plotLine.synopsis ?? "", "What this plot line is about", `plotline-synopsis:${plotLine.id}`, (value) =>
+        this.host.edit((s) => {
+          const target = s.plotLines.find((p) => p.id === plotLine.id)!;
+          if ((target.synopsis ?? "") === value) return false;
+          if (value.trim()) target.synopsis = value;
+          else delete target.synopsis;
+        }, `plotline-synopsis:${plotLine.id}`),
+      );
     });
     this.addRow(section, "New plot line", "add-plotline", (name) => this.host.edit((s) => void addPlotLine(s, name)));
   }
@@ -504,6 +525,122 @@ export class SetupPanel {
       });
     });
     this.addRow(section, "New character", "add-character", (name) => this.host.edit((s) => void addCharacter(s, name)));
+  }
+
+  /** What the story is: shown first in the outline. */
+  private buildStoryInfo(story: Story): void {
+    const section = this.section("About the story");
+    for (const [key, label, long] of [
+      ["logline", "Logline", false],
+      ["genre", "Genre", false],
+      ["premise", "Premise", true],
+      ["themes", "Themes", false],
+      ["notes", "Notes", true],
+    ] as const) {
+      const row = this.labelled(section, label);
+      row.addClass("story-planner-setup-info");
+      const field = `info:${key}`;
+      const value = story.info?.[key] ?? "";
+      const input = long ? row.createEl("textarea", { cls: "story-planner-setup-info-text" }) : this.textInput(row, value, field);
+      if (long) {
+        input.value = value;
+        (input as HTMLTextAreaElement).rows = 2;
+        input.dataset.field = field;
+      }
+      input.addEventListener("input", () =>
+        this.host.edit((s) => {
+          const info = { ...(s.info ?? {}) };
+          if ((info[key] ?? "") === input.value) return false;
+          if (input.value.trim()) info[key] = input.value;
+          else delete info[key];
+          if (Object.keys(info).length > 0) s.info = info;
+          else delete s.info;
+        }, field),
+      );
+    }
+  }
+
+  /** Organizations: names, colours, and which one each belongs to. Their profiles are in the Characters view. */
+  private buildOrganizations(story: Story): void {
+    const section = this.section("Organizations");
+    for (const { org, depth } of orgTree(story)) {
+      const row = section.createDiv({ cls: "story-planner-setup-row" });
+      row.style.paddingLeft = `${depth * 1.5}em`;
+      this.colorInput(row, org.color, (color) => this.host.edit((s) => void (s.organizations.find((o) => o.id === org.id)!.color = color)));
+      const name = this.textInput(row, org.name, `org:${org.id}`);
+      name.addEventListener("input", () => {
+        const value = name.value.trim();
+        if (value) this.host.edit((s) => void (s.organizations.find((o) => o.id === org.id)!.name = value), `org:${org.id}`);
+      });
+      const inside = orgDescendants(story, org.id);
+      const parent = this.dropdown(
+        row,
+        [["", "Part of nothing"], ...story.organizations.filter((o) => o.id !== org.id && !inside.has(o.id)).map((o): [string, string] => [o.id, `Part of ${o.name}`])],
+        org.parent ?? "",
+        (value) => this.host.edit((s) => setOrgParent(s, org.id, value || undefined)),
+      );
+      parent.setAttr("aria-label", `What ${org.name} is part of`);
+      this.count(row, orgAppearances(story, org.id).cards.length);
+      this.iconButton(row, "×", `Delete ${org.name}`, true, () => {
+        this.host.edit((s) => deleteOrganization(s, org.id));
+        this.host.notice(`Deleted ${org.name}. Press Ctrl+Z to undo.`);
+      });
+    }
+    this.addRow(section, "New organization", "add-org", (name) => this.host.edit((s) => void addOrganization(s, name)));
+  }
+
+  /** The story's own fields on character and organization profiles. */
+  private buildProfileFields(story: Story): void {
+    const section = this.section("Profile fields");
+    for (const field of story.customFields) {
+      const row = section.createDiv({ cls: "story-planner-setup-row" });
+      const name = this.textInput(row, field.name, `custom-field:${field.id}`);
+      name.addEventListener("input", () => {
+        const value = name.value.trim();
+        if (value) this.host.edit((s) => void (s.customFields.find((f) => f.id === field.id)!.name = value), `custom-field:${field.id}`);
+      });
+      this.dropdown(
+        row,
+        [
+          ["text", "Text"],
+          ["date", "Date"],
+          ["choice", "Choice"],
+        ],
+        field.type,
+        (value) =>
+          this.host.edit((s) => {
+            const f = s.customFields.find((x) => x.id === field.id)!;
+            f.type = value as typeof f.type;
+            if (f.type === "choice") f.options = f.options ?? [];
+            else delete f.options;
+          }),
+      );
+      this.dropdown(
+        row,
+        [
+          ["character", "Characters"],
+          ["organization", "Organizations"],
+          ["both", "Both"],
+        ],
+        field.appliesTo,
+        (value) => this.host.edit((s) => void (s.customFields.find((f) => f.id === field.id)!.appliesTo = value as typeof field.appliesTo)),
+      );
+      if (field.type === "choice") {
+        const options = this.textInput(row, (field.options ?? []).join(", "), `custom-options:${field.id}`);
+        options.placeholder = "Choices, separated by commas";
+        options.addEventListener("input", () =>
+          this.host.edit((s) => {
+            const f = s.customFields.find((x) => x.id === field.id)!;
+            f.options = options.value.split(",").map((o) => o.trim()).filter(Boolean);
+          }, `custom-options:${field.id}`),
+        );
+      }
+      this.iconButton(row, "×", `Delete the field ${field.name} and its values`, true, () => {
+        this.host.edit((s) => deleteCustomField(s, field.id));
+        this.host.notice(`Deleted the field ${field.name}. Press Ctrl+Z to undo.`);
+      });
+    }
+    this.addRow(section, "New field", "add-custom-field", (name) => this.host.edit((s) => void addCustomField(s, name, "text", "character")));
   }
 
   private buildLocations(story: Story): void {

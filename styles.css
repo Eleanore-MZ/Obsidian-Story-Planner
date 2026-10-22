@@ -3596,3 +3596,25 @@ body.story-planner-marquee-active * {
   padding: var(--size-2-3) var(--size-4-2);
   font-size: var(--font-ui-small);
 }
+
+/* The event a card is part of: a quiet line with the event's colour. */
+.story-planner-card-event {
+  margin-top: var(--size-4-1);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.story-planner-card-event::before {
+  content: "";
+  display: inline-block;
+  width: 0.55em;
+  height: 0.55em;
+  margin-right: var(--size-2-2);
+  background: var(--event-color, var(--text-faint));
+}
+
+.story-planner-multi-chip-extra {
+  margin-left: var(--size-2-3);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}

@@ -35,7 +35,12 @@ export interface StoryViewState {
   /** A character, tag or place to make stand out, as "character:id", "tag:id" or "location:id". */
   highlight?: string;
   /** Character view: track or matrix, the characters chosen as lanes (in order), axis and layout. */
-  characterMode?: "track" | "matrix";
+  characterMode?: "track" | "matrix" | "profiles";
+  /** The matrix shows characters or organizations. */
+  matrixOf?: "characters" | "organizations";
+  /** The profile shown in the Characters view. */
+  profileKind?: "character" | "organization";
+  profileId?: string;
   characterLanes?: string[];
   characterAxis?: TrackAxis;
   characterOrientation?: Orientation;

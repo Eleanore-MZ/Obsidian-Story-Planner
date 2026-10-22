@@ -207,7 +207,11 @@ export interface Matrix {
 
 const ROLE_RANK: Record<CharacterRole, number> = { mentioned: 1, present: 2, pov: 3 };
 
-export function computeMatrix(story: Story, axis: TrackAxis, zoom: Zoom): Matrix {
+/**
+ * The presence matrix: characters (or organizations) down, chapters or spans
+ * of time across. For organizations, "involved" shows as present.
+ */
+export function computeMatrix(story: Story, axis: TrackAxis, zoom: Zoom, of: "characters" | "organizations" = "characters"): Matrix {
   const columnOf = new Map<Id, string>();
   const columns: MatrixColumn[] = [];
   if (axis === "chapters") {
@@ -255,11 +259,17 @@ export function computeMatrix(story: Story, axis: TrackAxis, zoom: Zoom): Matrix
     axis === "time"
       ? timeSorted(story, Object.values(story.cards).filter((c) => c.date))
       : Object.values(story.cards).sort((a, b) => reading.get(a.id)! - reading.get(b.id)!);
-  const rows = story.characters.map((character) => {
+  const subjects = of === "organizations" ? story.organizations : story.characters;
+  const entryOf = (card: Card, id: Id): { role: CharacterRole } | undefined => {
+    if (of === "characters") return card.characters.find((c) => c.id === id);
+    const org = card.orgs?.find((o) => o.id === id);
+    return org ? { role: org.role === "mentioned" ? "mentioned" : "present" } : undefined;
+  };
+  const rows = subjects.map((character) => {
     const cells: MatrixCell[] = columns.map(() => ({ cards: [], clashes: [] }));
     let total = 0;
     for (const card of ordered) {
-      const entry = card.characters.find((c) => c.id === character.id);
+      const entry = entryOf(card, character.id);
       const column = index.get(columnOf.get(card.id) ?? "\u0000");
       if (!entry || column === undefined) continue;
       const cell = cells[column]!;

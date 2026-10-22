@@ -10,7 +10,7 @@ import type StoryPlannerPlugin from "./main";
 import { Orientation } from "./view/layout";
 
 /** The views of a story, shown as tabs above it. */
-export type StoryTab = "board" | "time" | "characters" | "outline" | "setup";
+export type StoryTab = "board" | "time" | "characters" | "events" | "outline" | "setup";
 
 /** Per-story view preferences. Kept in data.json so viewing never changes the story note. */
 export interface StoryViewState {
@@ -28,6 +28,8 @@ export interface StoryViewState {
   timeZoneView?: string;
   /** Story time shows every span from the first to the last, not only those with cards. */
   expandTimeline?: boolean;
+  /** Folded events and arcs in the Events tab. */
+  foldedEvents?: string[];
   /** Folded years and days in story time, by group key ("y:1531", "d:559000"). */
   foldedTimes?: string[];
   /** The clock zoom's block, in minutes, set with Ctrl+wheel; never shorter than the story's shortest. */
@@ -61,7 +63,7 @@ export interface StoryViewState {
 }
 
 /** The views that are tabs, in the default order. Setup is not one: it opens from the gear button. */
-export const ALL_TABS: StoryTab[] = ["board", "time", "characters", "outline"];
+export const ALL_TABS: StoryTab[] = ["board", "time", "characters", "events", "outline"];
 
 /** The tabs in the writer's order: unknown ones (and setup, from older settings) dropped, missing ones added at the end. */
 export function orderedTabs(order: StoryTab[] | undefined): StoryTab[] {

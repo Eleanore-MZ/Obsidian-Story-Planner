@@ -3618,3 +3618,268 @@ body.story-planner-marquee-active * {
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
 }
+
+/* The Events tab: arcs, their events, and each event's scenes. */
+.story-planner-events {
+  max-width: 52em;
+  margin: 0 auto;
+  padding: var(--size-4-4) var(--size-4-6) var(--size-4-12);
+}
+
+.story-planner-events-event {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-2);
+  padding: var(--size-2-3) var(--size-4-2);
+  padding-left: calc(var(--depth, 0) * 1.5em + var(--size-4-2));
+  border-left: 4px solid var(--event-color);
+  background: color-mix(in srgb, var(--event-color) 8%, transparent);
+  cursor: pointer;
+}
+
+.story-planner-events-event.is-arc {
+  margin-top: var(--size-4-4);
+  background: color-mix(in srgb, var(--event-color) 14%, transparent);
+}
+
+.story-planner-events-event.is-selected {
+  box-shadow: 0 0 0 1px var(--event-color);
+}
+
+.story-planner-events-title {
+  font-weight: var(--font-semibold);
+}
+
+.story-planner-events-event.is-arc .story-planner-events-title {
+  font-variant: small-caps;
+  letter-spacing: 0.03em;
+}
+
+.story-planner-events-scenes {
+  display: flex;
+  flex-direction: column;
+}
+
+.story-planner-events-scene {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  padding: var(--size-2-2) var(--size-4-2);
+  padding-left: calc(var(--depth, 0) * 1.5em + var(--size-4-3));
+  border-left: 3px solid var(--lane-color);
+  margin-left: calc(var(--depth, 0) * 1.5em);
+  cursor: pointer;
+}
+
+.story-planner-events-scene:hover,
+.story-planner-events-event:hover {
+  background: var(--background-modifier-hover);
+}
+
+.story-planner-events-scene.is-selected {
+  background: var(--background-modifier-active-hover);
+}
+
+.story-planner-events .story-planner-events-add {
+  margin-top: var(--size-4-4);
+  width: 100%;
+}
+
+.story-planner-events-loose {
+  margin-top: var(--size-4-6);
+  padding-top: var(--size-4-2);
+  border-top: 1px solid var(--background-modifier-border);
+  min-height: 3em;
+}
+
+/* Profiles: the list on the left, the profile on the right. */
+.story-planner-profiles {
+  display: grid;
+  grid-template-columns: minmax(12em, 16em) minmax(0, 1fr);
+  gap: var(--size-4-6);
+  padding: var(--size-4-4);
+  min-height: 100%;
+}
+
+.story-planner-profiles-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+  border-right: 1px solid var(--background-modifier-border);
+  padding-right: var(--size-4-3);
+}
+
+.story-planner-profiles-switch {
+  display: flex;
+  gap: var(--size-2-2);
+  margin-bottom: var(--size-4-2);
+}
+
+.story-planner .story-planner-profiles-switch .story-planner-tool {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0;
+}
+
+.story-planner .story-planner-profiles-switch .story-planner-tool.is-active {
+  border-color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+}
+
+.story-planner-profiles-item {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+  padding: var(--size-2-2) var(--size-4-2);
+  cursor: pointer;
+}
+
+.story-planner-profiles-item:hover {
+  background: var(--background-modifier-hover);
+}
+
+.story-planner-profiles-item.is-active {
+  background: var(--background-modifier-active-hover);
+}
+
+.story-planner-profiles-dot {
+  flex: none;
+  width: 0.7em;
+  height: 0.7em;
+  background: var(--chip-color);
+}
+
+.story-planner-profiles-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-planner-profiles-count {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+}
+
+.story-planner .story-planner-profiles-add {
+  margin-top: var(--size-4-2);
+}
+
+.story-planner-profile {
+  max-width: 48em;
+}
+
+.story-planner-profile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-2);
+}
+
+.story-planner .story-planner-profile .story-planner-panel-title,
+.story-planner .story-planner-profile-input {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.story-planner .story-planner-profile .story-planner-panel-title {
+  font-size: var(--h3-size, 1.3em);
+  font-weight: var(--font-semibold);
+}
+
+.story-planner .story-planner-profile-input:hover,
+.story-planner .story-planner-profile .story-planner-panel-title:hover {
+  background: var(--background-modifier-hover);
+}
+
+.story-planner .story-planner-profile-input:focus,
+.story-planner .story-planner-profile .story-planner-panel-title:focus {
+  border-color: var(--background-modifier-border);
+  background: transparent;
+}
+
+.story-planner textarea.story-planner-profile-input {
+  resize: none;
+  line-height: 1.5;
+}
+
+.story-planner-profile .story-planner-prop {
+  grid-template-columns: 9rem minmax(0, 1fr);
+}
+
+.story-planner-profile-membership {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+  padding-bottom: var(--size-2-3);
+}
+
+.story-planner-profile-membership-top,
+.story-planner-profile-membership-dates {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+}
+
+.story-planner-profile-membership-top .story-planner-role-chip {
+  cursor: pointer;
+}
+
+.story-planner-profile-member {
+  display: flex;
+  gap: var(--size-4-2);
+  align-items: baseline;
+}
+
+.story-planner-profile-detail {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.story-planner-profile-appearances {
+  margin-top: var(--size-4-6);
+}
+
+.story-planner-profile-facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+  margin: var(--size-4-2) 0;
+}
+
+.story-planner-profile-lines {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-2-2);
+}
+
+.story-planner-profile-scene {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+  padding: var(--size-2-2) var(--size-4-2);
+  border-left: 3px solid var(--lane-color);
+  cursor: pointer;
+}
+
+.story-planner-profile-scene:hover {
+  background: var(--background-modifier-hover);
+}
+
+/* Story setup: the story's general information. */
+.story-planner-setup-row.story-planner-setup-info {
+  align-items: flex-start;
+}
+
+.story-planner textarea.story-planner-setup-info-text {
+  flex: 1;
+  min-width: 0;
+  resize: vertical;
+}

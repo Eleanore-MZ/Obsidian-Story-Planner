@@ -8,15 +8,15 @@ import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
 import { cardMoment, compareDates, dateInZone, mainCalendar, effectiveZone, formatDateRange, formatStoryDate, precisionOf } from "../model/calendar";
 import { Clash, dropWithinSpan, findClashes, placeLastInTime, reorderInTime, referenceDate, timeSorted } from "../model/storyTime";
-import { Card, CharacterRole, Id, Story } from "../model/types";
+import { Card, CharacterRole, Id, Story, StoryEvent } from "../model/types";
 import { isUntitled } from "../model/defaults";
 import { composeOutline, outlineCardLine } from "../format/outline";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree, plotLineColor } from "../model/setup";
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
 import { cardMatches, cardsInReadingOrder, queryTerms, searchCards } from "../model/search";
-import { deleteCards, moveCardsTo } from "../model/groupEdits";
-import { eventPath, eventTree } from "../model/events";
+import { deleteCards, moveCardsTo, setEventOnCards } from "../model/groupEdits";
+import { addEvent, eventCards, eventOf, eventPath, eventSpan, eventTree, moveEvent, setEventParent } from "../model/events";
 import { orgDescendants, orgTree } from "../model/entities";
 import { CardPanel, NoteHost } from "./CardPanel";
 import { Minimap } from "./Minimap";
@@ -45,7 +45,7 @@ import { computeMatrix, computeTrackLayout, TrackAxis, TrackItem } from "./track
 export const STORY_BOARD_VIEW = "story-planner-board";
 
 /** What is being dragged. */
-type Dragged = { kind: "card" | "plotLine" | "chapter" | "character"; id: string };
+type Dragged = { kind: "card" | "plotLine" | "chapter" | "character" | "event"; id: string };
 
 /** Where a drop lands relative to its target. */
 type DropPlace = "before" | "after" | "on";
@@ -58,6 +58,8 @@ interface DropTargetSpec {
   /** With an axis, the middle half of the target means "on" rather than before or after. */
   middle: boolean;
   onDrop: (place: DropPlace) => void;
+  /** The same element taking another kind of thing. */
+  also?: DropTargetSpec;
   /** On the main board: where a drop here puts cards, for dropping several selected cards at once. */
   board?: (place: DropPlace) => { target: CardTarget; background?: boolean };
 }
@@ -67,6 +69,7 @@ const TABS: Record<StoryTab, [string, string]> = {
   board: ["Main", "columns-3"],
   time: ["Story time", "calendar-clock"],
   characters: ["Characters", "users"],
+  events: ["Events", "flag"],
   outline: ["Outline", "scroll-text"],
   setup: ["Setup", "settings-2"],
 };
@@ -133,6 +136,8 @@ export class StoryBoardView extends TextFileView {
   private gridLanes = new WeakMap<HTMLElement, { kind: LaneKind; ids: string[]; tracks: number[]; lead: number }>();
   /** The zoom at which the whole timeline was last found too long to show, so that is said only once. */
   private tooLongNoticed: string | null = null;
+  /** The cards being dragged together, while several selected cards are. */
+  private draggedMany: Id[] | null = null;
   /** Set while a drag has Ctrl+Alt held: an off-page event dropped in a chapter stays off-page, during it. */
   private backgroundDrop = false;
   /** The spans the story's start and end fall in, as story time last drew them. */
@@ -186,7 +191,7 @@ export class StoryBoardView extends TextFileView {
       return false;
     });
     this.scope.register([], "Escape", () => {
-      if (!this.panel.selected && this.multi.size === 0) return true;
+      if (!this.panel.selected && !this.panel.selectedEvent && this.multi.size === 0) return true;
       this.select(null);
       return false;
     });
@@ -212,6 +217,8 @@ export class StoryBoardView extends TextFileView {
       deleted: (title) => this.cardDeleted(title),
       deletedMany: (count) => this.cardsDeleted(count),
       centre: () => this.plugin.settings.cardOpening === "centre",
+      openEvent: (id) => this.selectEvent(id),
+      openCard: (id) => this.revealCard(id),
       notes: this.noteHost(),
     });
     // Behind a card opened in the middle: dims the board, and a click on it closes the card.
@@ -395,6 +402,14 @@ export class StoryBoardView extends TextFileView {
     this.multi.clear();
     this.anchor = cardId;
     this.panel.show(this.story, cardId);
+    this.markSelection();
+  }
+
+  /** Opens an event's page in the panel; no card stays selected. */
+  private selectEvent(eventId: Id): void {
+    if (!this.story) return;
+    this.multi.clear();
+    this.panel.showEvent(this.story, eventId);
     this.markSelection();
   }
 
@@ -1187,7 +1202,8 @@ export class StoryBoardView extends TextFileView {
     const onTime = tab === "time";
     const onCharacters = tab === "characters";
     const onOutline = tab === "outline";
-    const withPanel = onBoard || onTime || onCharacters || onOutline;
+    const onEvents = tab === "events";
+    const withPanel = onBoard || onTime || onCharacters || onOutline || onEvents;
     this.bodyEl.hidden = !withPanel;
     this.setup.setOpen(tab === "setup", story);
     if (onTime) this.timeActions(tabsRow.createDiv({ cls: "story-planner-tab-actions" }), story);
@@ -1244,7 +1260,9 @@ export class StoryBoardView extends TextFileView {
     // Keep the panel on the selected card (or cards); it closes if the card is gone (after an undo, say).
     for (const id of [...this.multi]) if (!story.cards[id]) this.multi.delete(id);
     if (withPanel && this.multi.size >= 2) this.panel.showGroup(story, [...this.multi]);
-    else {
+    else if (withPanel && this.panel.selectedEvent && story.events.some((e) => e.id === this.panel.selectedEvent)) {
+      this.panel.showEvent(story, this.panel.selectedEvent, typing);
+    } else {
       if (this.multi.size > 0) this.multi.clear();
       this.panel.show(story, withPanel ? this.panel.selected : null, typing);
     }
@@ -1270,6 +1288,7 @@ export class StoryBoardView extends TextFileView {
     if (this.tab === "time") this.fillTime(content, story);
     else if (this.tab === "characters") this.fillCharacters(content, story);
     else if (this.tab === "outline") this.fillOutline(content, story);
+    else if (this.tab === "events") this.fillEvents(content, story);
     else this.fillBoard(content, story);
     this.boardEl.replaceChildren(...Array.from(content.childNodes));
     this.boardEl.scrollTop = scrollTop;
@@ -1681,6 +1700,130 @@ ${plotLine.synopsis.trim()}`);
       }
     }
     if (Object.keys(story.cards).length === 0) doc.createDiv({ cls: "story-planner-empty", text: "No scenes yet" });
+  }
+
+  // -------------------------------------------------------------------------
+  // Events: arcs, the events in them, and each event's scenes in story order.
+  // Dragging regroups: a scene onto an event joins it, an event onto an arc
+  // goes inside it, and an event dropped above or below another moves there.
+
+  private fillEvents(parent: HTMLElement, story: Story): void {
+    const doc = parent.createDiv({ cls: "story-planner-events" });
+    const folded = new Set(this.viewState()?.foldedEvents ?? []);
+    const selected = this.panel.selectedEvent;
+    const sceneRow = (list: HTMLElement, card: Card, depth: number) => {
+      const row = list.createDiv({ cls: "story-planner-events-scene" });
+      row.style.setProperty("--depth", String(depth));
+      const plotLine = story.plotLines.find((p) => p.id === card.plotLine);
+      row.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--text-faint)");
+      row.dataset.cardId = card.id;
+      row.createSpan({ cls: "story-planner-events-scene-title", text: echoText(card) });
+      row.createSpan({
+        cls: "story-planner-profile-detail",
+        text: [chapterTitle(story, story.chapters.find((c) => c.id === card.chapter)), card.date ? formatDateRange(story, card.date, card.endDate) : ""]
+          .filter(Boolean)
+          .join(" · "),
+      });
+      if (this.highlighted(card, story) === false) row.addClass("is-dimmed");
+      row.addEventListener("click", (e) => this.clickCard(e, card.id));
+      this.makeDraggable(row, { kind: "card", id: card.id });
+    };
+    const eventRow = (event: StoryEvent, depth: number, holds: number) => {
+      const row = doc.createDiv({ cls: "story-planner-events-event" });
+      row.style.setProperty("--depth", String(depth));
+      row.style.setProperty("--event-color", event.color);
+      row.toggleClass("is-arc", holds > 0);
+      row.toggleClass("is-selected", event.id === selected);
+      const fold = row.createEl("button", { cls: "story-planner-fold clickable-icon" });
+      setIcon(fold, folded.has(event.id) ? "chevron-right" : "chevron-down");
+      fold.setAttr("aria-label", folded.has(event.id) ? "Unfold" : "Fold");
+      stopBoardGestures(fold);
+      fold.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const next = new Set(folded);
+        if (next.has(event.id)) next.delete(event.id);
+        else next.add(event.id);
+        this.setViewState({ foldedEvents: [...next] });
+      });
+      row.createSpan({ cls: "story-planner-events-title", text: event.title || "Untitled event" });
+      const span = eventSpan(story, event.id);
+      const count = eventCards(story, event.id, true).length;
+      const detail = [
+        span.start ? formatDateRange(story, span.start, span.end && JSON.stringify(span.end) !== JSON.stringify(span.start) ? span.end : undefined) : "",
+        `${count} ${count === 1 ? "scene" : "scenes"}`,
+        event.status ?? "",
+      ].filter(Boolean);
+      row.createSpan({ cls: "story-planner-profile-detail", text: detail.join(" · ") });
+      if (event.synopsis?.trim()) row.setAttr("title", event.synopsis.trim());
+      row.addEventListener("click", () => this.selectEvent(event.id));
+      this.makeDraggable(row, { kind: "event", id: event.id });
+      // A scene dropped on an event joins it (several selected scenes, all of them).
+      this.makeDropTarget(row, "card", null, () => {
+        const ids = this.draggedMany ?? [this.dragged!.id];
+        this.mutate((s) => setEventOnCards(s, ids, event.id));
+      });
+      return row;
+    };
+    // An event dropped on another: above or below it, or (on the middle of a top-level one) inside it.
+    const eventTarget = (row: HTMLElement, event: StoryEvent) => {
+      this.makeDropTarget(
+        row,
+        "event",
+        "slot",
+        (place) =>
+          this.mutate((s) => {
+            const id = this.dragged!.id;
+            if (place === "on") return moveEvent(s, id, null, event.id);
+            if (place === "before") return moveEvent(s, id, event.id);
+            const after = s.events[s.events.findIndex((e) => e.id === event.id) + 1];
+            return after && after.parent === event.parent ? moveEvent(s, id, after.id) : (moveEvent(s, id, null) && setEventParent(s, id, event.parent)) || true;
+          }),
+        !event.parent,
+      );
+    };
+
+    for (const { event, children } of eventTree(story)) {
+      const row = eventRow(event, 0, children.length);
+      eventTarget(row, event);
+      if (folded.has(event.id)) continue;
+      for (const child of children) {
+        const childRow = eventRow(child, 1, 0);
+        eventTarget(childRow, child);
+        if (folded.has(child.id)) continue;
+        const list = doc.createDiv({ cls: "story-planner-events-scenes" });
+        for (const card of eventCards(story, child.id)) sceneRow(list, card, 2);
+      }
+      const list = doc.createDiv({ cls: "story-planner-events-scenes" });
+      for (const card of eventCards(story, event.id)) sceneRow(list, card, 1);
+    }
+    if (story.events.length === 0) doc.createDiv({ cls: "story-planner-empty", text: "No events yet" });
+
+    // A new event, typed at the bottom.
+    const add = doc.createEl("input", { cls: "story-planner-events-add" });
+    add.type = "text";
+    add.placeholder = "New event";
+    add.dataset.field = "events-add";
+    add.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" || !add.value.trim()) return;
+      e.preventDefault();
+      const title = add.value.trim();
+      let made: Id | null = null;
+      this.mutate((s) => {
+        made = addEvent(s, title);
+      });
+      if (made) this.selectEvent(made);
+    });
+
+    // Scenes in no event; a scene dropped here leaves its event.
+    const loose = Object.values(story.cards).filter((c) => !eventOf(story, c));
+    const tray = doc.createDiv({ cls: "story-planner-events-loose" });
+    tray.createDiv({ cls: "story-planner-tray-heading", text: `Not in an event (${loose.length})` });
+    const list = tray.createDiv({ cls: "story-planner-events-scenes" });
+    for (const card of cardsInReadingOrder(story).filter((c) => !eventOf(story, c))) sceneRow(list, card, 0);
+    this.makeDropTarget(tray, "card", null, () => {
+      const ids = this.draggedMany ?? [this.dragged!.id];
+      this.mutate((s) => setEventOnCards(s, ids, undefined));
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -2933,6 +3076,7 @@ ${plotLine.synopsis.trim()}`);
         if (!ghost) {
           if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
           this.dragged = dragged;
+          this.draggedMany = many;
           ghost = document.body.createDiv({ cls: "story-planner-drag-ghost", text: label });
           el.addClass("is-dragging");
           if (many) for (const other of Array.from(this.boardEl.querySelectorAll<HTMLElement>(".story-planner-card[data-card-id]"))) if (many.includes(other.dataset.cardId!)) other.addClass("is-dragging");
@@ -2973,6 +3117,7 @@ ${plotLine.synopsis.trim()}`);
           }
         }
         this.dragged = null;
+        this.draggedMany = null;
         this.backgroundDrop = false;
       };
       const onUp = (ev: PointerEvent) => {
@@ -3021,7 +3166,11 @@ ${plotLine.synopsis.trim()}`);
     onDrop: (place: DropPlace) => void,
     middle = false,
   ): void {
-    this.dropTargets.set(el, { accepts, axis, middle, onDrop });
+    const spec: DropTargetSpec = { accepts, axis, middle, onDrop };
+    // One element can take two kinds of things, such as a scene or an event on an event's row.
+    const existing = this.dropTargets.get(el);
+    if (existing && existing.accepts !== accepts) existing.also = spec;
+    else this.dropTargets.set(el, spec);
   }
 
   private dropTargetAt(x: number, y: number, kind: Dragged["kind"]): { el: HTMLElement; spec: DropTargetSpec } | null {
@@ -3032,6 +3181,7 @@ ${plotLine.synopsis.trim()}`);
         const spec = this.dropTargets.get(node as HTMLElement);
         if (spec) {
           if (spec.accepts === kind) return { el: node as HTMLElement, spec };
+          if (spec.also?.accepts === kind) return { el: node as HTMLElement, spec: spec.also };
           break;
         }
       }

@@ -13,12 +13,13 @@ import {
   updateCard,
   updateCardCharacter,
 } from "../model/edits";
-import { compareDates, effectiveZone, ZoneSource } from "../model/calendar";
-import { locationTree, plotLineColor } from "../model/setup";
+import { compareDates, effectiveZone, formatDateRange, ZoneSource } from "../model/calendar";
+import { locationPath, locationTree, plotLineColor } from "../model/setup";
 import { chapterTitle } from "../model/chapters";
-import { Card, CharacterRole, Id, OrgRole, Story } from "../model/types";
+import { Card, CharacterRole, Id, OrgRole, Story, StoryEvent } from "../model/types";
 import { addOrganization, addOrgByName, ageAt, nextOrgRole, orgRoles, setCardOrg } from "../model/entities";
-import { addEvent, eventTree, setCardEvent } from "../model/events";
+import { addEvent, deleteEvent, eventCards, eventSpan, eventTree, setCardEvent, setEventParent } from "../model/events";
+import { colorSwatch } from "./colorPicker";
 import {
   addCharacterToCards,
   common,
@@ -74,6 +75,8 @@ export interface CardPanelHost {
   deletedMany?(count: number): void;
   /** Opens an event's page. */
   openEvent?(eventId: Id): void;
+  /** Shows a card on the board and opens it. */
+  openCard?(cardId: Id): void;
   /** True when the card opens as a page in the middle of the board rather than in the side panel. */
   centre?(): boolean;
   notes: NoteHost;
@@ -89,6 +92,7 @@ export interface CardPanelHost {
 export class CardPanel {
   readonly el: HTMLElement;
   private cardId: Id | null = null;
+  private eventId: Id | null = null;
   private story: Story | null = null;
   /** Whether "Also in" is unfolded; reset when another card is shown. */
   private echoesOpen = false;
@@ -105,6 +109,193 @@ export class CardPanel {
     return this.cardId;
   }
 
+  /** The event shown, when the panel shows one instead of a card. */
+  get selectedEvent(): Id | null {
+    return this.eventId;
+  }
+
+  /**
+   * Shows an event: its title and synopsis, its colour, the arc it is in,
+   * when it happens (from its scenes, or set by hand), and what its scenes
+   * bring together: characters, organizations, places, and the scenes
+   * themselves. A `soft` refresh, while typing, leaves the fields alone.
+   */
+  showEvent(story: Story, eventId: Id, soft = false): void {
+    this.story = story;
+    const event = story.events.find((e) => e.id === eventId);
+    if (!event) {
+      this.eventId = null;
+      this.el.hidden = true;
+      this.el.empty();
+      return;
+    }
+    const same = this.eventId === eventId && this.el.dataset.event === "true";
+    this.cardId = null;
+    this.eventId = eventId;
+    delete this.el.dataset.group;
+    this.el.dataset.event = "true";
+    this.el.hidden = false;
+    if (same && soft) return;
+    const active = document.activeElement;
+    const focused = same && active instanceof HTMLElement && this.el.contains(active) ? active.dataset.field : undefined;
+    const scroll = same ? this.el.scrollTop : 0;
+    this.closePicker?.();
+    this.buildEvent(story, event);
+    this.el.scrollTop = scroll;
+    if (focused) this.el.querySelector<HTMLElement>(`[data-field="${CSS.escape(focused)}"]`)?.focus({ preventScroll: true });
+  }
+
+  private buildEvent(story: Story, event: StoryEvent): void {
+    const el = this.el;
+    el.empty();
+    el.toggleClass("is-centre", !!this.host.centre?.());
+    const id = event.id;
+    const edit = (change: (e: StoryEvent) => void, coalesce?: string) =>
+      this.host.edit((s) => {
+        const e = s.events.find((x) => x.id === id);
+        if (!e) return false;
+        const before = JSON.stringify(e);
+        change(e);
+        return JSON.stringify(e) !== before;
+      }, coalesce);
+    const children = story.events.filter((e) => e.parent === id);
+
+    const header = el.createDiv({ cls: "story-planner-panel-header" });
+    header.createDiv({ cls: "story-planner-panel-heading", text: children.length > 0 ? "Arc" : "Event" });
+    const close = header.createEl("button", { cls: "story-planner-panel-close clickable-icon", text: "×" });
+    close.setAttr("aria-label", "Close");
+    close.addEventListener("click", () => this.host.close());
+
+    const title = el.createEl("input", { cls: "story-planner-panel-title" });
+    title.type = "text";
+    title.value = event.title;
+    title.placeholder = "Untitled event";
+    title.dataset.field = "event-title";
+    title.addEventListener("input", () => edit((e) => void (e.title = title.value), `event-title:${id}`));
+    const synopsis = el.createEl("textarea", { cls: "story-planner-panel-synopsis" });
+    synopsis.rows = 6;
+    synopsis.value = event.synopsis ?? "";
+    synopsis.placeholder = "What happens in this event";
+    synopsis.dataset.field = "event-synopsis";
+    const grow = () => {
+      synopsis.style.height = "auto";
+      synopsis.style.height = `${synopsis.scrollHeight + 2}px`;
+    };
+    synopsis.addEventListener("input", () => {
+      grow();
+      edit((e) => {
+        if (synopsis.value.trim()) e.synopsis = synopsis.value;
+        else delete e.synopsis;
+      }, `event-synopsis:${id}`);
+    });
+    window.requestAnimationFrame(grow);
+
+    const props = el.createDiv({ cls: "story-planner-props" });
+    colorSwatch(this.prop(props, "Colour", "palette"), event.color, (color) => edit((e) => void (e.color = color)));
+
+    // The arc it is part of: an event that is not inside another. An event that holds others is an arc itself.
+    const arcCell = this.prop(props, "Part of", "network");
+    if (children.length > 0) {
+      arcCell.createSpan({ cls: "story-planner-multi-empty", text: `Holds ${children.length} ${children.length === 1 ? "event" : "events"}` });
+    } else {
+      const arcs: Record<string, string> = { "": "No arc" };
+      for (const e of story.events) if (e.id !== id && !e.parent) arcs[e.id] = e.title || "Untitled event";
+      this.select(arcCell, arcs, event.parent ?? "", (value) => this.host.edit((s) => setEventParent(s, id, value || undefined)));
+    }
+
+    const status = this.prop(props, "Status", "circle-dot").createEl("input", { cls: "story-planner-profile-input" });
+    status.type = "text";
+    status.value = event.status ?? "";
+    status.placeholder = "Planned, drafted…";
+    status.dataset.field = "event-status";
+    status.addEventListener("input", () =>
+      edit((e) => {
+        if (status.value.trim()) e.status = status.value;
+        else delete e.status;
+      }, `event-status:${id}`),
+    );
+
+    // When: from its scenes, unless set by hand.
+    const span = eventSpan(story, id);
+    const when = this.prop(props, "When", "calendar");
+    when.createDiv({
+      cls: "story-planner-date-hint",
+      text: span.start ? formatDateRange(story, span.start, span.end && JSON.stringify(span.end) !== JSON.stringify(span.start) ? span.end : undefined) : "No dated scenes",
+    });
+    const range = when.createDiv({ cls: "story-planner-date-range" });
+    const from = range.createDiv({ cls: "story-planner-date-part-of-range" });
+    new DateEditor(from, story, event.start, "event-start", "Zone: default", (d) =>
+      edit((e) => {
+        if (d) e.start = d;
+        else delete e.start;
+      }),
+    );
+    range.createSpan({ cls: "story-planner-date-arrow", text: "→" });
+    const to = range.createDiv({ cls: "story-planner-date-part-of-range" });
+    new DateEditor(to, story, event.end, "event-end", "Zone: default", (d) =>
+      edit((e) => {
+        if (d) e.end = d;
+        else delete e.end;
+      }),
+    );
+
+    const cards = eventCards(story, id, true);
+    // An event without scenes is placed on the board by a chapter of the writer's choosing.
+    if (cards.length === 0) {
+      const chapters: Record<string, string> = { "": "No chapter" };
+      for (const c of story.chapters) chapters[c.id] = chapterTitle(story, c);
+      this.select(this.prop(props, "Shown in", "book-open"), chapters, event.chapter ?? "", (value) =>
+        edit((e) => {
+          if (value) e.chapter = value;
+          else delete e.chapter;
+        }),
+      );
+    }
+
+    // What its scenes bring together.
+    const gather = <T extends { id: Id; name: string; color: string }>(label: string, icon: string, items: T[]) => {
+      if (items.length === 0) return;
+      const cell = this.prop(props, label, icon).createDiv({ cls: "story-planner-card-characters" });
+      for (const item of items) {
+        const chip = cell.createSpan({ cls: "story-planner-role-chip role-present", text: item.name });
+        chip.style.setProperty("--chip-color", item.color);
+      }
+    };
+    const has = <T,>(ids: (T | undefined)[]) => new Set(ids.filter((x): x is T => x !== undefined));
+    const people = has(cards.flatMap((c) => c.characters.map((e) => e.id)));
+    gather("Characters", "users", story.characters.filter((c) => people.has(c.id)));
+    const orgs = has(cards.flatMap((c) => (c.orgs ?? []).map((o) => o.id)));
+    gather("Organizations", "landmark", story.organizations.filter((o) => orgs.has(o.id)));
+    const places = has(cards.map((c) => c.location));
+    gather("Places", "map-pin", story.locations.filter((l) => places.has(l.id)).map((l) => ({ id: l.id, name: locationPath(story, l.id), color: "var(--text-faint)" })));
+
+    if (children.length > 0) {
+      const list = this.prop(props, "Events", "flag");
+      for (const child of children) {
+        const link = list.createEl("a", { text: child.title || "Untitled event" });
+        link.addEventListener("click", () => this.host.openEvent?.(child.id));
+      }
+    }
+    const scenes = this.prop(props, "Scenes", "square-stack");
+    if (cards.length === 0) scenes.createSpan({ cls: "story-planner-multi-empty", text: "None yet: choose this event on a card" });
+    for (const card of cards) {
+      const row = scenes.createDiv({ cls: "story-planner-profile-scene" });
+      const p = story.plotLines.find((x) => x.id === card.plotLine);
+      row.style.setProperty("--lane-color", p?.color ?? "var(--text-faint)");
+      row.createSpan({ cls: "story-planner-profile-scene-title", text: isUntitled(card.title) ? card.synopsis.split(/\r?\n/)[0] || "Untitled" : card.title });
+      row.createSpan({ cls: "story-planner-profile-detail", text: [chapterTitle(story, story.chapters.find((c) => c.id === card.chapter)), card.date ? formatDateRange(story, card.date, card.endDate) : ""].filter(Boolean).join(" · ") });
+      row.addEventListener("click", () => this.host.openCard?.(card.id));
+    }
+
+    const footer = el.createDiv({ cls: "story-planner-panel-footer" });
+    const remove = footer.createEl("button", { cls: "story-planner-delete", text: children.length > 0 ? "Delete arc" : "Delete event" });
+    remove.setAttr("title", "Its scenes are kept");
+    remove.addEventListener("click", () => {
+      this.host.edit((s) => deleteEvent(s, id));
+      this.host.close();
+    });
+  }
+
   /**
    * Shows the editor for several selected cards: what they share, and
    * changes that apply to all of them, each as one undo step.
@@ -112,6 +303,7 @@ export class CardPanel {
   showGroup(story: Story, ids: Id[]): void {
     this.story = story;
     this.cardId = null;
+    this.eventId = null;
     const cards = selectedCards(story, ids);
     if (cards.length < 2) {
       this.el.hidden = true;
@@ -250,6 +442,8 @@ export class CardPanel {
    */
   show(story: Story, cardId: Id | null, soft = false): void {
     this.story = story;
+    this.eventId = null;
+    delete this.el.dataset.event;
     if (!cardId || !story.cards[cardId]) {
       this.cardId = null;
       this.picker = null;

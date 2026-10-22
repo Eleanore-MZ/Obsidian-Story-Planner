@@ -3938,3 +3938,173 @@ body.story-planner-marquee-active * {
   color: var(--text-normal);
   text-decoration: underline;
 }
+
+/* The Outline tab, edited in place: fields look like the page until you type in them. */
+.story-planner-outline-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-1);
+  margin: var(--size-4-6) 0 var(--size-4-2);
+}
+
+.story-planner-outline-heading > .story-planner-fold {
+  flex: none;
+  margin-left: calc(-1 * var(--size-4-6));
+}
+
+.story-planner-outline-number {
+  flex: none;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+.story-planner-outline-number::after {
+  content: ":";
+}
+
+.story-planner .story-planner-outline-edit {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  padding: 1px var(--size-2-2);
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  resize: none;
+}
+
+.story-planner .story-planner-outline-edit:hover {
+  background: var(--background-modifier-hover);
+}
+
+.story-planner .story-planner-outline-edit:focus {
+  border-color: var(--background-modifier-border);
+  background: transparent;
+}
+
+.story-planner .story-planner-outline-edit::placeholder {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.story-planner .story-planner-outline-heading-edit {
+  flex: 1;
+}
+
+.story-planner .story-planner-outline-synopsis {
+  margin: 0 0 var(--size-4-3);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.story-planner .story-planner-outline-synopsis.is-event {
+  margin-left: var(--size-4-3);
+}
+
+.story-planner-outline-info {
+  display: grid;
+  grid-template-columns: 7em minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--size-4-2);
+}
+
+.story-planner-outline-entity {
+  margin: 0 0 var(--size-4-4);
+  padding-left: var(--size-4-3);
+  border-left: 3px solid var(--lane-color);
+}
+
+.story-planner .story-planner-outline-entity-name {
+  font-weight: var(--font-semibold);
+}
+
+.story-planner-outline-facts {
+  padding: 0 var(--size-2-2);
+  font-size: var(--font-ui-small);
+}
+
+.story-planner-outline-event {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-2-3);
+  margin: var(--size-4-4) 0 var(--size-4-1);
+  padding-left: var(--size-4-2);
+  border-left: 4px solid var(--event-color, var(--text-faint));
+  font-weight: var(--font-semibold);
+}
+
+.story-planner-outline-event.is-none {
+  font-weight: normal;
+  color: var(--text-muted);
+}
+
+.story-planner .story-planner-outline-event-title {
+  flex: 1;
+}
+
+.story-planner-outline-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--size-2-2);
+  cursor: default;
+}
+
+.story-planner-outline-card > .story-planner-drag-handle {
+  grid-row: 1 / span 2;
+  align-self: start;
+  margin-top: 4px;
+  opacity: 0;
+}
+
+.story-planner-outline-card:hover > .story-planner-drag-handle,
+.story-planner-outline-card > .story-planner-drag-handle:focus-visible {
+  opacity: 1;
+}
+
+.story-planner-outline-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+}
+
+.story-planner .story-planner-outline-card-title {
+  flex: 1;
+  font-weight: var(--font-semibold);
+}
+
+.story-planner .story-planner-outline-card-synopsis {
+  grid-column: 2;
+}
+
+.story-planner-outline-card:not(:has(.story-planner-drag-handle)) .story-planner-outline-card-synopsis {
+  grid-column: 1 / -1;
+}
+
+.story-planner-outline-card:not(:has(.story-planner-drag-handle)) .story-planner-outline-card-head {
+  grid-column: 1 / -1;
+}
+
+.story-planner-outline-go {
+  opacity: 0;
+}
+
+.story-planner-outline-card:hover .story-planner-outline-go {
+  opacity: 1;
+}
+
+.story-planner-outline-card.is-drop-before {
+  box-shadow: inset 0 2px 0 var(--interactive-accent);
+}
+
+.story-planner-outline-card.is-drop-after {
+  box-shadow: inset 0 -2px 0 var(--interactive-accent);
+}
+
+.story-planner-outline-card.is-dragging {
+  opacity: 0.5;
+}

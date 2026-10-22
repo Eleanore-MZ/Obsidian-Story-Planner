@@ -1,14 +1,25 @@
+import { formatDateRange } from "../model/calendar";
 import { actsShown, actTitle, chapterNumbers, chapterTitle } from "../model/chapters";
 import { isUntitled } from "../model/defaults";
 import { duringChapter } from "../model/edits";
+import { fieldsFor, orgMembers, orgTree } from "../model/entities";
+import { eventOf } from "../model/events";
 import { cardsInReadingOrder } from "../model/search";
-import { Act, Card, Chapter, Story } from "../model/types";
+import { Act, Card, Chapter, Character, CustomValue, Entity, Organization, Story, StoryEvent, StoryInfo } from "../model/types";
 import { escapeLine, escapeText } from "./storyFile";
 
-// The composed outline: acts, their chapters and each chapter's scenes in
+// The composed outline, in four parts: the story (what it is), its
+// characters, its organizations, and its plot: the plot lines, then acts,
+// their chapters, the events in each chapter and each chapter's scenes in
 // board order, with the off-page events that happen during a chapter listed
 // under it as its background. The Outline tab shows it, and "Export outline"
 // writes it as a Markdown note of its own.
+
+/** A run of a chapter's scenes in one event (or in none), in board order. */
+export interface OutlineGroup {
+  event: StoryEvent | null;
+  cards: Card[];
+}
 
 export interface OutlineChapter {
   /** Null for the off-page events that happen during no chapter. */
@@ -16,6 +27,8 @@ export interface OutlineChapter {
   heading: string;
   synopsis: string;
   cards: Card[];
+  /** The scenes, in runs by event. */
+  groups: OutlineGroup[];
   /** Off-page events that happen during this chapter. */
   background: Card[];
 }
@@ -31,7 +44,28 @@ export interface OutlinePart {
 /** The front matter that marks a note as an exported outline, so a later export may replace it. */
 export const OUTLINE_MARKER = "storyplanner: outline";
 
-/** The story as parts (acts, or one part without acts) of chapters of scenes. */
+/** The story's general information, labelled, in the order the outline shows it. */
+export const INFO_LABELS: [keyof StoryInfo, string][] = [
+  ["logline", "Logline"],
+  ["genre", "Genre"],
+  ["premise", "Premise"],
+  ["themes", "Themes"],
+  ["notes", "Notes"],
+];
+
+/** A chapter's scenes in runs by event: a new run starts wherever the event changes. */
+export function groupByEvent(story: Story, cards: Card[]): OutlineGroup[] {
+  const groups: OutlineGroup[] = [];
+  for (const card of cards) {
+    const event = eventOf(story, card) ?? null;
+    const last = groups[groups.length - 1];
+    if (last && last.event?.id === event?.id) last.cards.push(card);
+    else groups.push({ event, cards: [card] });
+  }
+  return groups;
+}
+
+/** The plot as parts (acts, or one part without acts) of chapters of scenes. */
 export function composeOutline(story: Story): OutlinePart[] {
   const cards = cardsInReadingOrder(story);
   const numbers = chapterNumbers(story);
@@ -45,11 +79,13 @@ export function composeOutline(story: Story): OutlinePart[] {
       part = { act, heading: act ? actTitle(story, act) : "", synopsis: act?.summary?.trim() ?? "", chapters: [] };
       parts.push(part);
     }
+    const inChapter = cards.filter((c) => c.chapter === chapter.id);
     part.chapters.push({
       chapter,
       heading: chapterTitle(story, chapter, numbers),
       synopsis: chapter.summary?.trim() ?? "",
-      cards: cards.filter((c) => c.chapter === chapter.id),
+      cards: inChapter,
+      groups: groupByEvent(story, inChapter),
       background: cards.filter((c) => duringChapter(story, c) === chapter.id),
     });
   }
@@ -59,7 +95,7 @@ export function composeOutline(story: Story): OutlinePart[] {
       act: null,
       heading: "",
       synopsis: "",
-      chapters: [{ chapter: null, heading: "Off-page", synopsis: "", cards: offPage, background: [] }],
+      chapters: [{ chapter: null, heading: "Off-page", synopsis: "", cards: offPage, groups: groupByEvent(story, offPage), background: [] }],
     });
   }
   return parts;
@@ -73,15 +109,62 @@ export function outlineCardLine(story: Story, card: Card): { title: string; plot
   };
 }
 
+/** A custom field's value as text. */
+export function fieldText(story: Story, value: CustomValue): string {
+  return typeof value === "string" ? value : formatDateRange(story, value, undefined);
+}
+
+/** The facts about a character the outline lists: aliases, role, organizations, birth and death, the story's own fields. */
+export function characterFacts(story: Story, c: Character): [string, string][] {
+  const facts: [string, string][] = [];
+  if (c.aliases?.length) facts.push(["Also known as", c.aliases.join(", ")]);
+  if (c.role?.trim()) facts.push(["Role", c.role.trim()]);
+  const orgs = (c.orgs ?? [])
+    .map((m) => {
+      const org = story.organizations.find((o) => o.id === m.id);
+      return org ? (m.rank ? `${org.name} (${m.rank})` : org.name) : null;
+    })
+    .filter((x): x is string => !!x);
+  if (orgs.length > 0) facts.push(["Organizations", orgs.join(", ")]);
+  if (c.born) facts.push(["Born", formatDateRange(story, c.born, undefined)]);
+  if (c.died) facts.push(["Died", formatDateRange(story, c.died, undefined)]);
+  return [...facts, ...customFacts(story, "character", c)];
+}
+
+/** The facts about an organization: what it is part of, its members, the story's own fields. */
+export function organizationFacts(story: Story, o: Organization): [string, string][] {
+  const facts: [string, string][] = [];
+  const parent = o.parent ? story.organizations.find((x) => x.id === o.parent) : undefined;
+  if (parent) facts.push(["Part of", parent.name]);
+  const members = orgMembers(story, o.id)
+    .map(({ characterId, membership }) => {
+      const c = story.characters.find((x) => x.id === characterId);
+      return c ? (membership.rank ? `${c.name} (${membership.rank})` : c.name) : null;
+    })
+    .filter((x): x is string => !!x);
+  if (members.length > 0) facts.push(["Members", members.join(", ")]);
+  return [...facts, ...customFacts(story, "organization", o)];
+}
+
+function customFacts(story: Story, kind: "character" | "organization", e: Entity): [string, string][] {
+  return fieldsFor(story, kind)
+    .filter((f) => e.fields?.[f.id] !== undefined)
+    .map((f): [string, string] => [f.name, fieldText(story, e.fields![f.id]!)]);
+}
+
 /**
- * The outline as Markdown: "## Act I: Title" and its synopsis, "### Chapter 1:
- * Title" and its synopsis, then the chapter's scenes, and its background
- * under "#### Background". Without acts, chapters are "##". Text is escaped,
- * so nothing in the story becomes a tag, link or comment in the note.
+ * The outline as Markdown, in four parts: "## Story" (logline, genre,
+ * premise, themes, notes), "## Characters" and "## Organizations" (one
+ * heading each, their facts, then their summary), and "## Plot": the plot
+ * lines with their synopses, then "### Act I: Title" and its synopsis,
+ * "#### Chapter 1: Title" and its synopsis, the chapter's events as headings
+ * one level down with their synopsis (the first time each appears), and the
+ * scenes, then the chapter's background. Without acts, chapters are "###".
+ * Parts with nothing in them are left out. Text is escaped, so nothing in
+ * the story becomes a tag, link or comment in the note.
  */
 export function outlineMarkdown(story: Story): string {
   const out: string[] = ["---", OUTLINE_MARKER, "---", "", `# ${escapeText(story.title)}`, ""];
-  const withActs = actsShown(story);
   // Lines end in two spaces where the next line belongs to the same block,
   // so they stay separate lines with strict line breaks on.
   const paragraph = (text: string) => {
@@ -89,6 +172,57 @@ export function outlineMarkdown(story: Story): string {
     lines.forEach((line, i) => out.push(i < lines.length - 1 ? `${line}  ` : line));
     out.push("");
   };
+  const facts = (list: [string, string][]) => {
+    if (list.length === 0) return;
+    list.forEach(([label, value], i) => out.push(`**${escapeText(label)}:** ${escapeText(value)}${i < list.length - 1 ? "  " : ""}`));
+    out.push("");
+  };
+
+  // 1. The story.
+  const info = INFO_LABELS.filter(([key]) => story.info?.[key]?.trim());
+  if (info.length > 0) {
+    out.push("## Story", "");
+    for (const [key, label] of info) {
+      const text = story.info![key]!.trim();
+      if (text.includes("\n")) {
+        out.push(`**${label}:**  `);
+        paragraph(text);
+      } else {
+        out.push(`**${label}:** ${escapeText(text)}`, "");
+      }
+    }
+  }
+
+  // 2. Characters, 3. organizations.
+  if (story.characters.length > 0) {
+    out.push("## Characters", "");
+    for (const c of story.characters) {
+      out.push(`### ${escapeText(c.name)}`, "");
+      facts(characterFacts(story, c));
+      if (c.summary?.trim()) paragraph(c.summary.trim());
+    }
+  }
+  if (story.organizations.length > 0) {
+    out.push("## Organizations", "");
+    for (const { org } of orgTree(story)) {
+      out.push(`### ${escapeText(org.name)}`, "");
+      facts(organizationFacts(story, org));
+      if (org.summary?.trim()) paragraph(org.summary.trim());
+    }
+  }
+
+  // 4. The plot.
+  out.push("## Plot", "");
+  const lines = story.plotLines.filter((p) => p.synopsis?.trim());
+  if (lines.length > 0) {
+    out.push("### Plot lines", "");
+    for (const p of lines) {
+      out.push(`**${escapeText(p.name)}**  `);
+      paragraph(p.synopsis!.trim());
+    }
+  }
+  const withActs = actsShown(story);
+  const seen = new Set<string>();
   const writeCard = (card: Card) => {
     const { title, plotLine } = outlineCardLine(story, card);
     const label = [title ? `**${escapeText(title)}**` : "", plotLine ? `(${escapeText(plotLine)})` : ""].filter(Boolean).join(" ");
@@ -98,15 +232,26 @@ export function outlineMarkdown(story: Story): string {
   };
   for (const part of composeOutline(story)) {
     if (part.act) {
-      out.push(`## ${escapeText(part.heading)}`, "");
+      out.push(`### ${escapeText(part.heading)}`, "");
       if (part.synopsis) paragraph(part.synopsis);
     }
     for (const chapter of part.chapters) {
       // Off-page, and chapters in no act, stand beside the acts.
-      const level = withActs && part.act ? "###" : "##";
+      const level = withActs && part.act ? "####" : "###";
       out.push(`${level} ${escapeText(chapter.heading)}`, "");
       if (chapter.synopsis) paragraph(chapter.synopsis);
-      for (const card of chapter.cards) writeCard(card);
+      chapter.groups.forEach((group, i) => {
+        // Scenes in no event after an event's get a heading of their own, so they do not read as part of it.
+        if (!group.event && i > 0) out.push(`${level}# Other scenes`, "");
+        if (group.event) {
+          const parent = group.event.parent ? story.events.find((e) => e.id === group.event!.parent) : undefined;
+          const name = [parent?.title, group.event.title || "Untitled event"].filter(Boolean).join(" › ");
+          out.push(`${level}# ${escapeText(name)}`, "");
+          if (!seen.has(group.event.id) && group.event.synopsis?.trim()) paragraph(group.event.synopsis.trim());
+          seen.add(group.event.id);
+        }
+        for (const card of group.cards) writeCard(card);
+      });
       if (chapter.background.length > 0) {
         out.push(`${level}# Background`, "");
         for (const card of chapter.background) writeCard(card);

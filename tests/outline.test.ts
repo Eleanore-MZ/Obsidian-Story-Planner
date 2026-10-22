@@ -38,7 +38,7 @@ describe("the composed outline", () => {
     expect(parts[1]!.chapters[0]!.cards.map((c) => c.id)).toEqual(["k5"]);
   });
 
-  it("writes it as Markdown in that structure", () => {
+  it("writes the plot as Markdown in that structure, under its own heading", () => {
     const md = outlineMarkdown(story());
     expect(md).toBe(
       [
@@ -48,11 +48,13 @@ describe("the composed outline", () => {
         "",
         "# The Glass Harbour",
         "",
-        "## Act I: The body",
+        "## Plot",
+        "",
+        "### Act I: The body",
         "",
         "A death at the harbour.",
         "",
-        "### Chapter 1: The Pier",
+        "#### Chapter 1: The Pier",
         "",
         "Mara finds him.",
         "",
@@ -64,14 +66,14 @@ describe("the composed outline", () => {
         "(Investigation)  ",
         "The ledger.",
         "",
-        "#### Background",
+        "##### Background",
         "",
         "**The meeting** (Investigation)  ",
         "Oren meets someone.",
         "",
-        "### Chapter 2: Letters",
+        "#### Chapter 2: Letters",
         "",
-        "## Off-page",
+        "### Off-page",
         "",
         "**The theft** (Investigation)",
         "",
@@ -79,12 +81,42 @@ describe("the composed outline", () => {
     );
   });
 
-  it("uses chapters as the top headings when the story does not show acts", () => {
+  it("starts with the story, its characters and its organizations, and puts events and plot lines in the plot", () => {
+    const s = story();
+    s.info = { logline: "A death at the harbour.", premise: "A watchwoman.\nA courier." };
+    s.characters = [
+      { id: "x1", name: "Mara", color: "#a00", role: "Investigator", aliases: ["The Watch"], summary: "Harbour watch.", orgs: [{ id: "o1", rank: "Captain" }] },
+    ];
+    s.organizations = [{ id: "o1", name: "The Watch", color: "#00a", summary: "Keeps the harbour." }];
+    s.customFields = [{ id: "f1", name: "Motto", type: "text", appliesTo: "both" }];
+    s.organizations[0]!.fields = { f1: "Never twice" };
+    s.plotLines[0]!.synopsis = "Who killed Oren.";
+    s.events = [
+      { id: "arc", title: "The case", color: "#c00" },
+      { id: "e1", title: "The pier", color: "#c00", parent: "arc", synopsis: "Morning at the pier." },
+    ];
+    s.cards.k1!.event = "e1";
+    s.cards.k2!.event = "e1";
+    const md = outlineMarkdown(s);
+    const at = (text: string) => md.indexOf(text);
+    expect(md).toContain("## Story\n\n**Logline:** A death at the harbour.\n\n**Premise:**  \nA watchwoman.  \nA courier.\n");
+    expect(md).toContain("## Characters\n\n### Mara\n\n**Also known as:** The Watch  \n**Role:** Investigator  \n**Organizations:** The Watch (Captain)\n\nHarbour watch.\n");
+    expect(md).toContain("## Organizations\n\n### The Watch\n\n**Members:** Mara (Captain)  \n**Motto:** Never twice\n\nKeeps the harbour.\n");
+    expect(md).toContain("### Plot lines\n\n**Investigation**  \nWho killed Oren.\n");
+    expect(md).toContain("##### The case › The pier\n\nMorning at the pier.\n\n**Body found**");
+    // Scenes in no event after an event's are set apart.
+    expect(at("##### Other scenes")).toBeGreaterThan(at("**Ilse arrives**"));
+    expect(at("## Story")).toBeLessThan(at("## Characters"));
+    expect(at("## Characters")).toBeLessThan(at("## Organizations"));
+    expect(at("## Organizations")).toBeLessThan(at("## Plot"));
+  });
+
+  it("uses chapters as the plot's top headings when the story does not show acts", () => {
     const s = story();
     s.actsEnabled = false;
     const md = outlineMarkdown(s);
-    expect(md).toContain("\n## Chapter 1: The Pier\n");
-    expect(md).toContain("\n### Background\n");
+    expect(md).toContain("\n### Chapter 1: The Pier\n");
+    expect(md).toContain("\n#### Background\n");
     expect(md).not.toContain("Act I");
   });
 

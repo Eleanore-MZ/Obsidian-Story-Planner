@@ -33,6 +33,8 @@ export interface StoryViewState {
   /** Story time: events as blocks too. */
   timeEventMode?: boolean;
   expandedEvents?: string[];
+  /** Folded parts of the Outline tab. */
+  foldedOutline?: string[];
   /** Folded events and arcs in the Events tab. */
   foldedEvents?: string[];
   /** Folded years and days in story time, by group key ("y:1531", "d:559000"). */

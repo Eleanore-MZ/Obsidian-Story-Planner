@@ -30,6 +30,8 @@ export interface StoryViewState {
   expandTimeline?: boolean;
   /** Main board: events as blocks, and the events shown as their scenes instead. */
   eventMode?: boolean;
+  /** Story time: events as blocks too. */
+  timeEventMode?: boolean;
   expandedEvents?: string[];
   /** Folded events and arcs in the Events tab. */
   foldedEvents?: string[];

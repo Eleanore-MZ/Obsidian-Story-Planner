@@ -2004,7 +2004,7 @@ ${plotLine.synopsis.trim()}`);
       const event = path[path.length - 1]!;
       line.style.setProperty("--event-color", event.color);
       // In event mode, the line folds the event's scenes back into a block.
-      if (this.tab === "board" && this.viewState()?.eventMode) {
+      if ((this.tab === "board" && this.viewState()?.eventMode) || (this.tab === "time" && this.viewState()?.timeEventMode)) {
         line.addClass("is-foldable");
         line.setAttr("title", "Fold this event's scenes into a block");
         stopBoardGestures(line);
@@ -2060,6 +2060,11 @@ ${plotLine.synopsis.trim()}`);
     expand.setAttr("aria-pressed", String(expanded));
     expand.toggleClass("is-active", expanded);
     expand.addEventListener("click", () => this.setViewState({ expandTimeline: !expanded }));
+    // Event mode, as on the board.
+    if (story.events.length > 0) {
+      const eventMode = !!this.viewState()?.timeEventMode;
+      this.toolIcon(actions, "flag", eventMode ? "Event mode (click for scenes)" : "Event mode: show events as blocks", () => this.setViewState({ timeEventMode: !eventMode }), eventMode);
+    }
     if (story.zones.length > 0) {
       const zones = actions.createEl("select", { cls: "dropdown" });
       zones.setAttr("aria-label", "Show times in");
@@ -2077,7 +2082,16 @@ ${plotLine.synopsis.trim()}`);
     }
     const orientation = this.orientation;
     const expand = !!this.viewState()?.expandTimeline;
-    const layout = computeTimeLayout(story, this.zoom, orientation, expand, this.clockBlock(story), new Set(this.viewState()?.foldedTimes ?? []));
+    const eventMode = !!this.viewState()?.timeEventMode && story.events.length > 0;
+    const layout = computeTimeLayout(
+      story,
+      this.zoom,
+      orientation,
+      expand,
+      this.clockBlock(story),
+      new Set(this.viewState()?.foldedTimes ?? []),
+      eventMode ? { expanded: new Set(this.viewState()?.expandedEvents ?? []) } : undefined,
+    );
     this.buckets = new Map(layout.buckets.map((b) => [b.id, b]));
     this.storySpan = { start: layout.storyStartBucket, end: layout.storyEndBucket };
     if (layout.tooLongToExpand) {
@@ -2413,6 +2427,7 @@ ${plotLine.synopsis.trim()}`);
     switch (item.kind) {
       case "corner":
       case "lane-header":
+      case "event-block":
         return this.renderItem(grid, item, story);
 
       case "time-header": {

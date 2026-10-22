@@ -277,24 +277,28 @@ function sceneRows(cards: Card[], laneIndex: Map<string, number>): Card[][] {
  * another block, so a block never covers a scene. Works on the items before
  * they are turned into grid lines.
  */
-function collapseEvents(
+export function collapseEvents<T extends { kind: string }>(
   story: Story,
-  items: { item: BoardItem; slot: number; lane: number; span?: number }[],
+  items: { item: T | BoardItem; slot: number; lane: number; span?: number; depth?: number }[],
   expanded: ReadonlySet<string>,
+  /** The kinds of empty cell a block may cover. */
+  empty: ReadonlySet<string> = new Set(["empty"]),
+  /** Whether a block may also run on across the slim end rows and gaps between spans (story time). */
+  crossEnds = false,
 ): void {
   const eventIds = new Set(story.events.map((e) => e.id));
   // Event, then plot line, then the rows its scenes are in.
-  const found = new Map<string, Map<number, { slot: number; index: number; cardId: string }[]>>();
+  const found = new Map<string, Map<number, { slot: number; end: number; index: number; cardId: string }[]>>();
   items.forEach((placed, index) => {
-    const it = placed.item;
-    if (it.kind !== "card" && it.kind !== "echo") return;
+    const it = placed.item as { kind: string; cardId?: string };
+    if ((it.kind !== "card" && it.kind !== "echo") || !it.cardId) return;
     const event = story.cards[it.cardId]?.event;
     if (!event || !eventIds.has(event) || expanded.has(event)) return;
     const lanes = found.get(event) ?? new Map();
     found.set(event, lanes);
     const list = lanes.get(placed.lane) ?? [];
     lanes.set(placed.lane, list);
-    list.push({ slot: placed.slot, index, cardId: it.cardId });
+    list.push({ slot: placed.slot, end: placed.slot + (placed.span ?? 1) - 1, index, cardId: it.cardId });
   });
   // What is in each cell, to tell empty cells (which a block may cover) from everything else.
   const cell = new Map<string, number>();
@@ -305,7 +309,11 @@ function collapseEvents(
     const between: number[] = [];
     for (let slot = from + 1; slot < to; slot++) {
       const index = cell.get(`${lane}:${slot}`);
-      if (index === undefined || items[index]!.item.kind !== "empty") return null;
+      if (index === undefined) {
+        if (crossEnds) continue;
+        return null;
+      }
+      if (!empty.has(items[index]!.item.kind) || ((items[index]!.item as { end?: boolean }).end && !crossEnds)) return null;
       between.push(index);
     }
     return between;
@@ -320,14 +328,15 @@ function collapseEvents(
       const close = () => {
         if (run.length === 0) return;
         const plotLineId = story.plotLines[lane - 1]?.id ?? "";
-        blocks.push({ item: { kind: "event-block", eventId, plotLineId, cardIds: [...new Set(run.map((r) => r.cardId))] }, slot: run[0]!.slot, lane, span: run[run.length - 1]!.slot - run[0]!.slot + 1 });
+        const last = Math.max(...run.map((r) => r.end));
+        blocks.push({ item: { kind: "event-block", eventId, plotLineId, cardIds: [...new Set(run.map((r) => r.cardId))] }, slot: run[0]!.slot, lane, span: last - run[0]!.slot + 1, depth: 0 });
         run.forEach((r) => drop.add(r.index));
         covered.forEach((i) => drop.add(i));
         run = [];
         covered = [];
       };
       for (const entry of list) {
-        const between = run.length > 0 ? emptyBetween(lane, run[run.length - 1]!.slot, entry.slot) : [];
+        const between = run.length > 0 ? emptyBetween(lane, Math.max(...run.map((r) => r.end)), entry.slot) : [];
         if (between === null) close();
         else covered.push(...between);
         run.push(entry);

@@ -1,6 +1,6 @@
 # StoryPlanner: Design Notes for a Plot-Line Planning Plugin
 
-Revision 4, 18 October 2026. Revision 4 adds locations, makes the plugin desktop-first, and adds a development setup with a test vault (section 13).
+Revision 5, 22 October 2026. Revision 5 adds profiles for characters and organizations, events, and a four-part outline (sections 15 to 17), and changes the story format to version 3 (section 9). Revision 4 added locations, made the plugin desktop-first, and added a development setup with a test vault (section 13).
 
 Previous revisions: Revision 2 incorporated Eleanore's twelve decisions on the first draft: each story is stored as one note in the vault rather than in hidden plugin data, and story time is built on dates in a calendar customized per story. Revision 3 settles the five follow-up questions and adds a small time zone system to the calendar (section 5). Nothing here is code yet. The final section lists the few questions that remain.
 
@@ -11,6 +11,16 @@ The plugin supports multiple stories in one vault. A card has one primary plot l
 The follow-up answers settle five more points. The story note uses the hybrid format, under the rule "edit in the board, read anywhere". Word counts, when they come, measure the words in the planner itself rather than in linked notes, and they are optional, not a required feature. One calendar per story is enough for now, but the data model should leave room for several later; the calendar must allow a custom number of months per year, days per month and days per week, and it needs a small time zone system. Links to notes live only in the story file, so created notes carry no back-reference. Story files can be created anywhere in the vault.
 
 The last round added two more decisions. Stories have a light, nested list of locations, which carry time zones and enable a warning when a character is in two places at once. The plugin is built for desktop first, and mobile and tablet support is not a goal for now.
+
+Revision 5 settles the following:
+
+- Characters and organizations share one shape: a name, a short name, a colour, a summary, a description, the story's own fields, and a linked note. Places and items may join them later.
+- Every character and organization has a profile in the Characters view.
+- Organizations nest (a branch inside a guild). A character's membership can carry a rank and the story dates it starts and ends.
+- Scenes name organizations as involved or mentioned, just as they name characters.
+- The character track is set aside for now; the Characters view shows the presence matrix and the profiles.
+- Events are objects of their own. A card belongs to at most one event, and an event can sit inside one arc (a single level of nesting). Cards in no event stay loose. Plot lines and events have synopses.
+- The outline, both the tab and the exported note, has four parts: the story, its characters, its organizations, and the plot. It can be edited in place.
 
 ## 1. The Core Idea in One Paragraph
 
@@ -110,7 +120,7 @@ The character track has the same layout and the same controls as the plot line b
 
 The presence matrix is a compact grid with characters as rows and chapters or story-time spans as columns. Each cell shows whether the character appears there and how, with a filled mark for point of view, a solid mark for present, and a hollow mark for mentioned. It is best at catching continuity problems, such as a character who vanishes for half the book, or a character placed in two scenes at the same date and time in different places. Because cards have locations, that second check becomes a gentle warning. When one character appears in two cards whose times overlap but whose locations differ, after converting both to the reference zone, the matrix flags the clash. Locations that sit inside one another, such as a room within a house, do not count as different places. The warning is advisory only, since a story may intend it (a twin, a disguise, a lie).
 
-As built, the character view is a third tab beside the board and story time, with Track and Matrix modes and its own transpose setting. Until the writer chooses lanes, the track shows the first eight characters. The clash check needs a definite stretch of time: a clock time covers its hour, a part of the day covers its hours, and a card with an end date covers everything from the start of its first day to the end of its last. A card known only to the day, month or year with no end date is never checked, because a day has room for a journey and flagging every same-day pair would bury real problems. A mentioned character is not physically present, so mentions never clash.
+As built, the character view is a third tab beside the board and story time, with its own transpose setting. Since revision 5 its modes are Matrix and Profiles (section 15); the track below is set aside until its design is reworked, though its code is kept. The matrix can list organizations instead of characters. Until the writer chooses lanes, the track shows the first eight characters. The clash check needs a definite stretch of time: a clock time covers its hour, a part of the day covers its hours, and a card with an end date covers everything from the start of its first day to the end of its last. A card known only to the day, month or year with no end date is never checked, because a day has room for a journey and flagging every same-day pair would bury real problems. A mentioned character is not physically present, so mentions never clash.
 
 ### Locations
 
@@ -147,6 +157,8 @@ The plugin's own `data.json` remains, but now holds only global settings and sma
 A story file is a normal Markdown note, perhaps named `The Glass Harbour.story.md` or simply `The Glass Harbour.md`, with a frontmatter property that marks it as a StoryPlanner story, such as `storyplanner: story`. Obsidian's metadata cache already reads frontmatter for every note, so the plugin can list all stories in the vault instantly, without scanning file contents. When such a note is opened, the plugin shows it as a board, with a command and a header button to switch to the plain Markdown view and back, as the Kanban plugin does. Because the story is a file, renaming or moving it in the file explorer simply works, deleting it moves it to the trash like any note, and there is no separate story list to keep in step with the vault.
 
 ### The file format
+
+Since format version 3, the data block holds one JSON line for the setup, then one line each for every character, organization and event (each marked with its kind), then one line per card. Characters moved out of the setup line, so a story with many characters still diffs and merges line by line. Stories saved in version 2 open unchanged, and they are rewritten in version 3 on the next save. A version of the plugin older than 0.7.0 refuses version 3 stories rather than misread them, and a line of a kind the plugin does not know stops the story from opening rather than being dropped.
 
 The central design choice is what goes inside the note. There are three realistic options.
 
@@ -230,6 +242,13 @@ The second phase adds story time: the custom calendar with presets (months, days
 
 The third phase adds the character view (track and matrix), the character highlight toggle on the board, locations with zone inheritance and the clash warning, story tags, and relationship states.
 
+A later phase (revision 5) adds profiles for characters and organizations, events with their tab and event modes, and the four-part outline. It is built in one step, as version 0.7.0, with the story format at version 3. Left for later:
+
+- the reworked character track
+- places and items as profiles
+- deeper nesting of events
+- event bands beside the dates in story time
+
 The fourth phase adds note linking and creating notes from cards, board search and "Jump to card", export, and the overview minimap. Planner word counts and, eventually, multiple calendars per story are optional additions after that.
 
 The order can change. Since story time with real dates is central to the stories this is for, phases one and two could reasonably be built together, as the data model already supports both.
@@ -253,3 +272,67 @@ The sample stories also act as fixtures for automated tests. Tests for the file 
 ## 14. Open Questions
 
 All design questions so far are settled. The only remaining step is setting up the repository described in section 13. Once it is connected to the project, building can start with phase one.
+
+## 15. Profiles: Characters and Organizations
+
+Characters and organizations are both entities. An entity has these fields:
+
+- a name, and a short name for tight spaces such as chips on cards
+- a colour
+- a one- or two-line summary, and a longer description
+- values for the story's own fields
+- a linked note
+
+The story's own fields are defined in story setup, each as text, a date, or a choice, and each applies to characters, organizations, or both. Deleting a field deletes its values.
+
+A character also has:
+
+- aliases, and a role in the story, in the writer's own words
+- birth and death dates in the story's calendar; with a birth date, the card panel shows the character's age in each dated scene
+- memberships in organizations, each with an optional rank and the story dates it runs from and until
+
+An organization can be part of another, to any depth, but never inside itself. Its members are not stored on the organization: they are worked out from the characters' memberships, so they can never disagree.
+
+The Profiles mode of the Characters view lists the characters (or, with a switch, the organizations) on the left and shows the chosen profile on the right. The profile uses the same property rows as the card panel. Below the properties, the profile shows what the scenes say:
+
+- the first and last appearance
+- how many scenes in each role
+- the plot lines the scenes are in
+- every scene, in reading order; clicking one opens it on the board
+
+Scenes name organizations as involved (a solid outline) or mentioned (dashed), and clicking the role word cycles between the two, as for characters. Several selected cards can be given an organization at once. Cards can show their organizations through a card field toggle, and the board highlight can pick an organization, either alone or together with its members' scenes.
+
+## 16. Events
+
+An event is something that happens across several scenes, such as a siege or a wedding. It has these fields:
+
+- a title, a synopsis, a colour, and an optional status
+- an optional parent: the arc it is part of. Only one level of nesting is allowed, so an arc holds events and an event holds scenes.
+- its stretch of story time, worked out from its scenes' dates, unless the writer sets a start or end by hand
+- for an event without scenes, the chapter where the board shows it
+
+A card belongs to at most one event (the card field `event`). Cards in no event stay loose everywhere. There are four places to work with events:
+
+- **The Events tab:** the arcs, their events, and each event's scenes in story order. Dragging regroups them: a scene dropped on an event joins it, an event dropped on the middle of a top-level event goes inside it, and an event dropped above or below another moves there. Clicking an event opens its page, which is built like the card panel and lists what its scenes bring together: characters, organizations, places, dates and the scenes themselves.
+- **Event mode on the board:** in each plot line, an event's scenes become one block across their rows. A block may run over empty cells but never over another scene; where another scene or a chapter boundary interrupts the run, a new block starts. The arrow on a block shows that event's scenes as cards again, and the event line on those cards folds them back. Events with no scenes yet wait in a strip above the board.
+- **Event mode in story time:** the same blocks, which here may also run across the gaps between spans of time. A separate column of event bands beside the dates was considered and left out, because events overlap in time and would need several tracks of bands.
+- **The card panel:** an Event property, with "New event…" in its list. Several selected cards can be given an event at once.
+
+## 17. The Outline
+
+The Outline tab and the exported outline note share one structure:
+
+1. **Story:** the logline, genre, premise, themes and notes, edited in story setup or in place.
+2. **Characters:** each one's name, then their aliases, role, organizations, birth and death and own fields, then their summary.
+3. **Organizations:** each one's name, then what it is part of, its members and its own fields, then its summary.
+4. **Plot:** the plot lines with their synopses, then acts, chapters, events and scenes in board order. A chapter's scenes are grouped into runs by event. An event's synopsis appears the first time the event does. Scenes in no event that follow an event's get an "Other scenes" heading. Each chapter's background events come last.
+
+In the tab, titles and synopses are edited in place:
+
+- Enter starts a new line in a synopsis and leaves a title.
+- Escape leaves either.
+- Each part, act and chapter folds.
+- Scenes keep their plot line's colour in the margin.
+- A grip reorders a chapter's scenes, and a small arrow goes to a scene on the board.
+
+The export ends each card's title line (and each line inside a synopsis) with two spaces, so line breaks survive with strict line breaks on. The readable outline inside the story note also gains short sections for the story, its characters, organizations and plot lines, and notes each scene's organizations and event.

@@ -216,6 +216,46 @@ function harbourStory(): Story {
       characters: [{ id: "x1", role: "pov" }, { id: "x2", role: "present" }],
     }),
   ]);
+
+  // Version 3: the story's information, organizations, profile fields, events and plot line synopses.
+  s.info = {
+    logline: "A harbour watchwoman and a courier from the east follow a missing ring to a death on the pier.",
+    genre: "Mystery",
+    themes: "Trust, and the letters people keep",
+  };
+  s.plotLines[0]!.synopsis = "Who killed the harbourmaster, and why the ledger page was cut.";
+  s.plotLines[1]!.synopsis = "Two women who should not trust each other, and do.";
+  s.customFields = [
+    { id: "f1", name: "Motto", type: "text", appliesTo: "organization" },
+    { id: "f2", name: "Temper", type: "choice", options: ["Calm", "Quick"], appliesTo: "character" },
+  ];
+  s.organizations = [
+    { id: "o1", name: "The Harbour Watch", color: "#2c7fb8", summary: "Keeps the peace on the quays.", fields: { f1: "Eyes on the water" } },
+    { id: "o2", name: "The Night Shift", shortName: "Night", color: "#41b6c4", parent: "o1" },
+    { id: "o3", name: "House Vell", color: "#a0522d", summary: "Old money in the Eastern Provinces." },
+  ];
+  const mara = s.characters[0]!;
+  mara.role = "Investigator";
+  mara.aliases = ["The Watchwoman"];
+  mara.summary = "Harbour watch investigator who notices what others step over.";
+  mara.born = { calendar: "main", era: "af", year: 1502, month: 3, day: 14 };
+  mara.orgs = [{ id: "o1", rank: "Sergeant", from: { calendar: "main", era: "af", year: 1524 } }, { id: "o2" }];
+  mara.fields = { f2: "Quick" };
+  s.characters[1]!.role = "The courier";
+  s.characters[2]!.orgs = [{ id: "o1", rank: "Harbourmaster" }];
+  s.events = [
+    { id: "e1", title: "The death of the harbourmaster", color: "#c0392b", synopsis: "From the night meeting to the body on the pier." },
+    { id: "e2", title: "The night meeting", color: "#e74c3c", parent: "e1" },
+    { id: "e3", title: "The ledger", color: "#d35400", synopsis: "The cut page, and who was seen at the manor.", status: "Drafted" },
+    { id: "e4", title: "The festival", color: "#8e44ad", chapter: "c2" },
+  ];
+  s.cards.k01!.event = "e1";
+  s.cards.k01!.orgs = [{ id: "o1", role: "involved" }];
+  s.cards.k05!.event = "e2";
+  s.cards.k03!.event = "e3";
+  s.cards.k03!.orgs = [{ id: "o1", role: "involved" }, { id: "o3", role: "mentioned" }];
+  s.cards.k06!.event = "e3";
+  s.cards.k06!.orgs = [{ id: "o3", role: "involved" }];
   return s;
 }
 

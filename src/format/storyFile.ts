@@ -167,6 +167,42 @@ export function renderOutline(story: Story): string {
   out.push("> This note is a Story Planner board. Open it as a board to edit it. The outline below is regenerated on every save, so edits made here as text will be replaced.");
   out.push("");
 
+  // What the story is, who is in it, and its plot lines, before the plot itself.
+  const info = (
+    [
+      ["logline", "Logline"],
+      ["genre", "Genre"],
+      ["premise", "Premise"],
+      ["themes", "Themes"],
+      ["notes", "Notes"],
+    ] as const
+  ).filter(([key]) => story.info?.[key]?.trim());
+  if (info.length > 0) {
+    out.push("## About the story");
+    out.push("");
+    for (const [key, label] of info) out.push(`${label}: ${escapeText(story.info![key]!.trim())}`);
+    out.push("");
+  }
+  const people = (heading: string, list: { name: string; note?: string; role?: string; summary?: string }[]) => {
+    if (list.length === 0) return;
+    out.push(`## ${heading}`);
+    out.push("");
+    for (const e of list) {
+      const extra = [e.role?.trim(), e.summary?.trim()].filter(Boolean).map((x) => escapeText(x!)).join(": ");
+      out.push(`${named(e.name, e.note)}${extra ? ` (${extra})` : ""}`);
+    }
+    out.push("");
+  };
+  people("Characters", story.characters);
+  people("Organizations", story.organizations);
+  const described = story.plotLines.filter((p) => p.synopsis?.trim());
+  if (described.length > 0) {
+    out.push("## Plot lines");
+    out.push("");
+    for (const p of described) out.push(`${escapeText(p.name)}: ${escapeText(p.synopsis!.trim())}`);
+    out.push("");
+  }
+
   const plotLineName = new Map(story.plotLines.map((p) => [p.id, p.name]));
   // Characters and places with a note of their own are written as links to it,
   // so the note shows the story in its backlinks.
@@ -182,10 +218,17 @@ export function renderOutline(story: Story): string {
     const parts = details.map(escapeText);
     if (card.location) parts.push(locationName.get(card.location) ?? "Unknown place");
     out.push(`**${escapeText(card.title.trim() || "Untitled")}** (${parts.join(", ")})`);
-    const people = card.characters
+    const cast = card.characters
       .map((c) => characterName.get(c.id))
       .filter((n): n is string => n !== undefined);
-    if (people.length > 0) out.push(`Characters: ${people.join(", ")}`);
+    if (cast.length > 0) out.push(`Characters: ${cast.join(", ")}`);
+    const orgs = (card.orgs ?? []).map((o) => story.organizations.find((x) => x.id === o.id)).filter((o): o is NonNullable<typeof o> => !!o);
+    if (orgs.length > 0) out.push(`Organizations: ${orgs.map((o) => named(o.name, o.note)).join(", ")}`);
+    const event = card.event ? story.events.find((e) => e.id === card.event) : undefined;
+    if (event) {
+      const arc = event.parent ? story.events.find((e) => e.id === event.parent) : undefined;
+      out.push(`Event: ${escapeText([arc?.title, event.title || "Untitled event"].filter(Boolean).join(" > "))}`);
+    }
     // Scene tags are written as plain words, never as Obsidian #tags.
     const tags = story.tagsEnabled ? card.tags.map((t) => tagName.get(t)).filter((n): n is string => n !== undefined) : [];
     if (tags.length > 0) out.push(`Scene tags: ${tags.map(escapeText).join(", ")}`);
@@ -277,7 +320,11 @@ export function escapeLine(line: string): string {
 
 function renderDataBlock(story: Story): string {
   const { cards, characters, organizations, events, ...setup } = story;
-  const lines = [encodeLine(setup)];
+  // The setup's fields in one fixed order, whatever order they were set in, so a story saves the same way twice.
+  const ordered: Record<string, unknown> = {};
+  for (const key of SETUP_ORDER) if (key in setup) ordered[key] = (setup as Record<string, unknown>)[key];
+  for (const key of Object.keys(setup).sort()) if (!(key in ordered)) ordered[key] = (setup as Record<string, unknown>)[key];
+  const lines = [encodeLine(ordered)];
   // One line each, in the writer's order, id and name first.
   for (const c of characters) lines.push(encodeLine({ kind: "character", ...c }));
   for (const o of organizations) lines.push(encodeLine({ kind: "organization", ...o }));
@@ -290,6 +337,32 @@ function renderDataBlock(story: Story): string {
   }
   return `${DATA_OPEN}${lines.join("\n")}${DATA_CLOSE}`;
 }
+
+/** The order of the setup line's fields. */
+const SETUP_ORDER = [
+  "schema",
+  "title",
+  "plotLines",
+  "plotLineCategories",
+  "actsEnabled",
+  "colorByCategory",
+  "acts",
+  "chapters",
+  "customFields",
+  "info",
+  "locations",
+  "tags",
+  "tagsEnabled",
+  "calendars",
+  "zones",
+  "referenceZone",
+  "dateFormat",
+  "timeFormat",
+  "timeBlockMinutes",
+  "cardShows",
+  "storyStart",
+  "storyEnd",
+];
 
 /** JSON on one line, with % escaped so text can never close the surrounding %% comment. */
 function encodeLine(value: unknown): string {

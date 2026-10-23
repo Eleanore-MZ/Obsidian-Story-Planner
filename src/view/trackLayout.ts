@@ -56,10 +56,14 @@ export function computeTrackLayout(
   zoom: Zoom,
   orientation: Orientation,
   sharedOnly = false,
+  /** Lanes of characters, or of organizations (the organization track). */
+  of: "characters" | "organizations" = "characters",
 ): TrackLayout {
-  const lanes = characterIds.filter((id, i) => story.characters.some((c) => c.id === id) && characterIds.indexOf(id) === i);
+  const subjects = of === "organizations" ? story.organizations : story.characters;
+  const lanes = characterIds.filter((id, i) => subjects.some((c) => c.id === id) && characterIds.indexOf(id) === i);
   const laneIndex = new Map(lanes.map((id, i) => [id, i]));
-  const lanesOf = (card: Card) => card.characters.map((c) => laneIndex.get(c.id)).filter((l): l is number => l !== undefined);
+  const ids = (card: Card) => (of === "organizations" ? (card.orgs ?? []).map((o) => o.id) : card.characters.map((c) => c.id));
+  const lanesOf = (card: Card) => ids(card).map((id) => laneIndex.get(id)).filter((l): l is number => l !== undefined);
   const shown = (card: Card) => {
     const count = lanesOf(card).length;
     return sharedOnly && lanes.length > 1 ? count === lanes.length : count > 0;

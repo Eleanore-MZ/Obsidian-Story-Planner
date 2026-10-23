@@ -8,7 +8,7 @@ import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
 import { cardMoment, compareDates, dateInZone, mainCalendar, effectiveZone, formatDateRange, formatStoryDate, precisionOf } from "../model/calendar";
 import { Clash, dropWithinSpan, findClashes, placeLastInTime, reorderInTime, referenceDate, timeSorted } from "../model/storyTime";
-import { Card, Character, CharacterRole, Id, Organization, Story, StoryEvent } from "../model/types";
+import { Card, Character, CharacterRole, Id, Organization, OrgRole, Story, StoryEvent } from "../model/types";
 import { isUntitled } from "../model/defaults";
 import { characterFacts, composeOutline, INFO_LABELS, organizationFacts } from "../format/outline";
 import { reorderHandle } from "./reorder";
@@ -18,7 +18,7 @@ import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
 import { cardMatches, cardsInReadingOrder, queryTerms, searchCards } from "../model/search";
 import { deleteCards, moveCardsTo, setEventOnCards } from "../model/groupEdits";
 import { addEvent, emptyEvents, eventCards, eventOf, eventPath, eventSpan, eventTree, moveEvent, setEventParent } from "../model/events";
-import { orgDescendants, orgTree } from "../model/entities";
+import { orgDescendants, orgTree, setCardOrg } from "../model/entities";
 import { CardPanel, NoteHost } from "./CardPanel";
 import { Minimap } from "./Minimap";
 import { guardComposition } from "./composition";
@@ -70,6 +70,7 @@ const TABS: Record<StoryTab, [string, string]> = {
   board: ["Main", "columns-3"],
   time: ["Story time", "calendar-clock"],
   characters: ["Characters", "users"],
+  organizations: ["Organizations", "landmark"],
   events: ["Events", "flag"],
   outline: ["Outline", "scroll-text"],
   setup: ["Setup", "settings-2"],
@@ -147,8 +148,14 @@ export class StoryBoardView extends TextFileView {
   private profiles = new ProfilesView({
     edit: (change, coalesce) => this.mutate(change, coalesce),
     openCard: (id) => this.revealCard(id),
-    shown: () => ({ kind: this.viewState()?.profileKind ?? "character", id: this.viewState()?.profileId }),
-    show: (kind, id) => this.setViewState({ profileKind: kind, profileId: id }),
+    shown: (kind) => ({ id: kind === "organization" ? this.viewState()?.orgProfileId : this.viewState()?.profileId }),
+    // A profile of the other kind (an organization from a character's, say) opens in its own tab.
+    show: (kind, id) =>
+      this.setViewState(
+        kind === "organization"
+          ? { orgProfileId: id, orgMode: "profiles", tab: "organizations" }
+          : { profileId: id, characterMode: "profiles", tab: "characters" },
+      ),
     notes: this.noteHost(),
   });
   /** When Ctrl+wheel last zoomed, so one notch is one step. */
@@ -219,6 +226,13 @@ export class StoryBoardView extends TextFileView {
       deletedMany: (count) => this.cardsDeleted(count),
       centre: () => this.plugin.settings.cardOpening === "centre",
       openEvent: (id) => this.selectEvent(id),
+      expanded: (id) => (this.viewState()?.expandedEvents ?? []).includes(id),
+      setExpanded: (id, on) => {
+        const set = new Set(this.viewState()?.expandedEvents ?? []);
+        if (on) set.add(id);
+        else set.delete(id);
+        this.setViewState({ expandedEvents: [...set] });
+      },
       openCard: (id) => this.revealCard(id),
       notes: this.noteHost(),
     });
@@ -1014,7 +1028,7 @@ export class StoryBoardView extends TextFileView {
   private get orientation(): Orientation {
     const state = this.file ? this.plugin.settings.viewState[this.file.path] : undefined;
     if (this.tab === "time") return state?.timeOrientation ?? this.plugin.settings.defaultStoryTimeOrientation;
-    if (this.tab === "characters") return state?.characterOrientation ?? this.plugin.settings.defaultOrientation;
+    if (this.tab === "characters" || this.tab === "organizations") return state?.characterOrientation ?? this.plugin.settings.defaultOrientation;
     return state?.orientation ?? this.plugin.settings.defaultOrientation;
   }
 
@@ -1201,7 +1215,7 @@ export class StoryBoardView extends TextFileView {
 
     const onBoard = tab === "board";
     const onTime = tab === "time";
-    const onCharacters = tab === "characters";
+    const onCharacters = tab === "characters" || tab === "organizations";
     const onOutline = tab === "outline";
     const onEvents = tab === "events";
     const withPanel = onBoard || onTime || onCharacters || onOutline || onEvents;
@@ -1214,6 +1228,19 @@ export class StoryBoardView extends TextFileView {
       this.toolIcon(actions, "file-output", "Export outline", () => {
         if (this.file && this.story) void this.plugin.exportOutline(this.file, this.story);
       });
+    }
+    if (onEvents) {
+      const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
+      this.toolIcon(actions, "flag", "New event", () =>
+        new TextPromptModal(this.app, "New event", "", (title) => {
+          let made: Id | null = null;
+          this.mutate((s) => {
+            made = addEvent(s, title);
+          });
+          if (made) this.selectEvent(made);
+        }).open(),
+      );
+      this.highlightPicker(actions, story);
     }
     if (onBoard) {
       const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
@@ -1228,7 +1255,7 @@ export class StoryBoardView extends TextFileView {
       this.toolIcon(actions, "rows-4", this.compact ? "Compact layout (click for cozy)" : "Compact layout", () => this.toggleCompact(), this.compact);
       // Event mode: each event's scenes as one block.
       const eventMode = !!this.viewState()?.eventMode;
-      this.toolIcon(actions, "flag", eventMode ? "Event mode (click for scenes)" : "Event mode: show events as blocks", () => this.setViewState({ eventMode: !eventMode }), eventMode);
+      this.toolIcon(actions, "flag", eventMode ? "Showing events (click for scenes)" : "Show events instead of their scenes", () => this.setViewState({ eventMode: !eventMode }), eventMode);
     }
 
     const actions = tabsRow.querySelector<HTMLElement>(".story-planner-tab-actions") ?? tabsRow.createDiv({ cls: "story-planner-tab-actions" });
@@ -1292,7 +1319,7 @@ export class StoryBoardView extends TextFileView {
     if (this.tab === "time") this.fillTime(content, story);
     else if (this.tab === "characters") this.fillCharacters(content, story);
     else if (this.tab === "outline") this.fillOutline(content, story);
-    else if (this.tab === "events") this.fillEvents(content, story);
+    else if (this.tab === "events") this.fillBoard(content, story);
     else this.fillBoard(content, story);
     this.boardEl.replaceChildren(...Array.from(content.childNodes));
     this.boardEl.scrollTop = scrollTop;
@@ -1322,7 +1349,8 @@ export class StoryBoardView extends TextFileView {
       return;
     }
 
-    const eventMode = !!this.viewState()?.eventMode && story.events.length > 0;
+    // The Events tab always shows events; Main does when its toggle is on.
+    const eventMode = (this.tab === "events" || !!this.viewState()?.eventMode) && story.events.length > 0;
     const layout = computeBoardLayout(
       story,
       this.orientation,
@@ -1333,10 +1361,10 @@ export class StoryBoardView extends TextFileView {
     );
     // Events without scenes have no place on the grid: they wait in a strip above it.
     if (eventMode) {
-      const empty = emptyEvents(story);
+      const empty = emptyEvents(story).filter((e) => !e.chapter || !story.chapters.some((c) => c.id === e.chapter));
       if (empty.length > 0) {
         const strip = parent.createDiv({ cls: "story-planner-event-strip" });
-        strip.createSpan({ cls: "story-planner-profile-detail", text: "Events without scenes:" });
+        strip.createSpan({ cls: "story-planner-profile-detail", text: "Events without scenes or chapter:" });
         for (const event of empty) {
           const chip = strip.createSpan({ cls: "story-planner-event-chip", text: event.title || "Untitled event" });
           chip.style.setProperty("--event-color", event.color);
@@ -1586,30 +1614,67 @@ ${plotLine.synopsis.trim()}`);
         return el;
       }
 
-      case "event-block": {
-        // An event's scenes in this plot line, folded into one block; the arrow shows them as cards.
+      case "event-card": {
+        // An event shown as one card, in place of its scenes: built like a card, in the event's colour.
         const event = story.events.find((e) => e.id === item.eventId)!;
+        const el = grid.createDiv({ cls: "story-planner-card story-planner-event-card" });
+        el.style.setProperty("--lane-color", event.color);
+        el.dataset.eventId = event.id;
+        el.toggleClass("is-selected", this.panel.selectedEvent === event.id);
+        // Written or not, as for a card.
+        el.toggleClass("is-written", !!event.written);
+        if (this.shows("written")) {
+          const box = el.createEl("button", { cls: "story-planner-written" });
+          box.setAttr("role", "checkbox");
+          box.setAttr("aria-checked", String(!!event.written));
+          box.setAttr("aria-label", event.written ? "Written. Click to mark it not written." : "Not written yet. Click to mark it written.");
+          if (event.written) setIcon(box, "check");
+          stopBoardGestures(box);
+          box.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.mutate((s) => {
+              const ev = s.events.find((x) => x.id === event.id)!;
+              if (ev.written) delete ev.written;
+              else ev.written = true;
+            });
+          });
+        }
         const parentEvent = event.parent ? story.events.find((e) => e.id === event.parent) : undefined;
-        const el = grid.createDiv({ cls: "story-planner-event-block" });
-        el.style.setProperty("--event-color", event.color);
-        const head = el.createDiv({ cls: "story-planner-event-block-head" });
-        const open = head.createEl("button", { cls: "story-planner-fold clickable-icon" });
-        setIcon(open, "chevron-right");
-        open.setAttr("aria-label", "Show its scenes");
-        open.setAttr("title", "Show its scenes");
-        stopBoardGestures(open);
-        open.addEventListener("click", (e) => {
-          e.stopPropagation();
-          this.setViewState({ expandedEvents: [...new Set([...(this.viewState()?.expandedEvents ?? []), event.id])] });
-        });
-        if (parentEvent) head.createSpan({ cls: "story-planner-event-block-arc", text: parentEvent.title || "Untitled event" });
-        head.createSpan({ cls: "story-planner-event-block-title", text: event.title || "Untitled event" });
-        el.createDiv({ cls: "story-planner-profile-detail", text: `${item.cardIds.length} ${item.cardIds.length === 1 ? "scene" : "scenes"}` });
-        if (event.synopsis?.trim()) el.createDiv({ cls: "story-planner-card-synopsis", text: event.synopsis });
+        if (parentEvent) el.createDiv({ cls: "story-planner-card-badge", text: parentEvent.title || "Untitled arc" });
+        el.createDiv({ cls: "story-planner-card-title", text: event.title || "Untitled event" });
+        if (event.synopsis?.trim() && this.shows("synopsis")) el.createDiv({ cls: "story-planner-card-synopsis", text: event.synopsis });
+        const foot = el.createDiv({ cls: "story-planner-event-card-foot" });
+        foot.createSpan({ cls: "story-planner-profile-detail", text: item.cardIds.length > 0 ? `${item.cardIds.length} ${item.cardIds.length === 1 ? "scene" : "scenes"}` : "No scenes yet" });
+        // The arrow shows this event's scenes as cards in its place.
+        if (item.cardIds.length > 0) {
+          const open = foot.createEl("button", { cls: "story-planner-fold clickable-icon" });
+          setIcon(open, "chevrons-up-down");
+          open.setAttr("aria-label", "Show its scenes");
+          open.setAttr("title", "Show its scenes");
+          stopBoardGestures(open);
+          open.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.setViewState({ expandedEvents: [...new Set([...(this.viewState()?.expandedEvents ?? []), event.id])] });
+          });
+        }
         const matches = item.cardIds.map((id) => story.cards[id]).filter((c): c is Card => !!c).map((c) => this.highlighted(c, story));
         if (matches.length > 0 && matches.every((m) => m === false)) el.addClass("is-dimmed");
         el.addEventListener("click", () => this.selectEvent(event.id));
         // A scene dropped on it joins the event.
+        this.makeDropTarget(el, "card", null, () => {
+          const ids = this.draggedMany ?? [this.dragged!.id];
+          this.mutate((s) => setEventOnCards(s, ids, event.id));
+        });
+        return el;
+      }
+
+      case "event-echo": {
+        // Where the event's scenes are in another plot line: an echo of it, like a card's.
+        const event = story.events.find((e) => e.id === item.eventId)!;
+        const el = grid.createDiv({ cls: "story-planner-echo story-planner-event-echo", text: event.title || "Untitled event" });
+        el.style.setProperty("--lane-color", event.color);
+        el.setAttr("title", `${event.title || "Untitled event"}: ${item.cardIds.length} ${item.cardIds.length === 1 ? "scene" : "scenes"} here`);
+        el.addEventListener("click", () => this.selectEvent(event.id));
         this.makeDropTarget(el, "card", null, () => {
           const ids = this.draggedMany ?? [this.dragged!.id];
           this.mutate((s) => setEventOnCards(s, ids, event.id));
@@ -1959,130 +2024,6 @@ ${plotLine.synopsis.trim()}`);
   }
 
   // -------------------------------------------------------------------------
-  // Events: arcs, the events in them, and each event's scenes in story order.
-  // Dragging regroups: a scene onto an event joins it, an event onto an arc
-  // goes inside it, and an event dropped above or below another moves there.
-
-  private fillEvents(parent: HTMLElement, story: Story): void {
-    const doc = parent.createDiv({ cls: "story-planner-events" });
-    const folded = new Set(this.viewState()?.foldedEvents ?? []);
-    const selected = this.panel.selectedEvent;
-    const sceneRow = (list: HTMLElement, card: Card, depth: number) => {
-      const row = list.createDiv({ cls: "story-planner-events-scene" });
-      row.style.setProperty("--depth", String(depth));
-      const plotLine = story.plotLines.find((p) => p.id === card.plotLine);
-      row.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--text-faint)");
-      row.dataset.cardId = card.id;
-      row.createSpan({ cls: "story-planner-events-scene-title", text: echoText(card) });
-      row.createSpan({
-        cls: "story-planner-profile-detail",
-        text: [chapterTitle(story, story.chapters.find((c) => c.id === card.chapter)), card.date ? formatDateRange(story, card.date, card.endDate) : ""]
-          .filter(Boolean)
-          .join(" · "),
-      });
-      if (this.highlighted(card, story) === false) row.addClass("is-dimmed");
-      row.addEventListener("click", (e) => this.clickCard(e, card.id));
-      this.makeDraggable(row, { kind: "card", id: card.id });
-    };
-    const eventRow = (event: StoryEvent, depth: number, holds: number) => {
-      const row = doc.createDiv({ cls: "story-planner-events-event" });
-      row.style.setProperty("--depth", String(depth));
-      row.style.setProperty("--event-color", event.color);
-      row.toggleClass("is-arc", holds > 0);
-      row.toggleClass("is-selected", event.id === selected);
-      const fold = row.createEl("button", { cls: "story-planner-fold clickable-icon" });
-      setIcon(fold, folded.has(event.id) ? "chevron-right" : "chevron-down");
-      fold.setAttr("aria-label", folded.has(event.id) ? "Unfold" : "Fold");
-      stopBoardGestures(fold);
-      fold.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const next = new Set(folded);
-        if (next.has(event.id)) next.delete(event.id);
-        else next.add(event.id);
-        this.setViewState({ foldedEvents: [...next] });
-      });
-      row.createSpan({ cls: "story-planner-events-title", text: event.title || "Untitled event" });
-      const span = eventSpan(story, event.id);
-      const count = eventCards(story, event.id, true).length;
-      const detail = [
-        span.start ? formatDateRange(story, span.start, span.end && JSON.stringify(span.end) !== JSON.stringify(span.start) ? span.end : undefined) : "",
-        `${count} ${count === 1 ? "scene" : "scenes"}`,
-        event.status ?? "",
-      ].filter(Boolean);
-      row.createSpan({ cls: "story-planner-profile-detail", text: detail.join(" · ") });
-      if (event.synopsis?.trim()) row.setAttr("title", event.synopsis.trim());
-      row.addEventListener("click", () => this.selectEvent(event.id));
-      this.makeDraggable(row, { kind: "event", id: event.id });
-      // A scene dropped on an event joins it (several selected scenes, all of them).
-      this.makeDropTarget(row, "card", null, () => {
-        const ids = this.draggedMany ?? [this.dragged!.id];
-        this.mutate((s) => setEventOnCards(s, ids, event.id));
-      });
-      return row;
-    };
-    // An event dropped on another: above or below it, or (on the middle of a top-level one) inside it.
-    const eventTarget = (row: HTMLElement, event: StoryEvent) => {
-      this.makeDropTarget(
-        row,
-        "event",
-        "slot",
-        (place) =>
-          this.mutate((s) => {
-            const id = this.dragged!.id;
-            if (place === "on") return moveEvent(s, id, null, event.id);
-            if (place === "before") return moveEvent(s, id, event.id);
-            const after = s.events[s.events.findIndex((e) => e.id === event.id) + 1];
-            return after && after.parent === event.parent ? moveEvent(s, id, after.id) : (moveEvent(s, id, null) && setEventParent(s, id, event.parent)) || true;
-          }),
-        !event.parent,
-      );
-    };
-
-    for (const { event, children } of eventTree(story)) {
-      const row = eventRow(event, 0, children.length);
-      eventTarget(row, event);
-      if (folded.has(event.id)) continue;
-      for (const child of children) {
-        const childRow = eventRow(child, 1, 0);
-        eventTarget(childRow, child);
-        if (folded.has(child.id)) continue;
-        const list = doc.createDiv({ cls: "story-planner-events-scenes" });
-        for (const card of eventCards(story, child.id)) sceneRow(list, card, 2);
-      }
-      const list = doc.createDiv({ cls: "story-planner-events-scenes" });
-      for (const card of eventCards(story, event.id)) sceneRow(list, card, 1);
-    }
-    if (story.events.length === 0) doc.createDiv({ cls: "story-planner-empty", text: "No events yet" });
-
-    // A new event, typed at the bottom.
-    const add = doc.createEl("input", { cls: "story-planner-events-add" });
-    add.type = "text";
-    add.placeholder = "New event";
-    add.dataset.field = "events-add";
-    add.addEventListener("keydown", (e) => {
-      if (e.key !== "Enter" || !add.value.trim()) return;
-      e.preventDefault();
-      const title = add.value.trim();
-      let made: Id | null = null;
-      this.mutate((s) => {
-        made = addEvent(s, title);
-      });
-      if (made) this.selectEvent(made);
-    });
-
-    // Scenes in no event; a scene dropped here leaves its event.
-    const loose = Object.values(story.cards).filter((c) => !eventOf(story, c));
-    const tray = doc.createDiv({ cls: "story-planner-events-loose" });
-    tray.createDiv({ cls: "story-planner-tray-heading", text: `Not in an event (${loose.length})` });
-    const list = tray.createDiv({ cls: "story-planner-events-scenes" });
-    for (const card of cardsInReadingOrder(story).filter((c) => !eventOf(story, c))) sceneRow(list, card, 0);
-    this.makeDropTarget(tray, "card", null, () => {
-      const ids = this.draggedMany ?? [this.dragged!.id];
-      this.mutate((s) => setEventOnCards(s, ids, undefined));
-    });
-  }
-
-  // -------------------------------------------------------------------------
   // Highlight: one character, tag or place stands out and every other card dims.
   // A viewing aid only; it never changes the story.
 
@@ -2192,21 +2133,13 @@ ${plotLine.synopsis.trim()}`);
       }
     }
     // The event the scene is part of, with its arc.
+    // The event it is part of: a small tab at the very top of the card, in the event's colour.
     const path = eventPath(story, card);
     if (path.length > 0 && this.shows("event")) {
-      const line = el.createDiv({ cls: "story-planner-card-event", text: path.map((e) => e.title || "Untitled event").join(" › ") });
-      const event = path[path.length - 1]!;
-      line.style.setProperty("--event-color", event.color);
-      // In event mode, the line folds the event's scenes back into a block.
-      if ((this.tab === "board" && this.viewState()?.eventMode) || (this.tab === "time" && this.viewState()?.timeEventMode)) {
-        line.addClass("is-foldable");
-        line.setAttr("title", "Fold this event's scenes into a block");
-        stopBoardGestures(line);
-        line.addEventListener("click", (e) => {
-          e.stopPropagation();
-          this.setViewState({ expandedEvents: (this.viewState()?.expandedEvents ?? []).filter((id) => id !== event.id) });
-        });
-      }
+      const tab = createDiv({ cls: "story-planner-card-event", text: path.map((e) => e.title || "Untitled event").join(" › ") });
+      tab.style.setProperty("--event-color", path[path.length - 1]!.color);
+      el.prepend(tab);
+      el.addClass("has-event");
     }
     if (story.tagsEnabled && card.tags.length > 0 && this.shows("tags")) {
       const chips = el.createDiv({ cls: "story-planner-card-tags" });
@@ -2257,7 +2190,7 @@ ${plotLine.synopsis.trim()}`);
     // Event mode, as on the board.
     if (story.events.length > 0) {
       const eventMode = !!this.viewState()?.timeEventMode;
-      this.toolIcon(actions, "flag", eventMode ? "Event mode (click for scenes)" : "Event mode: show events as blocks", () => this.setViewState({ timeEventMode: !eventMode }), eventMode);
+      this.toolIcon(actions, "flag", eventMode ? "Showing events (click for scenes)" : "Show events instead of their scenes", () => this.setViewState({ timeEventMode: !eventMode }), eventMode);
     }
     if (story.zones.length > 0) {
       const zones = actions.createEl("select", { cls: "dropdown" });
@@ -2621,7 +2554,8 @@ ${plotLine.synopsis.trim()}`);
     switch (item.kind) {
       case "corner":
       case "lane-header":
-      case "event-block":
+      case "event-card":
+      case "event-echo":
         return this.renderItem(grid, item, story);
 
       case "time-header": {
@@ -2880,33 +2814,40 @@ ${plotLine.synopsis.trim()}`);
     return path ? this.plugin.settings.viewState[path] : undefined;
   }
 
-  /** The Characters view shows the presence matrix or the profiles; the track is set aside for now. */
-  private get characterMode(): "matrix" | "profiles" {
-    return this.viewState()?.characterMode === "profiles" ? "profiles" : "matrix";
+  /** Whether this tab is about organizations rather than characters. */
+  private get ofOrgs(): boolean {
+    return this.tab === "organizations";
+  }
+
+  /** The Characters and Organizations views show the track or the profiles; the presence matrix is set aside for now. */
+  private get characterMode(): "track" | "profiles" {
+    const mode = this.ofOrgs ? this.viewState()?.orgMode : this.viewState()?.characterMode;
+    return mode === "profiles" ? "profiles" : "track";
   }
 
   private get characterAxis(): TrackAxis {
     return this.viewState()?.characterAxis ?? "chapters";
   }
 
-  /** The characters shown as lanes; until the writer chooses, the first eight. */
+  /** The characters (or organizations) shown as lanes; until the writer chooses, the first eight. */
   private lanes(story: Story): Id[] {
-    const chosen = this.viewState()?.characterLanes;
-    if (!chosen) return story.characters.slice(0, 8).map((c) => c.id);
-    return chosen.filter((id) => story.characters.some((c) => c.id === id));
+    const pool = this.ofOrgs ? story.organizations : story.characters;
+    const chosen = this.ofOrgs ? this.viewState()?.orgLanes : this.viewState()?.characterLanes;
+    if (!chosen) return pool.slice(0, 8).map((c) => c.id);
+    return chosen.filter((id) => pool.some((c) => c.id === id));
+  }
+
+  private setLanes(lanes: Id[]): void {
+    this.setViewState(this.ofOrgs ? { orgLanes: lanes } : { characterLanes: lanes });
   }
 
   private characterActions(actions: HTMLElement, story: Story): void {
-    // Matrix or profiles: one square button showing the view it switches to.
-    const toProfiles = this.characterMode === "matrix";
-    this.toolIcon(actions, toProfiles ? "contact" : "grid-3x3", toProfiles ? "Show the profiles" : "Show the presence matrix", () =>
-      this.setViewState({ characterMode: toProfiles ? "profiles" : "matrix" }),
+    // Track or profiles: one square button showing the view it switches to.
+    const toProfiles = this.characterMode === "track";
+    this.toolIcon(actions, toProfiles ? "contact" : "columns-3", toProfiles ? "Show the profiles" : "Show the track", () =>
+      this.setViewState(this.ofOrgs ? { orgMode: toProfiles ? "profiles" : "track" } : { characterMode: toProfiles ? "profiles" : "track" }),
     );
     if (this.characterMode === "profiles") return;
-    // Characters or organizations down the matrix.
-    const orgs = this.viewState()?.matrixOf === "organizations";
-    this.toolIcon(actions, "landmark", orgs ? "Organizations (click for characters)" : "Show organizations instead of characters", () =>
-      this.setViewState({ matrixOf: orgs ? "characters" : "organizations" }), orgs);
     const axis = actions.createEl("select", { cls: "dropdown" });
     axis.setAttr("aria-label", "Order");
     axis.createEl("option", { text: "By chapter" }).value = "chapters";
@@ -2920,20 +2861,31 @@ ${plotLine.synopsis.trim()}`);
       zoom.value = this.zoom;
       zoom.addEventListener("change", () => this.setViewState({ zoom: zoom.value as Zoom }));
     }
+    const lanes = this.lanes(story);
+    const what = this.ofOrgs ? "Organizations" : "Characters";
+    // Which of them are lanes: a square button with how many there are.
+    const pick = this.toolIcon(actions, this.ofOrgs ? "landmark" : "user-plus", `${what} to track (${lanes.length})`, () =>
+      new LaneModal(this.app, story, lanes, (chosen) => this.setLanes(chosen), this.ofOrgs ? "organizations" : "characters").open(),
+    );
+    pick.createSpan({ cls: "story-planner-tool-badge", text: String(lanes.length) });
+    if (lanes.length >= 2) {
+      const on = !!this.viewState()?.sharedOnly;
+      this.toolIcon(actions, "link-2", on ? "Only scenes they share (click for all)" : "Only scenes they share", () => this.setViewState({ sharedOnly: !on }), on);
+    }
+    this.highlightPicker(actions, story);
   }
 
   private fillCharacters(parent: HTMLElement, story: Story): void {
     if (this.characterMode === "profiles") {
-      this.profiles.render(parent, story);
+      this.profiles.render(parent, story, this.ofOrgs ? "organization" : "character");
       return;
     }
-    const of = this.viewState()?.matrixOf === "organizations" ? "organizations" : "characters";
-    if (of === "organizations") {
+    if (this.ofOrgs) {
       if (story.organizations.length === 0) {
         parent.createDiv({ cls: "story-planner-empty", text: "No organizations yet. Add them in the profiles, or name them on a card." });
         return;
       }
-      this.fillMatrix(parent, story, [], "organizations");
+      this.fillTrack(parent, story, []);
       return;
     }
     if (story.characters.length === 0) {
@@ -2944,12 +2896,9 @@ ${plotLine.synopsis.trim()}`);
       return;
     }
     const clashes = findClashes(story);
-    this.fillMatrix(parent, story, clashes);
-    return;
     if (clashes.length > 0) {
       const note = parent.createDiv({ cls: "story-planner-clash-summary" });
-      note.createSpan({ text: `${clashes.length} possible ${clashes.length === 1 ? "clash" : "clashes"}: a character in two places at once. ` });
-      note.createEl("a", { text: "Show in the matrix" }).addEventListener("click", () => this.setViewState({ characterMode: "matrix" }));
+      note.createSpan({ text: `${clashes.length} possible ${clashes.length === 1 ? "clash" : "clashes"}: a character in two places at once.` });
     }
     this.fillTrack(parent, story, clashes);
   }
@@ -2957,12 +2906,12 @@ ${plotLine.synopsis.trim()}`);
   private fillTrack(parent: HTMLElement, story: Story, clashes: Clash[]): void {
     const lanes = this.lanes(story);
     if (lanes.length === 0) {
-      parent.createDiv({ cls: "story-planner-empty", text: "No characters tracked" });
+      parent.createDiv({ cls: "story-planner-empty", text: this.ofOrgs ? "No organizations tracked" : "No characters tracked" });
       return;
     }
     const axis = this.characterAxis;
     const shared = !!this.viewState()?.sharedOnly && lanes.length >= 2;
-    const layout = computeTrackLayout(story, lanes, axis, this.zoom, this.orientation, shared);
+    const layout = computeTrackLayout(story, lanes, axis, this.zoom, this.orientation, shared, this.ofOrgs ? "organizations" : "characters");
     this.buckets = new Map(layout.buckets.map((b) => [b.id, b]));
     const clashing = new Set(clashes.flatMap((c) => c.cards.map((id) => `${c.characterId}:${id}`)));
 
@@ -2981,13 +2930,13 @@ ${plotLine.synopsis.trim()}`);
     if (layout.hidden > 0) {
       notes.push(
         shared
-          ? `${layout.hidden} ${layout.hidden === 1 ? "scene does" : "scenes do"} not have all of these characters.`
-          : `${layout.hidden} ${layout.hidden === 1 ? "scene has" : "scenes have"} none of these characters.`,
+          ? `${layout.hidden} ${layout.hidden === 1 ? "scene does" : "scenes do"} not have all of these ${this.ofOrgs ? "organizations" : "characters"}.`
+          : `${layout.hidden} ${layout.hidden === 1 ? "scene has" : "scenes have"} none of these ${this.ofOrgs ? "organizations" : "characters"}.`,
       );
     }
     if (axis === "time") {
       const ids = new Set(lanes);
-      const undated = Object.values(story.cards).filter((c) => !c.date && c.characters.some((x) => ids.has(x.id))).length;
+      const undated = Object.values(story.cards).filter((c) => !c.date && (this.ofOrgs ? (c.orgs ?? []).some((x) => ids.has(x.id)) : c.characters.some((x) => ids.has(x.id)))).length;
       if (undated > 0) notes.push(`${undated} undated ${undated === 1 ? "scene is" : "scenes are"} left out.`);
     }
     if (notes.length > 0) parent.createDiv({ cls: "story-planner-panel-hint story-planner-track-note", text: notes.join(" ") });
@@ -2999,7 +2948,7 @@ ${plotLine.synopsis.trim()}`);
         return grid.createDiv({ cls: "story-planner-corner" });
 
       case "character-header": {
-        const character = story.characters.find((c) => c.id === item.characterId);
+        const character = (this.ofOrgs ? story.organizations : story.characters).find((c) => c.id === item.characterId);
         const el = grid.createDiv({ cls: "story-planner-lane-header is-character" });
         el.createSpan({ cls: "story-planner-lane-name", text: character?.name ?? "" });
         el.style.setProperty("--lane-color", character?.color ?? "var(--interactive-accent)");
@@ -3009,7 +2958,7 @@ ${plotLine.synopsis.trim()}`);
           const lanes = this.lanes(story).filter((id) => id !== this.dragged!.id);
           const index = lanes.indexOf(item.characterId);
           lanes.splice(place === "after" ? index + 1 : index, 0, this.dragged!.id);
-          this.setViewState({ characterLanes: lanes });
+          this.setLanes(lanes);
         });
         return el;
       }
@@ -3058,7 +3007,11 @@ ${plotLine.synopsis.trim()}`);
 
   /** A card in one character's lane: what this character does there, in what role, and where. */
   private appearance(parent: HTMLElement, card: Card, characterId: Id, story: Story, clash: boolean): HTMLElement {
-    const entry = card.characters.find((c) => c.id === characterId)!;
+    // In an organization's lane, involved reads as present.
+    const org = this.ofOrgs ? card.orgs?.find((o) => o.id === characterId) : undefined;
+    const entry: { id: Id; role: CharacterRole; note?: string } = org
+      ? { id: org.id, role: org.role === "mentioned" ? "mentioned" : "present" }
+      : card.characters.find((c) => c.id === characterId)!;
     const plotLine = story.plotLines.find((p) => p.id === card.plotLine);
     const chapter = story.chapters.find((c) => c.id === card.chapter);
     const el = parent.createDiv({ cls: `story-planner-card story-planner-appearance role-${entry.role}` });
@@ -3067,8 +3020,9 @@ ${plotLine.synopsis.trim()}`);
     this.writtenToggle(el, card);
     if (this.characterAxis === "time" && this.shows("chapter")) el.createDiv({ cls: "story-planner-card-badge", text: this.chapterBadge(story, card) });
     const role = el.createDiv({ cls: "story-planner-appearance-role" });
-    role.createSpan({ cls: `story-planner-presence role-${entry.role}` }).style.setProperty("--lane-color", story.characters.find((c) => c.id === entry.id)?.color ?? "var(--text-normal)");
-    role.createSpan({ text: ROLE_LABELS[entry.role] });
+    const subject = (this.ofOrgs ? story.organizations : story.characters).find((c) => c.id === entry.id);
+    role.createSpan({ cls: `story-planner-presence role-${entry.role}` }).style.setProperty("--lane-color", subject?.color ?? "var(--text-normal)");
+    role.createSpan({ text: org ? (org.role === "mentioned" ? "Mentioned" : "Involved") : ROLE_LABELS[entry.role] });
     this.cardTitle(el, card);
     if (entry.note) el.createDiv({ cls: "story-planner-card-note", text: entry.note });
     if (card.date && this.shows("date")) el.createDiv({ cls: "story-planner-card-date", text: formatDateRange(story, card.date, card.endDate) });
@@ -3098,10 +3052,27 @@ ${plotLine.synopsis.trim()}`);
     const story = this.story;
     const card = story && this.dragged ? story.cards[this.dragged.id] : undefined;
     if (!story || !card) return;
+    if (this.ofOrgs) {
+      const org = story.organizations.find((o) => o.id === characterId);
+      if (org && !card.orgs?.some((o) => o.id === characterId)) {
+        new ChoiceModal(this.app, {
+          title: `Add ${org.name} to "${echoText(card)}"?`,
+          message: `Dropping a scene in ${org.name}'s lane adds ${org.name} to it. How does it take part?`,
+          options: [
+            { value: "involved", label: "Involved" },
+            { value: "mentioned", label: "Mentioned" },
+          ],
+          confirm: "Add",
+          safe: true,
+          onChoose: (role) => this.mutate((s) => setCardOrg(s, card.id, org.id, role as OrgRole)),
+        }).open();
+        return;
+      }
+    }
     const character = story.characters.find((c) => c.id === characterId);
-    if (!character) return;
+    if (!character && !this.ofOrgs) return;
 
-    if (!card.characters.some((c) => c.id === characterId)) {
+    if (character && !card.characters.some((c) => c.id === characterId)) {
       new ChoiceModal(this.app, {
         title: `Add ${character.name} to "${card.title}"?`,
         message: `Dropping a scene in ${character.name}'s lane adds ${character.name} to it. How do they take part?`,
@@ -3139,7 +3110,8 @@ ${plotLine.synopsis.trim()}`);
   private addCardForCharacter(characterId: Id, cell: { cardId?: Id; chapterId?: Id | null; bucketId?: string }): void {
     const story = this.story;
     const character = story?.characters.find((c) => c.id === characterId);
-    if (!story || !character) return;
+    const org = story?.organizations.find((o) => o.id === characterId);
+    if (!story || (!character && !org)) return;
     const row = cell.cardId ? story.cards[cell.cardId] : undefined;
     const plotLine = row?.plotLine ?? story.plotLines[0]?.id;
     if (!plotLine) {
@@ -3156,7 +3128,8 @@ ${plotLine.synopsis.trim()}`);
         // The new scene gets its own row, just after the row it was made in.
         id = addCardAt(s, row ? { chapter: row.chapter, plotLine, afterCardId: row.id } : { chapter: cell.chapterId ?? null, plotLine });
       }
-      addCharacterByName(s, id, character.name, "present");
+      if (character) addCharacterByName(s, id, character.name, "present");
+      else if (org) setCardOrg(s, id, org.id, "involved");
     });
     if (id) {
       this.select(id);
@@ -3215,7 +3188,7 @@ ${plotLine.synopsis.trim()}`);
         name.style.setProperty("--lane-color", character.color);
         name.setAttr("title", `Open ${character.name}'s profile`);
         name.addEventListener("click", () =>
-          this.setViewState({ characterMode: "profiles", profileKind: of === "organizations" ? "organization" : "character", profileId: character.id }),
+          this.setViewState(of === "organizations" ? { orgMode: "profiles", orgProfileId: character.id } : { characterMode: "profiles", profileId: character.id }),
         );
         row.cells.forEach((cell, i) => {
           const td = tr.createEl("td");

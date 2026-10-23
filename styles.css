@@ -4108,3 +4108,49 @@ body.story-planner-marquee-active * {
 .story-planner-outline-card.is-dragging {
   opacity: 0.5;
 }
+
+/* A card's event: a small tab in the event's colour, sitting on top of the card, apart from the rest. */
+.story-planner-card.has-event {
+  margin-top: 1.3em;
+}
+
+.story-planner-card.has-event > .story-planner-card-event {
+  position: absolute;
+  left: -3px;
+  top: calc(-1.3em - 1px);
+  max-width: calc(100% + 3px);
+  height: 1.3em;
+  margin: 0;
+  padding: 0 var(--size-4-2);
+  overflow: hidden;
+  border: 1px solid var(--event-color);
+  border-bottom: none;
+  background: color-mix(in srgb, var(--event-color) 35%, var(--background-primary));
+  color: var(--text-normal);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.3em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.story-planner-card.has-event > .story-planner-card-event::before {
+  content: none;
+}
+
+/* An event shown as one card, in place of its scenes. */
+.story-planner-card.story-planner-event-card {
+  align-self: stretch;
+  border-left-width: 5px;
+  background: color-mix(in srgb, var(--lane-color) 10%, var(--background-secondary));
+}
+
+.story-planner-event-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--size-4-1);
+}
+
+.story-planner-echo.story-planner-event-echo {
+  align-self: stretch;
+}

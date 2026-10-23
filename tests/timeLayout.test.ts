@@ -260,18 +260,18 @@ describe("story-time layout", () => {
     expect(labels(true).slice(-1)).toEqual(["2020/01/06"]);
   });
 
-  it("in event mode folds an event's scenes in a plot line into one block across its rows", () => {
+  it("shows each event as one card across its spans, in place of its scenes", () => {
     const s = story();
     add(s, "a", d(1531, 1, 1), { event: "ev" });
     add(s, "b", d(1531, 1, 2), { event: "ev" });
     add(s, "c", d(1531, 1, 3));
     s.events = [{ id: "ev", title: "Siege", color: "#c00" }];
     const layout = computeTimeLayout(s, "day", "vertical", false, undefined, new Set(), { expanded: new Set() });
-    const blocks = layout.items.filter((p) => p.item.kind === "event-block");
-    expect(blocks.map((p) => (p.item.kind === "event-block" ? p.item.cardIds : []))).toEqual([["a", "b"]]);
+    const cards = layout.items.filter((p) => p.item.kind === "event-card");
+    expect(cards.map((p) => (p.item.kind === "event-card" ? p.item.cardIds : []))).toEqual([["a", "b"]]);
     expect(layout.items.some((p) => p.item.kind === "card" && p.item.cardId === "a")).toBe(false);
     expect(layout.items.some((p) => p.item.kind === "card" && p.item.cardId === "c")).toBe(true);
-    expect(computeTimeLayout(s, "day", "vertical", false, undefined, new Set(), { expanded: new Set(["ev"]) }).items.some((p) => p.item.kind === "event-block")).toBe(false);
+    expect(computeTimeLayout(s, "day", "vertical", false, undefined, new Set(), { expanded: new Set(["ev"]) }).items.some((p) => p.item.kind === "event-card")).toBe(false);
   });
 
   it("lists undated cards in reading order for the tray", () => {

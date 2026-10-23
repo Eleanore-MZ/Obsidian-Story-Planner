@@ -124,7 +124,10 @@ export interface StoryEvent {
   color: string;
   /** The arc this event is part of. */
   parent?: Id;
-  status?: string;
+  /** The plot line the event lives in on the board; unset, the one most of its scenes are in. */
+  plotLine?: Id;
+  /** Whether the event has been written, as for a card. */
+  written?: boolean;
   start?: StoryDate;
   end?: StoryDate;
   /** Where an event without cards shows on the board. */

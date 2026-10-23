@@ -1,4 +1,8 @@
+import { eventPlotLine } from "../model/events";
 import { Card, Story } from "../model/types";
+
+/** What an event's card may cover on the board: empty cells, and the starts and ends of chapters it runs through. */
+const BOARD_COVERABLE: ReadonlySet<string> = new Set(["empty", "add-card", "chapter-end", "background-cell"]);
 
 // Pure layout of the plot line board, kept free of Obsidian and the DOM so it
 // can be unit tested. The board is a grid of lanes (plot lines) and slots.
@@ -29,10 +33,11 @@ export type BoardItem =
   /** A line across the whole board where one act ends and the next begins. */
   | { kind: "act-divider" }
   /**
-   * In event mode: an event's scenes in one plot line, in rows next to each
-   * other, drawn as one block across those rows. `cardIds` are the scenes it stands for.
+   * "Show events": an event as one card, in place of its scenes (`cardIds`),
+   * in its own plot line; and an echo of it where its scenes are in another.
    */
-  | { kind: "event-block"; eventId: string; plotLineId: string; cardIds: string[] }
+  | { kind: "event-card"; eventId: string; plotLineId: string; cardIds: string[] }
+  | { kind: "event-echo"; eventId: string; plotLineId: string; cardIds: string[] }
   /** A folded chapter's single row: how many cards each plot line has in it. */
   | { kind: "chapter-folded"; chapterId: string | null; plotLineId: string; count: number };
 
@@ -71,8 +76,8 @@ export function computeBoardLayout(
    */
   offPage = true,
   /**
-   * Event mode: each event's scenes show as blocks, except the events in
-   * `expanded`, whose scenes show as cards. Scenes in no event always show.
+   * "Show events": each event shows as one card in place of its scenes,
+   * except the events in `expanded`. Scenes in no event always show.
    */
   events?: { expanded: ReadonlySet<string> },
 ): BoardLayout {
@@ -221,7 +226,7 @@ export function computeBoardLayout(
 
   closeRun(slot);
 
-  if (events) collapseEvents(story, items, events.expanded);
+  if (events) showEvents(story, items, events.expanded, BOARD_COVERABLE, new Set(["empty"]));
 
   const vertical = orientation === "vertical";
   // With acts, every lane moves over by one to make room for the act column.
@@ -271,80 +276,134 @@ function sceneRows(cards: Card[], laneIndex: Map<string, number>): Card[][] {
 }
 
 /**
- * Event mode: in each plot line, the scenes (and echoes) of one event become
- * one block spanning their rows, across empty cells between them. Anything
- * else in between (another scene, the end or start of a chapter) starts
- * another block, so a block never covers a scene. Works on the items before
- * they are turned into grid lines.
+ * "Show events": each event, in place of its scenes, as one card in its own
+ * plot line, running from the row of its first scene to the row of its last
+ * (across chapters), with an echo in every other plot line its scenes are in.
+ * The card covers only empty space and its own scenes; if something else is in
+ * the way, it shows where its own scenes are instead, one card per run of them.
+ * An event without scenes shows at the end of the chapter chosen for it.
+ * Works on the items before they become grid lines; `coverable` names the
+ * kinds of empty space a card may cover, and `runOver` those an echo may.
  */
-export function collapseEvents<T extends { kind: string }>(
+export function showEvents<T extends { kind: string }>(
   story: Story,
   items: { item: T | BoardItem; slot: number; lane: number; span?: number; depth?: number }[],
   expanded: ReadonlySet<string>,
-  /** The kinds of empty cell a block may cover. */
-  empty: ReadonlySet<string> = new Set(["empty"]),
-  /** Whether a block may also run on across the slim end rows and gaps between spans (story time). */
-  crossEnds = false,
+  coverable: ReadonlySet<string>,
+  runOver: ReadonlySet<string>,
 ): void {
   const eventIds = new Set(story.events.map((e) => e.id));
-  // Event, then plot line, then the rows its scenes are in.
-  const found = new Map<string, Map<number, { slot: number; end: number; index: number; cardId: string }[]>>();
+  const laneOf = new Map(story.plotLines.map((p, i) => [p.id, i + 1]));
+  type Found = { slot: number; end: number; index: number; cardId: string };
+  const found = new Map<string, Map<number, Found[]>>();
   items.forEach((placed, index) => {
     const it = placed.item as { kind: string; cardId?: string };
     if ((it.kind !== "card" && it.kind !== "echo") || !it.cardId) return;
     const event = story.cards[it.cardId]?.event;
     if (!event || !eventIds.has(event) || expanded.has(event)) return;
-    const lanes = found.get(event) ?? new Map();
+    const lanes = found.get(event) ?? new Map<number, Found[]>();
     found.set(event, lanes);
     const list = lanes.get(placed.lane) ?? [];
     lanes.set(placed.lane, list);
     list.push({ slot: placed.slot, end: placed.slot + (placed.span ?? 1) - 1, index, cardId: it.cardId });
   });
-  // What is in each cell, to tell empty cells (which a block may cover) from everything else.
   const cell = new Map<string, number>();
   items.forEach((placed, index) => {
-    if (placed.lane > 0) cell.set(`${placed.lane}:${placed.slot}`, index);
+    if (placed.lane > 0 && !cell.has(`${placed.lane}:${placed.slot}`)) cell.set(`${placed.lane}:${placed.slot}`, index);
   });
-  const emptyBetween = (lane: number, from: number, to: number) => {
-    const between: number[] = [];
-    for (let slot = from + 1; slot < to; slot++) {
-      const index = cell.get(`${lane}:${slot}`);
-      if (index === undefined) {
-        if (crossEnds) continue;
-        return null;
-      }
-      if (!empty.has(items[index]!.item.kind) || ((items[index]!.item as { end?: boolean }).end && !crossEnds)) return null;
-      between.push(index);
-    }
-    return between;
+  const kindAt = (lane: number, slot: number) => {
+    const index = cell.get(`${lane}:${slot}`);
+    return index === undefined ? null : { index, kind: items[index]!.item.kind };
   };
   const drop = new Set<number>();
-  const blocks: typeof items = [];
-  for (const [eventId, lanes] of found) {
-    for (const [lane, list] of lanes) {
-      list.sort((a, b) => a.slot - b.slot);
-      let run: typeof list = [];
-      let covered: number[] = [];
-      const close = () => {
-        if (run.length === 0) return;
-        const plotLineId = story.plotLines[lane - 1]?.id ?? "";
-        const last = Math.max(...run.map((r) => r.end));
-        blocks.push({ item: { kind: "event-block", eventId, plotLineId, cardIds: [...new Set(run.map((r) => r.cardId))] }, slot: run[0]!.slot, lane, span: last - run[0]!.slot + 1, depth: 0 });
-        run.forEach((r) => drop.add(r.index));
-        covered.forEach((i) => drop.add(i));
-        run = [];
-        covered = [];
-      };
-      for (const entry of list) {
-        const between = run.length > 0 ? emptyBetween(lane, Math.max(...run.map((r) => r.end)), entry.slot) : [];
-        if (between === null) close();
+  const added: typeof items = [];
+  const push = (kind: "event-card" | "event-echo", eventId: string, lane: number, from: number, to: number, cardIds: string[]) => {
+    const plotLineId = story.plotLines[lane - 1]?.id ?? "";
+    added.push({ item: { kind, eventId, plotLineId, cardIds } as BoardItem, slot: from, lane, span: to - from + 1, depth: 0 });
+  };
+  /** Runs of an event's items in one lane, over the space `over` allows between them. */
+  const runs = (lane: number, list: Found[], over: ReadonlySet<string>) => {
+    const out: { from: number; to: number; cardIds: string[]; covered: number[] }[] = [];
+    let run: Found[] = [];
+    let covered: number[] = [];
+    const close = () => {
+      if (run.length === 0) return;
+      out.push({ from: run[0]!.slot, to: Math.max(...run.map((r) => r.end)), cardIds: [...new Set(run.map((r) => r.cardId))], covered });
+      run = [];
+      covered = [];
+    };
+    for (const entry of [...list].sort((a, b) => a.slot - b.slot)) {
+      if (run.length > 0) {
+        const between: number[] = [];
+        let ok = true;
+        for (let slot = Math.max(...run.map((r) => r.end)) + 1; slot < entry.slot; slot++) {
+          const at = kindAt(lane, slot);
+          if (at === null) continue;
+          if (!over.has(at.kind) || (at.kind === "time-cell" && !over.has("time-end") && (items[at.index]!.item as { end?: boolean }).end)) {
+            ok = false;
+            break;
+          }
+          between.push(at.index);
+        }
+        if (!ok) close();
         else covered.push(...between);
-        run.push(entry);
       }
-      close();
+      run.push(entry);
+    }
+    close();
+    return out;
+  };
+
+  for (const [eventId, lanes] of found) {
+    const all = [...lanes.values()].flat();
+    const main = laneOf.get(eventPlotLine(story, eventId) ?? "") ?? 1;
+    const from = Math.min(...all.map((f) => f.slot));
+    const to = Math.max(...all.map((f) => f.end));
+    const own = new Set(all.map((f) => f.index));
+    // The card in its own plot line, across all its rows, if nothing else is in the way.
+    const covered: number[] = [];
+    let clear = true;
+    for (let slot = from; slot <= to && clear; slot++) {
+      const at = kindAt(main, slot);
+      if (at === null || own.has(at.index)) continue;
+      if (coverable.has(at.kind)) covered.push(at.index);
+      else clear = false;
+    }
+    const cardIds = [...new Set(all.map((f) => f.cardId))];
+    if (clear) {
+      push("event-card", eventId, main, from, to, cardIds);
+      covered.forEach((i) => drop.add(i));
+    } else if (lanes.has(main)) {
+      for (const run of runs(main, lanes.get(main)!, runOver)) {
+        push("event-card", eventId, main, run.from, run.to, cardIds);
+        run.covered.forEach((i) => drop.add(i));
+      }
+    }
+    if (clear || lanes.has(main)) lanes.get(main)?.forEach((f) => drop.add(f.index));
+    // Echoes where its scenes are in other plot lines.
+    for (const [lane, list] of lanes) {
+      if (lane === main && (clear || lanes.has(main))) continue;
+      for (const run of runs(lane, list, runOver)) {
+        push(lane === main ? "event-card" : "event-echo", eventId, lane, run.from, run.to, run.cardIds);
+        run.covered.forEach((i) => drop.add(i));
+      }
+      list.forEach((f) => drop.add(f.index));
     }
   }
+
+  // Events without scenes: at the end of their chosen chapter, in their plot line.
+  for (const event of story.events) {
+    if (!event.chapter || found.has(event.id) || story.cards && Object.values(story.cards).some((c) => c.event === event.id)) continue;
+    const lane = laneOf.get(eventPlotLine(story, event.id) ?? "") ?? 1;
+    const at = items.findIndex(
+      (p) => p.lane === lane && p.item.kind === "chapter-end" && (p.item as { chapterId?: string | null }).chapterId === event.chapter && !drop.has(items.indexOf(p)),
+    );
+    if (at === -1) continue;
+    drop.add(at);
+    push("event-card", event.id, lane, items[at]!.slot, items[at]!.slot, []);
+  }
+
   const kept = items.filter((_, i) => !drop.has(i));
   items.length = 0;
-  items.push(...kept, ...blocks);
+  items.push(...kept, ...added);
 }

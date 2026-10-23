@@ -149,14 +149,20 @@ export class LaneModal extends Modal {
     private story: Story,
     chosen: string[],
     private onDone: (chosen: string[]) => void,
+    /** Characters (the default) or organizations. */
+    private of: "characters" | "organizations" = "characters",
   ) {
     super(app);
     this.chosen = [...chosen];
   }
 
+  private get pool(): { id: string; name: string; color: string }[] {
+    return this.of === "organizations" ? this.story.organizations : this.story.characters;
+  }
+
   onOpen(): void {
     guardComposition(this.modalEl);
-    this.titleEl.setText("Characters to track");
+    this.titleEl.setText(this.of === "organizations" ? "Organizations to track" : "Characters to track");
     this.draw();
   }
 
@@ -165,10 +171,9 @@ export class LaneModal extends Modal {
     // Redrawing must not jump back to the top of a long list.
     const [modalScroll, contentScroll] = [this.modalEl.scrollTop, el.scrollTop];
     el.empty();
-    el.createEl("p", { cls: "setting-item-description", text: "Ticked characters get a lane, in this order. Drag ⋮⋮ to reorder them, or drag the lane headers on the board." });
     const list = el.createDiv({ cls: "story-planner-lane-list" });
-    const others = this.story.characters.filter((c) => !this.chosen.includes(c.id));
-    const ordered = [...this.chosen.map((id) => this.story.characters.find((c) => c.id === id)!).filter(Boolean), ...others];
+    const others = this.pool.filter((c) => !this.chosen.includes(c.id));
+    const ordered = [...this.chosen.map((id) => this.pool.find((c) => c.id === id)!).filter(Boolean), ...others];
     for (const character of ordered) {
       const index = this.chosen.indexOf(character.id);
       const setting = new Setting(list).setName(character.name);

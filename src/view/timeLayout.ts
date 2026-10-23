@@ -13,7 +13,7 @@ import {
 } from "../model/calendar";
 import { readingOrder, referenceDate, referenceEndDate, timeSorted } from "../model/storyTime";
 import { Calendar, Card, Id, Story, StoryDate } from "../model/types";
-import { collapseEvents, Orientation } from "./layout";
+import { Orientation, showEvents } from "./layout";
 
 
 // Pure layout of the story-time view, free of Obsidian and the DOM like
@@ -105,8 +105,9 @@ export type TimeItem =
    * running beside all of its spans. It folds them all at once.
    */
   | { kind: "time-band"; key: string; label: string; bucketIds: string[] }
-  /** In event mode: an event's scenes in one plot line, in rows next to each other, as one block. */
-  | { kind: "event-block"; eventId: string; plotLineId: Id; cardIds: Id[] }
+  /** "Show events": an event as one card in place of its scenes, and its echoes. */
+  | { kind: "event-card"; eventId: string; plotLineId: Id; cardIds: Id[] }
+  | { kind: "event-echo"; eventId: string; plotLineId: Id; cardIds: Id[] }
   /** A folded span's row in one plot line: how many cards it has there. */
   | { kind: "time-folded"; bucketId: string; plotLineId: Id; count: number };
 
@@ -481,7 +482,10 @@ export function computeTimeLayout(
     }
   }
 
-  if (events) collapseEvents(story, items as { item: TimeItem; slot: number; lane: number; span: number; depth: number }[], events.expanded, new Set(["time-cell"]), true);
+  if (events) {
+    const space = new Set(["time-cell", "time-end"]);
+    showEvents(story, items as { item: TimeItem; slot: number; lane: number; span: number; depth: number }[], events.expanded, space, space);
+  }
 
   const vertical = orientation === "vertical";
   const laneCount = story.plotLines.length;

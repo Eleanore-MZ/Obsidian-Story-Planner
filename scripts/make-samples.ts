@@ -246,7 +246,7 @@ function harbourStory(): Story {
   s.events = [
     { id: "e1", title: "The death of the harbourmaster", color: "#c0392b", synopsis: "From the night meeting to the body on the pier." },
     { id: "e2", title: "The night meeting", color: "#e74c3c", parent: "e1" },
-    { id: "e3", title: "The ledger", color: "#d35400", synopsis: "The cut page, and who was seen at the manor.", status: "Drafted" },
+    { id: "e3", title: "The ledger", color: "#d35400", synopsis: "The cut page, and who was seen at the manor.", written: true },
     { id: "e4", title: "The festival", color: "#8e44ad", chapter: "c2" },
   ];
   s.cards.k01!.event = "e1";

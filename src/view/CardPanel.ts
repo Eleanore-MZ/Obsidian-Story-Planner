@@ -18,7 +18,7 @@ import { locationPath, locationTree, plotLineColor } from "../model/setup";
 import { chapterTitle } from "../model/chapters";
 import { Card, CharacterRole, Id, OrgRole, Story, StoryEvent } from "../model/types";
 import { addOrganization, addOrgByName, ageAt, nextOrgRole, orgRoles, setCardOrg } from "../model/entities";
-import { addEvent, deleteEvent, eventCards, eventSpan, eventTree, setCardEvent, setEventParent } from "../model/events";
+import { addEvent, deleteEvent, eventCards, eventPlotLine, eventSpan, eventTree, setCardEvent, setEventParent } from "../model/events";
 import { colorSwatch } from "./colorPicker";
 import {
   addCharacterToCards,
@@ -77,6 +77,9 @@ export interface CardPanelHost {
   openEvent?(eventId: Id): void;
   /** Shows a card on the board and opens it. */
   openCard?(cardId: Id): void;
+  /** Whether the board shows an event's scenes rather than the event, while it shows events. */
+  expanded?(eventId: Id): boolean;
+  setExpanded?(eventId: Id, on: boolean): void;
   /** True when the card opens as a page in the middle of the board rather than in the side panel. */
   centre?(): boolean;
   notes: NoteHost;
@@ -160,11 +163,10 @@ export class CardPanel {
       }, coalesce);
     const children = story.events.filter((e) => e.parent === id);
 
-    const header = el.createDiv({ cls: "story-planner-panel-header" });
-    header.createDiv({ cls: "story-planner-panel-heading", text: children.length > 0 ? "Arc" : "Event" });
-    const close = header.createEl("button", { cls: "story-planner-panel-close clickable-icon", text: "×" });
-    close.setAttr("aria-label", "Close");
-    close.addEventListener("click", () => this.host.close());
+    this.header(children.length > 0 ? "Arc" : "Event", !!event.written, () => edit((e) => {
+      if (e.written) delete e.written;
+      else e.written = true;
+    }), "Close");
 
     const title = el.createEl("input", { cls: "story-planner-panel-title" });
     title.type = "text";
@@ -203,16 +205,15 @@ export class CardPanel {
       this.select(arcCell, arcs, event.parent ?? "", (value) => this.host.edit((s) => setEventParent(s, id, value || undefined)));
     }
 
-    const status = this.prop(props, "Status", "circle-dot").createEl("input", { cls: "story-planner-profile-input" });
-    status.type = "text";
-    status.value = event.status ?? "";
-    status.placeholder = "Planned, drafted…";
-    status.dataset.field = "event-status";
-    status.addEventListener("input", () =>
+    // The plot line it lives in on the board: chosen, or the one most of its scenes are in.
+    const auto = story.plotLines.find((p) => p.id === eventPlotLine(story, id) && !event.plotLine);
+    const lines: Record<string, string> = { "": auto ? `Automatic (${auto.name})` : "Automatic" };
+    for (const p of story.plotLines) lines[p.id] = p.name;
+    this.select(this.prop(props, "Plot line", "git-branch"), lines, event.plotLine ?? "", (value) =>
       edit((e) => {
-        if (status.value.trim()) e.status = status.value;
-        else delete e.status;
-      }, `event-status:${id}`),
+        if (value) e.plotLine = value;
+        else delete e.plotLine;
+      }),
     );
 
     // When: from its scenes, unless set by hand.
@@ -277,6 +278,15 @@ export class CardPanel {
       }
     }
     const scenes = this.prop(props, "Scenes", "square-stack");
+    // While the board shows events, this one can show its scenes instead.
+    if (cards.length > 0 && this.host.setExpanded) {
+      const label = scenes.createEl("label", { cls: "story-planner-panel-check" });
+      const box = label.createEl("input");
+      box.type = "checkbox";
+      box.checked = !!this.host.expanded?.(id);
+      label.createSpan({ text: "Show its scenes on the board while showing events" });
+      box.addEventListener("change", () => this.host.setExpanded!(id, box.checked));
+    }
     if (cards.length === 0) scenes.createSpan({ cls: "story-planner-multi-empty", text: "None yet: choose this event on a card" });
     for (const card of cards) {
       const row = scenes.createDiv({ cls: "story-planner-profile-scene" });

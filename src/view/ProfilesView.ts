@@ -26,8 +26,8 @@ export interface ProfilesHost {
   edit(change: (story: Story) => boolean | void, coalesce?: string): void;
   /** Shows a card on the board. */
   openCard(id: Id): void;
-  /** Which kind of profile is shown, and whose. */
-  shown(): { kind: "character" | "organization"; id?: Id };
+  /** Whose profile is shown, for each kind. */
+  shown(kind: "character" | "organization"): { id?: Id };
   show(kind: "character" | "organization", id?: Id): void;
   notes: NoteHost;
 }
@@ -42,24 +42,10 @@ const ROLE_WORDS: Record<string, string> = { pov: "point of view", present: "pre
 export class ProfilesView {
   constructor(private host: ProfilesHost) {}
 
-  render(parent: HTMLElement, story: Story): void {
-    const { kind, id } = this.host.shown();
+  render(parent: HTMLElement, story: Story, kind: "character" | "organization"): void {
+    const { id } = this.host.shown(kind);
     const wrap = parent.createDiv({ cls: "story-planner-profiles" });
     const side = wrap.createDiv({ cls: "story-planner-profiles-list" });
-
-    // Characters or organizations.
-    const switcher = side.createDiv({ cls: "story-planner-profiles-switch" });
-    for (const [k, label, icon] of [
-      ["character", "Characters", "users"],
-      ["organization", "Organizations", "landmark"],
-    ] as const) {
-      const b = switcher.createEl("button", { cls: "story-planner-tool clickable-icon" });
-      setIcon(b, icon);
-      b.setAttr("aria-label", label);
-      b.setAttr("title", label);
-      b.toggleClass("is-active", kind === k);
-      b.addEventListener("click", () => this.host.show(k));
-    }
 
     const items: { entity: Entity; depth: number; count: number }[] =
       kind === "character"

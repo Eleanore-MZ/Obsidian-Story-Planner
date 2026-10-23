@@ -133,6 +133,19 @@ export function moveEvent(story: Story, id: Id, beforeId: Id | null, into?: Id):
   return JSON.stringify(story.events) !== before;
 }
 
+/** The plot line an event lives in: the writer's choice, or the one most of its scenes are in, or the first. */
+export function eventPlotLine(story: Story, id: Id): Id | undefined {
+  const event = story.events.find((e) => e.id === id);
+  if (!event) return undefined;
+  if (event.plotLine && story.plotLines.some((p) => p.id === event.plotLine)) return event.plotLine;
+  const counts = new Map<Id, number>();
+  for (const card of eventCards(story, id, true)) counts.set(card.plotLine, (counts.get(card.plotLine) ?? 0) + 1);
+  // The most scenes; on a tie, the plot line further left.
+  let best: Id | undefined;
+  for (const p of story.plotLines) if ((counts.get(p.id) ?? 0) > (best ? counts.get(best)! : 0)) best = p.id;
+  return best ?? story.plotLines[0]?.id;
+}
+
 /** Events with no cards of their own (and, for an arc, none in its events either). */
 export function emptyEvents(story: Story): StoryEvent[] {
   return story.events.filter((e) => eventCards(story, e.id, true).length === 0);

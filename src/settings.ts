@@ -10,7 +10,7 @@ import type StoryPlannerPlugin from "./main";
 import { Orientation } from "./view/layout";
 
 /** The views of a story, shown as tabs above it. */
-export type StoryTab = "board" | "time" | "characters" | "events" | "outline" | "setup";
+export type StoryTab = "board" | "time" | "characters" | "organizations" | "events" | "outline" | "setup";
 
 /** Per-story view preferences. Kept in data.json so viewing never changes the story note. */
 export interface StoryViewState {
@@ -45,11 +45,12 @@ export interface StoryViewState {
   highlight?: string;
   /** Character view: track or matrix, the characters chosen as lanes (in order), axis and layout. */
   characterMode?: "track" | "matrix" | "profiles";
-  /** The matrix shows characters or organizations. */
-  matrixOf?: "characters" | "organizations";
-  /** The profile shown in the Characters view. */
-  profileKind?: "character" | "organization";
+  /** The Organizations view: track or profiles, and the organizations shown as lanes. */
+  orgMode?: "track" | "profiles";
+  orgLanes?: string[];
+  /** The profiles shown in the Characters and Organizations views. */
   profileId?: string;
+  orgProfileId?: string;
   characterLanes?: string[];
   characterAxis?: TrackAxis;
   characterOrientation?: Orientation;
@@ -70,7 +71,7 @@ export interface StoryViewState {
 }
 
 /** The views that are tabs, in the default order. Setup is not one: it opens from the gear button. */
-export const ALL_TABS: StoryTab[] = ["board", "time", "characters", "events", "outline"];
+export const ALL_TABS: StoryTab[] = ["board", "time", "characters", "organizations", "events", "outline"];
 
 /** The tabs in the writer's order: unknown ones (and setup, from older settings) dropped, missing ones added at the end. */
 export function orderedTabs(order: StoryTab[] | undefined): StoryTab[] {

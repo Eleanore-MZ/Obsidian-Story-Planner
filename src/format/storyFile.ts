@@ -420,7 +420,9 @@ function readEntity(kind: "character" | "organization" | "event", raw: Record<st
   if (typeof rest.id !== "string") return null;
   if (kind === "event") {
     if (typeof rest.title !== "string") return null;
-    return { ...rest, color: typeof rest.color === "string" ? rest.color : "#888888" } as unknown as StoryEvent;
+    // Events once had a free status; they are written or not, like cards, and the status is dropped.
+    const { status: _status, ...event } = rest;
+    return { ...event, color: typeof event.color === "string" ? event.color : "#888888" } as unknown as StoryEvent;
   }
   if (typeof rest.name !== "string") return null;
   return { ...rest, color: typeof rest.color === "string" ? rest.color : "#888888" } as unknown as Character | Organization;

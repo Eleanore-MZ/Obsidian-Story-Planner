@@ -15,33 +15,63 @@ function storyWithTwoPlotLines() {
 }
 
 describe("board layout", () => {
-  it("in event mode shows an event's scenes in one plot line as one block, over empty cells but never over another scene", () => {
+  it("shows each event as one card in its plot line across its scenes' rows, with echoes in other plot lines", () => {
     const { story, main } = storyWithTwoPlotLines();
     const ch = story.chapters[0]!.id;
-    const add = (title: string, order: number, plotLine = main) => {
-      const c = createCard({ title, plotLine, chapter: ch, order });
+    story.chapters.push({ id: "c2", name: "Two" });
+    const add = (title: string, order: number, plotLine = main, chapter = ch) => {
+      const c = createCard({ title, plotLine, chapter, order });
       story.cards[c.id] = c;
       return c;
     };
-    // Rows 1 and 2 (First, Second) exist; then: e1 (row 3), other lane scene (row 4), e2 (row 5), other (row 6, same lane), e3 (row 7).
+    // The event: two scenes in the main plot line (in two chapters), one in the other.
     const e1 = add("E1", 3);
-    add("Elsewhere", 4, "p2");
-    const e2 = add("E2", 5);
-    add("Between", 6);
-    const e3 = add("E3", 7);
+    const e2 = add("E2", 4, "p2");
+    const e3 = add("E3", 1, main, "c2");
+    const loose = add("Loose", 2, main, "c2");
     story.events = [{ id: "ev", title: "The siege", color: "#c00" }];
     for (const c of [e1, e2, e3]) c.event = "ev";
-    const blocks = (expanded: string[] = []) =>
-      computeBoardLayout(story, "vertical", false, new Set(), true, { expanded: new Set(expanded) })
-        .items.filter((p) => p.item.kind === "event-block")
-        .map((p) => (p.item.kind === "event-block" ? p.item.cardIds.map((id) => story.cards[id]!.title).join("+") : ""));
-    // e1 and e2 have only an empty cell between them in their lane; "Between" breaks the block before e3.
-    expect(blocks()).toEqual(["E1+E2", "E3"]);
-    expect(blocks(["ev"])).toEqual([]);
+    const layout = (expanded: string[] = []) => computeBoardLayout(story, "vertical", false, new Set(), true, { expanded: new Set(expanded) });
+    const of = (kind: string) => layout().items.filter((p) => p.item.kind === kind);
+    // Its main plot line is the one most of its scenes are in: one card from E1's row to E3's, across the chapter break.
+    const [card] = of("event-card");
+    expect(of("event-card")).toHaveLength(1);
+    const rowOf = (id: string) => computeBoardLayout(story, "vertical").items.find((p) => p.item.kind === "card" && p.item.cardId === id)!.row;
+    expect([card!.row, card!.row + card!.span! - 1]).toEqual([rowOf(e1.id), rowOf(e3.id)]);
+    expect(card!.item.kind === "event-card" && card!.item.cardIds.length).toBe(3);
+    // An echo where its scene is in the other plot line.
+    expect(of("event-echo").map((p) => p.column)).toEqual([3]);
+    // Its scenes are gone from the board; the loose scene stays.
+    const cards = layout().items.filter((p) => p.item.kind === "card").map((p) => (p.item.kind === "card" ? story.cards[p.item.cardId]!.title : ""));
+    expect(cards).toEqual(expect.arrayContaining(["First", "Second", "Loose"]));
+    expect(cards).not.toContain("E1");
+    // Shown as its scenes, it is not an event card.
+    expect(layout(["ev"]).items.some((p) => p.item.kind === "event-card")).toBe(false);
+  });
+
+  it("puts an event card where its own scenes are when another scene is in the way", () => {
+    const { story, main } = storyWithTwoPlotLines();
+    const ch = story.chapters[0]!.id;
+    const add = (title: string, order: number) => {
+      const c = createCard({ title, plotLine: main, chapter: ch, order });
+      story.cards[c.id] = c;
+      return c;
+    };
+    const a = add("A", 3);
+    add("Between", 4);
+    const b = add("B", 5);
+    story.events = [{ id: "ev", title: "Split", color: "#c00" }];
+    a.event = b.event = "ev";
+    const cards = computeBoardLayout(story, "vertical", false, new Set(), true, { expanded: new Set() }).items.filter((p) => p.item.kind === "event-card");
+    expect(cards).toHaveLength(2);
+  });
+
+  it("shows an event without scenes at the end of the chapter chosen for it", () => {
+    const { story } = storyWithTwoPlotLines();
+    story.events = [{ id: "ev", title: "Later", color: "#c00", chapter: story.chapters[0]!.id }];
     const layout = computeBoardLayout(story, "vertical", false, new Set(), true, { expanded: new Set() });
-    expect(layout.items.some((p) => p.item.kind === "card" && p.item.cardId === e1.id)).toBe(false);
-    const block = layout.items.find((p) => p.item.kind === "event-block")!;
-    expect(block.span).toBe(3);
+    const card = layout.items.find((p) => p.item.kind === "event-card")!;
+    expect(card.item.kind === "event-card" && card.item.cardIds).toEqual([]);
   });
 
   it("shows an off-page event during a chapter in a background row at the chapter's end, and can leave off-page out", () => {

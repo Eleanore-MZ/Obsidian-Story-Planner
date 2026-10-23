@@ -10,7 +10,7 @@ import type StoryPlannerPlugin from "./main";
 import { Orientation } from "./view/layout";
 
 /** The views of a story, shown as tabs above it. */
-export type StoryTab = "board" | "time" | "characters" | "organizations" | "events" | "outline" | "setup";
+export type StoryTab = "board" | "time" | "characters" | "organizations" | "outline" | "setup";
 
 /** Per-story view preferences. Kept in data.json so viewing never changes the story note. */
 export interface StoryViewState {
@@ -71,7 +71,7 @@ export interface StoryViewState {
 }
 
 /** The views that are tabs, in the default order. Setup is not one: it opens from the gear button. */
-export const ALL_TABS: StoryTab[] = ["board", "time", "characters", "organizations", "events", "outline"];
+export const ALL_TABS: StoryTab[] = ["board", "time", "characters", "organizations", "outline"];
 
 /** The tabs in the writer's order: unknown ones (and setup, from older settings) dropped, missing ones added at the end. */
 export function orderedTabs(order: StoryTab[] | undefined): StoryTab[] {

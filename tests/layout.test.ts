@@ -49,21 +49,29 @@ describe("board layout", () => {
     expect(layout(["ev"]).items.some((p) => p.item.kind === "event-card")).toBe(false);
   });
 
-  it("puts an event card where its own scenes are when another scene is in the way", () => {
+  it("keeps an event as one card when another scene cuts in, with that scene on top of it, a step in", () => {
     const { story, main } = storyWithTwoPlotLines();
     const ch = story.chapters[0]!.id;
-    const add = (title: string, order: number) => {
-      const c = createCard({ title, plotLine: main, chapter: ch, order });
+    const add = (title: string, order: number, plotLine = main) => {
+      const c = createCard({ title, plotLine, chapter: ch, order });
       story.cards[c.id] = c;
       return c;
     };
     const a = add("A", 3);
-    add("Between", 4);
+    const between = add("Between", 4);
     const b = add("B", 5);
+    const elsewhere = add("Elsewhere", 4, "p2");
     story.events = [{ id: "ev", title: "Split", color: "#c00" }];
-    a.event = b.event = "ev";
-    const cards = computeBoardLayout(story, "vertical", false, new Set(), true, { expanded: new Set() }).items.filter((p) => p.item.kind === "event-card");
-    expect(cards).toHaveLength(2);
+    a.event = b.event = elsewhere.event = "ev";
+    const items = computeBoardLayout(story, "vertical", false, new Set(), true, { expanded: new Set() }).items;
+    const cards = items.filter((p) => p.item.kind === "event-card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]!.span).toBe(3);
+    const cut = items.find((p) => p.item.kind === "card" && p.item.cardId === between.id)!;
+    expect(cut.depth).toBe(1);
+    // In the other plot line, one small echo for the scene there, in its row.
+    const echoes = items.filter((p) => p.item.kind === "event-echo");
+    expect(echoes.map((p) => [p.row, p.span])).toEqual([[cut.row, 1]]);
   });
 
   it("shows an event without scenes at the end of the chapter chosen for it", () => {

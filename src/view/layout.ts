@@ -48,6 +48,8 @@ export interface PlacedItem {
   column: number;
   /** How many slots it covers along the reading axis (acts run beside their chapters). */
   span?: number;
+  /** How many event cards it sits on top of: it is drawn that many steps in. */
+  depth?: number;
 }
 
 export interface BoardLayout {
@@ -84,7 +86,7 @@ export function computeBoardLayout(
   const laneIndex = new Map(story.plotLines.map((p, i) => [p.id, i]));
   const laneCount = story.plotLines.length;
   // Lane -1 is the act column, lane 0 the chapter column; plot lines start at 1.
-  const items: { item: BoardItem; slot: number; lane: number; span?: number }[] = [];
+  const items: { item: BoardItem; slot: number; lane: number; span?: number; depth?: number }[] = [];
 
   // Lane 0 / slot 0 hold the headers; content starts at 1 on both axes.
   items.push({ item: { kind: "corner" }, slot: 0, lane: 0 });
@@ -234,11 +236,12 @@ export function computeBoardLayout(
   return {
     rows: vertical ? slot : laneCount + 1 + offset,
     columns: vertical ? laneCount + 1 + offset : slot,
-    items: items.map(({ item, slot, lane, span }) => ({
+    items: items.map(({ item, slot, lane, span, depth }) => ({
       item,
       row: (vertical ? slot : lane + offset) + 1,
       column: (vertical ? lane + offset : slot) + 1,
       ...(span !== undefined ? { span } : {}),
+      ...(depth ? { depth } : {}),
     })),
     acts: hasActs,
   };
@@ -307,87 +310,44 @@ export function showEvents<T extends { kind: string }>(
     lanes.set(placed.lane, list);
     list.push({ slot: placed.slot, end: placed.slot + (placed.span ?? 1) - 1, index, cardId: it.cardId });
   });
-  const cell = new Map<string, number>();
+  const cells = new Map<string, number[]>();
   items.forEach((placed, index) => {
-    if (placed.lane > 0 && !cell.has(`${placed.lane}:${placed.slot}`)) cell.set(`${placed.lane}:${placed.slot}`, index);
+    if (placed.lane <= 0) return;
+    const key = `${placed.lane}:${placed.slot}`;
+    cells.set(key, [...(cells.get(key) ?? []), index]);
   });
-  const kindAt = (lane: number, slot: number) => {
-    const index = cell.get(`${lane}:${slot}`);
-    return index === undefined ? null : { index, kind: items[index]!.item.kind };
-  };
+  const cellsAt = (lane: number, slot: number) => cells.get(`${lane}:${slot}`) ?? [];
   const drop = new Set<number>();
   const added: typeof items = [];
   const push = (kind: "event-card" | "event-echo", eventId: string, lane: number, from: number, to: number, cardIds: string[]) => {
     const plotLineId = story.plotLines[lane - 1]?.id ?? "";
     added.push({ item: { kind, eventId, plotLineId, cardIds } as BoardItem, slot: from, lane, span: to - from + 1, depth: 0 });
   };
-  /** Runs of an event's items in one lane, over the space `over` allows between them. */
-  const runs = (lane: number, list: Found[], over: ReadonlySet<string>) => {
-    const out: { from: number; to: number; cardIds: string[]; covered: number[] }[] = [];
-    let run: Found[] = [];
-    let covered: number[] = [];
-    const close = () => {
-      if (run.length === 0) return;
-      out.push({ from: run[0]!.slot, to: Math.max(...run.map((r) => r.end)), cardIds: [...new Set(run.map((r) => r.cardId))], covered });
-      run = [];
-      covered = [];
-    };
-    for (const entry of [...list].sort((a, b) => a.slot - b.slot)) {
-      if (run.length > 0) {
-        const between: number[] = [];
-        let ok = true;
-        for (let slot = Math.max(...run.map((r) => r.end)) + 1; slot < entry.slot; slot++) {
-          const at = kindAt(lane, slot);
-          if (at === null) continue;
-          if (!over.has(at.kind) || (at.kind === "time-cell" && !over.has("time-end") && (items[at.index]!.item as { end?: boolean }).end)) {
-            ok = false;
-            break;
-          }
-          between.push(at.index);
-        }
-        if (!ok) close();
-        else covered.push(...between);
-      }
-      run.push(entry);
-    }
-    close();
-    return out;
-  };
-
   for (const [eventId, lanes] of found) {
     const all = [...lanes.values()].flat();
     const main = laneOf.get(eventPlotLine(story, eventId) ?? "") ?? 1;
     const from = Math.min(...all.map((f) => f.slot));
     const to = Math.max(...all.map((f) => f.end));
     const own = new Set(all.map((f) => f.index));
-    // The card in its own plot line, across all its rows, if nothing else is in the way.
-    const covered: number[] = [];
-    let clear = true;
-    for (let slot = from; slot <= to && clear; slot++) {
-      const at = kindAt(main, slot);
-      if (at === null || own.has(at.index)) continue;
-      if (coverable.has(at.kind)) covered.push(at.index);
-      else clear = false;
-    }
-    const cardIds = [...new Set(all.map((f) => f.cardId))];
-    if (clear) {
-      push("event-card", eventId, main, from, to, cardIds);
-      covered.forEach((i) => drop.add(i));
-    } else if (lanes.has(main)) {
-      for (const run of runs(main, lanes.get(main)!, runOver)) {
-        push("event-card", eventId, main, run.from, run.to, cardIds);
-        run.covered.forEach((i) => drop.add(i));
+    // One card in its own plot line, across all its rows. Empty space under it
+    // goes; anything else in those rows (another scene, a long card) stays, on
+    // top of it and a step in, as on a long card in story time.
+    for (let slot = from; slot <= to; slot++) {
+      for (const index of cellsAt(main, slot)) {
+        if (own.has(index)) continue;
+        const placed = items[index]!;
+        const kind = placed.item.kind;
+        if (coverable.has(kind) && !(kind === "time-cell" && !coverable.has("time-end") && (placed.item as { end?: boolean }).end)) drop.add(index);
+        else placed.depth = (placed.depth ?? 0) + 1;
       }
     }
-    if (clear || lanes.has(main)) lanes.get(main)?.forEach((f) => drop.add(f.index));
-    // Echoes where its scenes are in other plot lines.
+    push("event-card", eventId, main, from, to, [...new Set(all.map((f) => f.cardId))]);
+    // In every other plot line, a small echo for each of its scenes there, in that scene's row.
     for (const [lane, list] of lanes) {
-      if (lane === main && (clear || lanes.has(main))) continue;
-      for (const run of runs(lane, list, runOver)) {
-        push(lane === main ? "event-card" : "event-echo", eventId, lane, run.from, run.to, run.cardIds);
-        run.covered.forEach((i) => drop.add(i));
+      for (const f of list) {
+        drop.add(f.index);
+        if (lane !== main) push("event-echo", eventId, lane, f.slot, f.slot, [f.cardId]);
       }
-      list.forEach((f) => drop.add(f.index));
     }
   }
 

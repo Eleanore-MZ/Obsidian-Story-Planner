@@ -317,14 +317,17 @@ A card belongs to at most one event (the card field `event`). Cards in no event 
 
 **Showing events.** A toggle on Main (and in story time) switches the whole board from scenes to events:
 
-- Each event shows as one card in its main plot line. The card runs from the row of its first scene to the row of its last, across chapters, and covers only empty space.
-- Where its scenes are in other plot lines, an echo of the event shows there, like a card's echo.
-- If another scene is in the way, the event's card shows over its own scenes instead, once per run of them.
+- Each event shows as one card in its main plot line. The card runs from the row of its first scene to the row of its last, across chapters.
+- If another scene cuts in, the event stays one card and that scene sits on top of it, a step in, as on a long card in story time.
+- For each of its scenes in another plot line, a small echo shows in that scene's row: the event's title with a square of its colour, no wider than it needs.
 - An event without scenes shows at the end of its chosen chapter. One without a chapter waits in a strip above the board.
 - Scenes in no event still show as loose cards.
-- Clicking an event card opens the event's page. A small arrow on the card shows that one event's scenes in its place, and the event page can turn that back off.
+- Clicking an event card opens the event's page. A small arrow on the card shows that one event's scenes in its place; the event marker on one of those scenes folds them back. Turning the toggle on starts with every event folded.
+- Event cards can be dragged to another plot line, which becomes their main one.
 
-**The Events tab** is the same board with events always shown. The arc, event and scene tree of the first version is gone: it repeated the board in another shape, and arcs remain visible on the event cards and pages.
+**Making events.** A New event button sits on the Main, Story time, Characters and Organizations toolbars. While events are shown, double-clicking an empty cell makes an event there: in that plot line and chapter on Main, or with a first scene at that time in story time. Several selected cards get a new event through "New event…" in the group editor.
+
+There is no separate Events tab: Main with events shown does what it did. The arc, event and scene tree of the first version is gone too: it repeated the board in another shape, and arcs remain visible on the event cards and pages.
 
 **On a scene's card,** its event (and arc) is a small tab in the event's colour, sitting on top of the card and apart from the rest of it. The card panel has an Event property, with "New event…" in its list, and several selected cards can be given an event at once.
 

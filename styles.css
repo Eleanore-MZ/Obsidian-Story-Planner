@@ -1865,6 +1865,7 @@ body.story-planner-reordering * {
 
 .story-planner .is-nested {
   position: relative;
+  z-index: 1;
 }
 
 .story-planner-grid.is-vertical .is-nested {
@@ -4160,8 +4161,31 @@ body.story-planner-marquee-active * {
   margin-top: var(--size-4-1);
 }
 
+/* An event's echo in another plot line: one small tag per scene there, as
+   wide as its title, not a full card. */
 .story-planner-echo.story-planner-event-echo {
-  align-self: stretch;
+  align-self: start;
+  justify-self: start;
+  max-width: 100%;
+  min-height: 0;
+  padding: 2px var(--size-4-2) 2px calc(var(--size-4-2) + 10px);
+  position: relative;
+  font-size: var(--font-ui-smaller);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.story-planner-echo.story-planner-event-echo::before {
+  content: "";
+  position: absolute;
+  left: var(--size-4-2);
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  background: var(--lane-color);
+  border-radius: 1px;
 }
 
 /* The Outline tab as a page: it reads like a rendered note and is written in

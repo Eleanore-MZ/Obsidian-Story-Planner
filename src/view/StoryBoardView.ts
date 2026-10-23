@@ -8,14 +8,14 @@ import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
 import { cardMoment, compareDates, dateInZone, mainCalendar, effectiveZone, formatDateRange, formatStoryDate, precisionOf } from "../model/calendar";
 import { Clash, dropWithinSpan, findClashes, placeLastInTime, reorderInTime, referenceDate, timeSorted } from "../model/storyTime";
-import { Card, Character, CharacterRole, Id, Organization, OrgRole, Story, StoryEvent } from "../model/types";
+import { Card, Character, CharacterRole, Id, Organization, OrgRole, Story, StoryDate, StoryEvent } from "../model/types";
 import { isUntitled } from "../model/defaults";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree, plotLineColor } from "../model/setup";
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
 import { cardMatches, cardsInReadingOrder, queryTerms, searchCards } from "../model/search";
 import { deleteCards, moveCardsTo, setEventOnCards } from "../model/groupEdits";
-import { addEvent, emptyEvents, eventColor, eventPath, eventTree, setEventPlotLine, toggleExpanded } from "../model/events";
+import { addEvent, emptyEvents, eventColor, eventPath, eventTree, setCardEvent, setEventPlotLine, toggleExpanded } from "../model/events";
 import { orgDescendants, orgTree, setCardOrg } from "../model/entities";
 import { CardPanel, NoteHost } from "./CardPanel";
 import { Minimap } from "./Minimap";
@@ -70,7 +70,6 @@ const TABS: Record<StoryTab, [string, string]> = {
   time: ["Story time", "calendar-clock"],
   characters: ["Characters", "users"],
   organizations: ["Organizations", "landmark"],
-  events: ["Events", "flag"],
   outline: ["Outline", "scroll-text"],
   setup: ["Setup", "settings-2"],
 };
@@ -954,7 +953,39 @@ export class StoryBoardView extends TextFileView {
   /** The view tab this story shows: the board, or the story setup page. */
   private get tab(): StoryTab {
     const path = this.file?.path;
-    return (path ? this.plugin.settings.viewState[path]?.tab : undefined) ?? "board";
+    const tab = (path ? this.plugin.settings.viewState[path]?.tab : undefined) ?? "board";
+    // The Events tab is gone; the board's "Show events" does what it did.
+    return (tab as string) === "events" ? "board" : tab;
+  }
+
+  /**
+   * Makes an event, named in a small dialog, and opens its page. `at` places
+   * it: its plot line, and the chapter it shows at until it has scenes, or a
+   * story-time span, where it starts with a first scene so it shows there.
+   */
+  private newEvent(at: { plotLine?: Id; chapter?: Id | null; date?: StoryDate } = {}): void {
+    new TextPromptModal(this.app, "New event", "", (title) => {
+      let made: Id | null = null;
+      this.mutate((s) => {
+        made = addEvent(s, title);
+        const event = s.events.find((e) => e.id === made)!;
+        if (at.plotLine) event.plotLine = at.plotLine;
+        if (at.chapter) event.chapter = at.chapter;
+        if (at.date && at.plotLine) {
+          const card = addCardAt(s, { chapter: null, plotLine: at.plotLine });
+          setCardDate(s, card, "date", { ...at.date });
+          placeLastInTime(s, card);
+          setCardEvent(s, card, made!);
+        }
+      });
+      if (made) this.selectEvent(made);
+    }).open();
+  }
+
+  /** Whether the current board shows events in place of their scenes. */
+  private get showingEvents(): boolean {
+    if (!this.story || this.story.events.length === 0) return false;
+    return (this.tab === "board" && !!this.viewState()?.eventMode) || (this.tab === "time" && !!this.viewState()?.timeEventMode);
   }
 
   private showTab(tab: StoryTab): void {
@@ -1231,8 +1262,7 @@ export class StoryBoardView extends TextFileView {
     const onTime = tab === "time";
     const onCharacters = tab === "characters" || tab === "organizations";
     const onOutline = tab === "outline";
-    const onEvents = tab === "events";
-    const withPanel = onBoard || onTime || onCharacters || onOutline || onEvents;
+    const withPanel = onBoard || onTime || onCharacters || onOutline;
     this.bodyEl.hidden = !withPanel;
     this.setup.setOpen(tab === "setup", story);
     if (onTime) this.timeActions(tabsRow.createDiv({ cls: "story-planner-tab-actions" }), story);
@@ -1242,19 +1272,6 @@ export class StoryBoardView extends TextFileView {
       this.toolIcon(actions, "file-output", "Export outline", () => {
         if (this.file && this.story) void this.plugin.exportOutline(this.file, this.story);
       });
-    }
-    if (onEvents) {
-      const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
-      this.toolIcon(actions, "flag", "New event", () =>
-        new TextPromptModal(this.app, "New event", "", (title) => {
-          let made: Id | null = null;
-          this.mutate((s) => {
-            made = addEvent(s, title);
-          });
-          if (made) this.selectEvent(made);
-        }).open(),
-      );
-      this.highlightPicker(actions, story);
     }
     if (onBoard) {
       const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
@@ -1270,6 +1287,7 @@ export class StoryBoardView extends TextFileView {
       // Event mode: each event's scenes as one block.
       const eventMode = !!this.viewState()?.eventMode;
       this.toolIcon(actions, "flag", eventMode ? "Showing events (click for scenes)" : "Show events instead of their scenes", () => this.setViewState({ eventMode: !eventMode, expandedEvents: [] }), eventMode);
+      this.toolIcon(actions, "square-plus", "New event", () => this.newEvent());
     }
 
     const actions = tabsRow.querySelector<HTMLElement>(".story-planner-tab-actions") ?? tabsRow.createDiv({ cls: "story-planner-tab-actions" });
@@ -1333,7 +1351,6 @@ export class StoryBoardView extends TextFileView {
     if (this.tab === "time") this.fillTime(content, story);
     else if (this.tab === "characters") this.fillCharacters(content, story);
     else if (this.tab === "outline") this.fillOutline(content, story);
-    else if (this.tab === "events") this.fillBoard(content, story);
     else this.fillBoard(content, story);
     this.boardEl.replaceChildren(...Array.from(content.childNodes));
     this.boardEl.scrollTop = scrollTop;
@@ -1363,8 +1380,7 @@ export class StoryBoardView extends TextFileView {
       return;
     }
 
-    // The Events tab always shows events; Main does when its toggle is on.
-    const eventMode = (this.tab === "events" || !!this.viewState()?.eventMode) && story.events.length > 0;
+    const eventMode = !!this.viewState()?.eventMode && story.events.length > 0;
     const layout = computeBoardLayout(
       story,
       this.orientation,
@@ -1398,6 +1414,11 @@ export class StoryBoardView extends TextFileView {
 
     for (const placed of layout.items) {
       const el = this.renderItem(grid, placed.item, story);
+      // On top of an event's card: drawn a step in, so the event's card shows beside it.
+      if (placed.depth) {
+        el.addClass("is-nested");
+        el.style.setProperty("--depth", String(Math.min(placed.depth, 3)));
+      }
       const vertical = this.orientation === "vertical";
       const along = placed.span && placed.span > 1 ? ` / span ${placed.span}` : "";
       el.style.gridRow = String(placed.row) + (vertical ? along : "");
@@ -1575,10 +1596,11 @@ ${plotLine.synopsis.trim()}`);
         const el = grid.createDiv({ cls: "story-planner-cell" });
         const card = story.cards[item.cardId]!;
         this.makeCardDropTarget(el, card, item.plotLineId, true);
-        // Double-click creates a card here, in this row.
-        el.addEventListener("dblclick", () =>
-          this.addCard({ chapter: card.chapter, plotLine: item.plotLineId, besideCardId: card.id }),
-        );
+        // Double-click creates a card here, in this row; while showing events, an event.
+        el.addEventListener("dblclick", () => {
+          if (this.showingEvents) this.newEvent({ plotLine: item.plotLineId, chapter: card.chapter });
+          else this.addCard({ chapter: card.chapter, plotLine: item.plotLineId, besideCardId: card.id });
+        });
         return el;
       }
 
@@ -1741,7 +1763,10 @@ ${plotLine.synopsis.trim()}`);
 
       case "chapter-end": {
         const el = grid.createDiv({ cls: "story-planner-chapter-end" });
-        el.addEventListener("dblclick", () => this.addCard({ chapter: item.chapterId, plotLine: item.plotLineId }));
+        el.addEventListener("dblclick", () => {
+          if (this.showingEvents) this.newEvent({ plotLine: item.plotLineId, chapter: item.chapterId });
+          else this.addCard({ chapter: item.chapterId, plotLine: item.plotLineId });
+        });
         this.makeDropTarget(el, "card", null, () =>
           this.mutate((s) => moveToChapter(s, this.dragged!.id, this.backgroundDrop, { chapter: item.chapterId, plotLine: item.plotLineId })),
         );
@@ -1923,7 +1948,7 @@ ${plotLine.synopsis.trim()}`);
       el.prepend(tab);
       el.addClass("has-event");
       // While the board shows events, this scene's event is shown as its scenes; the marker folds them back into the event.
-      const showing = (this.tab === "board" && this.viewState()?.eventMode) || (this.tab === "time" && this.viewState()?.timeEventMode) || this.tab === "events";
+      const showing = (this.tab === "board" && this.viewState()?.eventMode) || (this.tab === "time" && this.viewState()?.timeEventMode);
       if (showing && (this.viewState()?.expandedEvents ?? []).includes(event.id)) {
         tab.addClass("is-foldable");
         tab.setAttr("title", "Show as the event again");
@@ -1981,11 +2006,12 @@ ${plotLine.synopsis.trim()}`);
     expand.setAttr("aria-pressed", String(expanded));
     expand.toggleClass("is-active", expanded);
     expand.addEventListener("click", () => this.setViewState({ expandTimeline: !expanded }));
-    // Event mode, as on the board.
+    // Events, as on the board.
     if (story.events.length > 0) {
       const eventMode = !!this.viewState()?.timeEventMode;
       this.toolIcon(actions, "flag", eventMode ? "Showing events (click for scenes)" : "Show events instead of their scenes", () => this.setViewState({ timeEventMode: !eventMode, expandedEvents: [] }), eventMode);
     }
+    this.toolIcon(actions, "square-plus", "New event", () => this.newEvent());
     if (story.zones.length > 0) {
       const zones = actions.createEl("select", { cls: "dropdown" });
       zones.setAttr("aria-label", "Show times in");
@@ -2419,6 +2445,10 @@ ${plotLine.synopsis.trim()}`);
         el.addEventListener("dblclick", () => {
           const bucket = this.buckets.get(item.bucketId);
           if (!bucket) return;
+          if (this.showingEvents) {
+            this.newEvent({ plotLine: item.plotLineId, date: bucket.date });
+            return;
+          }
           let id: Id | null = null;
           this.mutate((s) => {
             id = addCardAt(s, { chapter: null, plotLine: item.plotLineId });
@@ -2641,6 +2671,7 @@ ${plotLine.synopsis.trim()}`);
     this.toolIcon(actions, toProfiles ? "contact" : "columns-3", toProfiles ? "Show the profiles" : "Show the track", () =>
       this.setViewState(this.ofOrgs ? { orgMode: toProfiles ? "profiles" : "track" } : { characterMode: toProfiles ? "profiles" : "track" }),
     );
+    this.toolIcon(actions, "square-plus", "New event", () => this.newEvent());
     if (this.characterMode === "profiles") return;
     const axis = actions.createEl("select", { cls: "dropdown" });
     axis.setAttr("aria-label", "Order");

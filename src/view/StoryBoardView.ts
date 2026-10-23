@@ -10,8 +10,6 @@ import { cardMoment, compareDates, dateInZone, mainCalendar, effectiveZone, form
 import { Clash, dropWithinSpan, findClashes, placeLastInTime, reorderInTime, referenceDate, timeSorted } from "../model/storyTime";
 import { Card, Character, CharacterRole, Id, Organization, OrgRole, Story, StoryEvent } from "../model/types";
 import { isUntitled } from "../model/defaults";
-import { characterFacts, composeOutline, INFO_LABELS, organizationFacts } from "../format/outline";
-import { reorderHandle } from "./reorder";
 import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
 import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree, plotLineColor } from "../model/setup";
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
@@ -25,6 +23,7 @@ import { guardComposition } from "./composition";
 import { STORY_ICON } from "../icon";
 import { SetupPanel } from "./SetupPanel";
 import { ProfilesView } from "./ProfilesView";
+import { OutlineView } from "./OutlineView";
 import { BoardItem, computeBoardLayout, Orientation } from "./layout";
 import { ChoiceModal, DateModal, FormField, FormModal, LaneModal, TextPromptModal } from "./modals";
 import {
@@ -144,6 +143,21 @@ export class StoryBoardView extends TextFileView {
   private backgroundDrop = false;
   /** The spans the story's start and end fall in, as story time last drew them. */
   private storySpan: { start?: string; end?: string } = {};
+  /** The Outline tab: the story as a page, written in place. */
+  private outline = new OutlineView({
+    edit: (change, coalesce) => this.mutate(change, coalesce),
+    reveal: (id) => this.revealCard(id),
+    choose: (choice) => new ChoiceModal(this.app, choice).open(),
+    notice: (message) => new Notice(message),
+    folded: () => new Set(this.viewState()?.foldedOutline ?? []),
+    toggleFold: (key) => {
+      const set = new Set(this.viewState()?.foldedOutline ?? []);
+      if (set.has(key)) set.delete(key);
+      else set.add(key);
+      this.setViewState({ foldedOutline: [...set] });
+    },
+    dimmed: (card) => !!this.story && this.highlighted(card, this.story) === false,
+  });
   /** Character and organization profiles, in the Characters view. */
   private profiles = new ProfilesView({
     edit: (change, coalesce) => this.mutate(change, coalesce),
@@ -1785,242 +1799,7 @@ ${plotLine.synopsis.trim()}`);
   // chapter, with each chapter's scenes in board order and its background.
 
   private fillOutline(parent: HTMLElement, story: Story): void {
-    const doc = parent.createDiv({ cls: "story-planner-outline" });
-    const folded = new Set(this.viewState()?.foldedOutline ?? []);
-    const toggle = (key: string) => {
-      const next = new Set(folded);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      this.setViewState({ foldedOutline: [...next] });
-    };
-    /** A heading with a fold arrow; returns the element its contents go in, or null while folded. */
-    const section = (into: HTMLElement, tag: "h2" | "h3" | "h4" | "h5", key: string, heading: (h: HTMLElement) => void): HTMLElement | null => {
-      const h = into.createEl(tag, { cls: "story-planner-outline-heading" });
-      const fold = h.createEl("button", { cls: "story-planner-fold clickable-icon" });
-      setIcon(fold, folded.has(key) ? "chevron-right" : "chevron-down");
-      fold.setAttr("aria-label", folded.has(key) ? "Unfold" : "Fold");
-      fold.addEventListener("click", () => toggle(key));
-      heading(h);
-      return folded.has(key) ? null : into.createDiv({ cls: "story-planner-outline-body" });
-    };
-    /**
-     * Text written in place, looking like the page it is on: a line for a
-     * title (Enter leaves it), a paragraph for a synopsis (Enter starts a new
-     * line). Escape leaves either. Saves as you type, one undo step per field.
-     */
-    const editable = (
-      into: HTMLElement,
-      cls: string,
-      value: string,
-      placeholder: string,
-      field: string,
-      multiline: boolean,
-      save: (s: Story, value: string) => boolean | void,
-    ) => {
-      const el = multiline ? into.createEl("textarea", { cls: `story-planner-outline-edit ${cls}` }) : into.createEl("input", { cls: `story-planner-outline-edit ${cls}` });
-      if (el instanceof HTMLInputElement) el.type = "text";
-      else el.rows = 1;
-      el.value = value;
-      el.placeholder = placeholder;
-      el.dataset.field = field;
-      const grow = () => {
-        if (!(el instanceof HTMLTextAreaElement)) return;
-        el.style.height = "auto";
-        el.style.height = `${el.scrollHeight + 2}px`;
-      };
-      el.addEventListener("input", () => {
-        grow();
-        this.mutate((s) => save(s, el.value), field);
-      });
-      (el as HTMLElement).addEventListener("keydown", (e: KeyboardEvent) => {
-        if (e.key === "Escape" || (e.key === "Enter" && !multiline)) {
-          e.preventDefault();
-          e.stopPropagation();
-          el.blur();
-        }
-      });
-      window.requestAnimationFrame(grow);
-      return el;
-    };
-    const setText = <T extends object>(target: T | undefined, key: keyof T, value: string) => {
-      if (!target) return false;
-      if (value.trim()) (target as Record<keyof T, unknown>)[key] = value;
-      else delete (target as Record<keyof T, unknown>)[key];
-    };
-    const facts = (into: HTMLElement, list: [string, string][]) => {
-      if (list.length === 0) return;
-      const box = into.createDiv({ cls: "story-planner-outline-facts" });
-      for (const [label, value] of list) {
-        const line = box.createDiv();
-        line.createSpan({ cls: "story-planner-profile-detail", text: `${label}: ` });
-        line.createSpan({ text: value });
-      }
-    };
-
-    doc.createEl("h1", { cls: "story-planner-outline-title", text: story.title });
-
-    // 1. The story.
-    const about = section(doc, "h2", "story", (h) => h.createSpan({ text: "Story" }));
-    if (about) {
-      for (const [key, label] of INFO_LABELS) {
-        const row = about.createDiv({ cls: "story-planner-outline-info" });
-        row.createSpan({ cls: "story-planner-profile-detail", text: label });
-        editable(row, "", story.info?.[key] ?? "", "", `outline-info:${key}`, key === "premise" || key === "notes", (s, v) => {
-          const info = { ...(s.info ?? {}) };
-          if ((info[key] ?? "") === v) return false;
-          if (v.trim()) info[key] = v;
-          else delete info[key];
-          if (Object.keys(info).length > 0) s.info = info;
-          else delete s.info;
-        });
-      }
-    }
-
-    // 2. Characters and 3. organizations: name, facts, summary.
-    const people = (key: "characters" | "organizations", label: string, list: { entity: Character | Organization; facts: [string, string][] }[]) => {
-      if (list.length === 0) return;
-      const body = section(doc, "h2", key, (h) => h.createSpan({ text: label }));
-      if (!body) return;
-      for (const { entity, facts: f } of list) {
-        const item = body.createDiv({ cls: "story-planner-outline-entity" });
-        item.style.setProperty("--lane-color", entity.color);
-        const pick = (s: Story) => (key === "characters" ? s.characters : s.organizations).find((x) => x.id === entity.id);
-        editable(item, "story-planner-outline-entity-name", entity.name, "Name", `outline-name:${entity.id}`, false, (s, v) => {
-          const e = pick(s);
-          if (!e || !v.trim() || e.name === v.trim()) return false;
-          e.name = v.trim();
-        });
-        facts(item, f);
-        editable(item, "story-planner-outline-synopsis", entity.summary ?? "", "Summary", `outline-summary:${entity.id}`, true, (s, v) => setText(pick(s), "summary", v));
-      }
-    };
-    people("characters", "Characters", story.characters.map((c) => ({ entity: c, facts: characterFacts(story, c) })));
-    people("organizations", "Organizations", orgTree(story).map(({ org }) => ({ entity: org, facts: organizationFacts(story, org) })));
-
-    // 4. The plot.
-    const plot = section(doc, "h2", "plot", (h) => h.createSpan({ text: "Plot" }));
-    if (!plot) return;
-    const lines = section(plot, "h3", "plot-lines", (h) => h.createSpan({ text: "Plot lines" }));
-    if (lines) {
-      for (const p of story.plotLines) {
-        const item = lines.createDiv({ cls: "story-planner-outline-entity" });
-        item.style.setProperty("--lane-color", plotLineColor(story, p) ?? p.color);
-        editable(item, "story-planner-outline-entity-name", p.name, "Name", `outline-plotline:${p.id}`, false, (s, v) => {
-          const target = s.plotLines.find((x) => x.id === p.id);
-          if (!target || !v.trim() || target.name === v.trim()) return false;
-          target.name = v.trim();
-        });
-        editable(item, "story-planner-outline-synopsis", p.synopsis ?? "", "What this plot line is about", `outline-plotline-synopsis:${p.id}`, true, (s, v) =>
-          setText(s.plotLines.find((x) => x.id === p.id), "synopsis", v),
-        );
-      }
-    }
-
-    const card = (into: HTMLElement, c: Card, reorder?: { group: string; index: number; chapter: Id | null; ids: Id[] }) => {
-      const item = into.createDiv({ cls: "story-planner-outline-card" });
-      item.dataset.cardId = c.id;
-      const plotLine = story.plotLines.find((p) => p.id === c.plotLine);
-      item.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
-      // Dragging the grip reorders the chapter's scenes.
-      if (reorder) {
-        reorderHandle(item, reorder.group, reorder.index, (to) =>
-          this.mutate((s) => {
-            const rest = reorder.ids.filter((id) => id !== c.id);
-            rest.splice(to, 0, c.id);
-            const next = rest[to + 1];
-            return moveCard(s, c.id, { chapter: reorder.chapter, plotLine: s.cards[c.id]!.plotLine, ...(next ? { beforeCardId: next } : {}) });
-          }),
-        );
-      }
-      const head = item.createDiv({ cls: "story-planner-outline-card-head" });
-      editable(head, "story-planner-outline-card-title", isUntitled(c.title) ? "" : c.title, "Untitled", `outline-card-title:${c.id}`, false, (s, v) =>
-        updateCard(s, c.id, { title: v }),
-      );
-      if (plotLine) head.createSpan({ cls: "story-planner-outline-card-plot", text: plotLine.name });
-      const go = head.createEl("button", { cls: "story-planner-outline-go clickable-icon" });
-      setIcon(go, "arrow-up-right");
-      go.setAttr("aria-label", "Go to the card");
-      go.setAttr("title", "Go to the card");
-      go.addEventListener("click", () => this.revealCard(c.id));
-      editable(item, "story-planner-outline-card-synopsis", c.synopsis, "What happens", `outline-card-synopsis:${c.id}`, true, (s, v) =>
-        updateCard(s, c.id, { synopsis: v }),
-      );
-      if (this.highlighted(c, story) === false) item.addClass("is-dimmed");
-    };
-
-    const withActs = actsShown(story);
-    const seen = new Set<Id>();
-    for (const part of composeOutline(story)) {
-      let into: HTMLElement | null = plot;
-      if (part.act) {
-        const act = part.act;
-        into = section(plot, "h3", `act:${act.id}`, (h) => {
-          h.addClass("story-planner-outline-act");
-          h.createSpan({ cls: "story-planner-outline-number", text: actHeading(story, act) });
-          editable(h, "story-planner-outline-heading-edit", act.title ?? "", "No title", `outline-act:${act.id}`, false, (s, v) =>
-            setText(s.acts.find((a) => a.id === act.id), "title", v),
-          );
-        });
-        if (!into) continue;
-        editable(into, "story-planner-outline-synopsis", act.summary ?? "", "What happens in this act", `outline-act-summary:${act.id}`, true, (s, v) =>
-          setText(s.acts.find((a) => a.id === act.id), "summary", v),
-        );
-      }
-      for (const chapter of part.chapters) {
-        const level = withActs && part.act ? "h4" : "h3";
-        const ch = chapter.chapter;
-        const body = section(into, level, `chapter:${ch?.id ?? "off"}`, (h) => {
-          h.addClass("story-planner-outline-chapter");
-          if (!ch) {
-            h.createSpan({ text: "Off-page" });
-            return;
-          }
-          h.createSpan({ cls: "story-planner-outline-number", text: chapterHeading(story, ch) });
-          editable(h, "story-planner-outline-heading-edit", ch.name, "No title", `outline-chapter:${ch.id}`, false, (s, v) => {
-            const target = s.chapters.find((c) => c.id === ch.id);
-            if (!target || target.name === v.trim()) return false;
-            target.name = v.trim();
-          });
-        });
-        if (!body) continue;
-        if (ch) {
-          editable(body, "story-planner-outline-synopsis", ch.summary ?? "", "What happens in this chapter", `outline-chapter-summary:${ch.id}`, true, (s, v) =>
-            setText(s.chapters.find((c) => c.id === ch.id), "summary", v),
-          );
-        }
-        const group = `outline:${ch?.id ?? "off"}`;
-        const ids = chapter.cards.map((c) => c.id);
-        let index = 0;
-        chapter.groups.forEach((g, i) => {
-          if (g.event) {
-            const event = g.event;
-            const head = body.createDiv({ cls: "story-planner-outline-event" });
-            head.style.setProperty("--event-color", event.color);
-            const parentEvent = event.parent ? story.events.find((e) => e.id === event.parent) : undefined;
-            if (parentEvent) head.createSpan({ cls: "story-planner-event-block-arc", text: parentEvent.title || "Untitled event" });
-            editable(head, "story-planner-outline-event-title", event.title, "Untitled event", `outline-event:${event.id}:${ch?.id ?? "off"}:${i}`, false, (s, v) =>
-              setText(s.events.find((e) => e.id === event.id), "title", v) ?? undefined,
-            );
-            // An event's synopsis shows where it first appears.
-            if (!seen.has(event.id)) {
-              editable(body, "story-planner-outline-synopsis is-event", event.synopsis ?? "", "What happens in this event", `outline-event-synopsis:${event.id}`, true, (s, v) =>
-                setText(s.events.find((e) => e.id === event.id), "synopsis", v),
-              );
-              seen.add(event.id);
-            }
-          } else if (i > 0) {
-            body.createDiv({ cls: "story-planner-outline-event is-none", text: "Other scenes" });
-          }
-          for (const c of g.cards) card(body, c, { group, index: index++, chapter: ch ? ch.id : null, ids });
-        });
-        if (chapter.background.length > 0) {
-          const bg = body.createDiv({ cls: "story-planner-outline-background" });
-          bg.createDiv({ cls: "story-planner-outline-background-label", text: "Background" });
-          for (const c of chapter.background) card(bg, c);
-        }
-      }
-    }
-    if (Object.keys(story.cards).length === 0) plot.createDiv({ cls: "story-planner-empty", text: "No scenes yet" });
+    this.outline.render(parent, story);
   }
 
   // -------------------------------------------------------------------------

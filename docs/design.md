@@ -18,9 +18,9 @@ Revision 5 settles the following:
 - Every character and organization has a profile in the Characters view.
 - Organizations nest (a branch inside a guild). A character's membership can carry a rank and the story dates it starts and ends.
 - Scenes name organizations as involved or mentioned, just as they name characters.
-- The character track is set aside for now; the Characters view shows the presence matrix and the profiles.
-- Events are objects of their own. A card belongs to at most one event, and an event can sit inside one arc (a single level of nesting). Cards in no event stay loose. Plot lines and events have synopses.
-- The outline, both the tab and the exported note, has four parts: the story, its characters, its organizations, and the plot. It can be edited in place.
+- The presence matrix is set aside for now (its code is kept). The Characters view shows the track and the profiles, and organizations have a view of their own with the same two modes.
+- Events are coarse scenes, written early in planning. Each has a main plot line and is written or not, like a card. A card belongs to at most one event, and an event can sit inside one arc (a single level of nesting). Cards in no event stay loose. Plot lines and events have synopses.
+- The outline, both the tab and the exported note, has four parts: the story, its characters, its organizations, and the plot. The tab reads like a rendered note and is written in place, adding and deleting anything in it.
 
 ## 1. The Core Idea in One Paragraph
 
@@ -120,7 +120,7 @@ The character track has the same layout and the same controls as the plot line b
 
 The presence matrix is a compact grid with characters as rows and chapters or story-time spans as columns. Each cell shows whether the character appears there and how, with a filled mark for point of view, a solid mark for present, and a hollow mark for mentioned. It is best at catching continuity problems, such as a character who vanishes for half the book, or a character placed in two scenes at the same date and time in different places. Because cards have locations, that second check becomes a gentle warning. When one character appears in two cards whose times overlap but whose locations differ, after converting both to the reference zone, the matrix flags the clash. Locations that sit inside one another, such as a room within a house, do not count as different places. The warning is advisory only, since a story may intend it (a twin, a disguise, a lie).
 
-As built, the character view is a third tab beside the board and story time, with its own transpose setting. Since revision 5 its modes are Matrix and Profiles (section 15); the track below is set aside until its design is reworked, though its code is kept. The matrix can list organizations instead of characters. Until the writer chooses lanes, the track shows the first eight characters. The clash check needs a definite stretch of time: a clock time covers its hour, a part of the day covers its hours, and a card with an end date covers everything from the start of its first day to the end of its last. A card known only to the day, month or year with no end date is never checked, because a day has room for a journey and flagging every same-day pair would bury real problems. A mentioned character is not physically present, so mentions never clash.
+As built, the character view is a third tab beside the board and story time, with its own transpose setting. Since revision 5 its modes are Track and Profiles (section 15). The presence matrix below is set aside for now, though its code is kept. Organizations have their own view with the same Track and Profiles modes. Until the writer chooses lanes, the track shows the first eight characters. The clash check needs a definite stretch of time: a clock time covers its hour, a part of the day covers its hours, and a card with an end date covers everything from the start of its first day to the end of its last. A card known only to the day, month or year with no end date is never checked, because a day has room for a journey and flagging every same-day pair would bury real problems. A mentioned character is not physically present, so mentions never clash.
 
 ### Locations
 
@@ -293,7 +293,7 @@ A character also has:
 
 An organization can be part of another, to any depth, but never inside itself. Its members are not stored on the organization: they are worked out from the characters' memberships, so they can never disagree.
 
-The Profiles mode of the Characters view lists the characters (or, with a switch, the organizations) on the left and shows the chosen profile on the right. The profile uses the same property rows as the card panel. Below the properties, the profile shows what the scenes say:
+The Profiles mode of the Characters view lists the characters on the left and shows the chosen profile on the right. The Organizations view does the same for organizations. Its Track mode has organizations as lanes, just as the character track has characters. The profile uses the same property rows as the card panel. Below the properties, the profile shows what the scenes say:
 
 - the first and last appearance
 - how many scenes in each role
@@ -304,19 +304,29 @@ Scenes name organizations as involved (a solid outline) or mentioned (dashed), a
 
 ## 16. Events
 
-An event is something that happens across several scenes, such as a siege or a wedding. It has these fields:
+An event is a coarse scene, the kind written early in planning before the scenes are, such as a siege or a wedding. It is built like a card:
 
-- a title, a synopsis, a colour, and an optional status
-- an optional parent: the arc it is part of. Only one level of nesting is allowed, so an arc holds events and an event holds scenes.
-- its stretch of story time, worked out from its scenes' dates, unless the writer sets a start or end by hand
-- for an event without scenes, the chapter where the board shows it
+- a title, a synopsis and a colour
+- a written checkbox
+- a main plot line: chosen by the writer, or otherwise the plot line most of its scenes are in
+- an optional parent: the arc it is part of. Only one level of nesting is allowed.
+- its stretch of story time, worked out from its scenes' dates unless set by hand
+- for an event without scenes, a chapter where the board shows it
 
-A card belongs to at most one event (the card field `event`). Cards in no event stay loose everywhere. There are four places to work with events:
+A card belongs to at most one event (the card field `event`). Cards in no event stay loose everywhere.
 
-- **The Events tab:** the arcs, their events, and each event's scenes in story order. Dragging regroups them: a scene dropped on an event joins it, an event dropped on the middle of a top-level event goes inside it, and an event dropped above or below another moves there. Clicking an event opens its page, which is built like the card panel and lists what its scenes bring together: characters, organizations, places, dates and the scenes themselves.
-- **Event mode on the board:** in each plot line, an event's scenes become one block across their rows. A block may run over empty cells but never over another scene; where another scene or a chapter boundary interrupts the run, a new block starts. The arrow on a block shows that event's scenes as cards again, and the event line on those cards folds them back. Events with no scenes yet wait in a strip above the board.
-- **Event mode in story time:** the same blocks, which here may also run across the gaps between spans of time. A separate column of event bands beside the dates was considered and left out, because events overlap in time and would need several tracks of bands.
-- **The card panel:** an Event property, with "New event…" in its list. Several selected cards can be given an event at once.
+**Showing events.** A toggle on Main (and in story time) switches the whole board from scenes to events:
+
+- Each event shows as one card in its main plot line. The card runs from the row of its first scene to the row of its last, across chapters, and covers only empty space.
+- Where its scenes are in other plot lines, an echo of the event shows there, like a card's echo.
+- If another scene is in the way, the event's card shows over its own scenes instead, once per run of them.
+- An event without scenes shows at the end of its chosen chapter. One without a chapter waits in a strip above the board.
+- Scenes in no event still show as loose cards.
+- Clicking an event card opens the event's page. A small arrow on the card shows that one event's scenes in its place, and the event page can turn that back off.
+
+**The Events tab** is the same board with events always shown. The arc, event and scene tree of the first version is gone: it repeated the board in another shape, and arcs remain visible on the event cards and pages.
+
+**On a scene's card,** its event (and arc) is a small tab in the event's colour, sitting on top of the card and apart from the rest of it. The card panel has an Event property, with "New event…" in its list, and several selected cards can be given an event at once.
 
 ## 17. The Outline
 
@@ -327,12 +337,19 @@ The Outline tab and the exported outline note share one structure:
 3. **Organizations:** each one's name, then what it is part of, its members and its own fields, then its summary.
 4. **Plot:** the plot lines with their synopses, then acts, chapters, events and scenes in board order. A chapter's scenes are grouped into runs by event. An event's synopsis appears the first time the event does. Scenes in no event that follow an event's get an "Other scenes" heading. Each chapter's background events come last.
 
-In the tab, titles and synopses are edited in place:
+The tab reads like a rendered note: headings and paragraphs, no boxes. Clicking text edits it where it is:
 
-- Enter starts a new line in a synopsis and leaves a title.
+- Enter starts a new line in a paragraph and leaves a title.
 - Escape leaves either.
-- Each part, act and chapter folds.
-- Scenes keep their plot line's colour in the margin.
-- A grip reorders a chapter's scenes, and a small arrow goes to a scene on the board.
+
+Everything in it can be added and deleted:
+
+- Story fields, characters, organizations, plot lines, acts, chapters, events and scenes each form a block.
+- When the pointer is on a block, a faint + and a six-dot grip appear in the left margin, and a delete button at the top right.
+- The + adds another of the same kind just below. The grip drags it among its siblings.
+- Deleting asks first only when other things go with it: an act's chapters, a chapter's scenes, an event's scenes, an organization's branches.
+- Every change can be undone.
+- Parts, acts and chapters fold, and scenes keep their plot line's colour in the margin.
+- Scenes in no event after an event's get a quiet "Other scenes" marker rather than a heading.
 
 The export ends each card's title line (and each line inside a synopsis) with two spaces, so line breaks survive with strict line breaks on. The readable outline inside the story note also gains short sections for the story, its characters, organizations and plot lines, and notes each scene's organizations and event.

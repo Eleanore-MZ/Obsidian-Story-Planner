@@ -4297,7 +4297,9 @@ body.story-planner-marquee-active * {
   background: color-mix(in srgb, var(--interactive-accent) 6%, transparent);
 }
 
+/* The placeholder is drawn, never typed: it cannot be selected, and the cursor and clicks pass through it. */
 .story-planner-outline-text.is-empty::before {
+  user-select: none;
   content: attr(data-placeholder);
   color: var(--text-faint);
   font-style: italic;

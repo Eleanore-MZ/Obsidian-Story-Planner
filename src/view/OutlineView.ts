@@ -278,6 +278,8 @@ export class OutlineView {
     } else {
       write();
     }
+    // The placeholder goes as soon as a character starts being composed, not only once it is.
+    el.addEventListener("compositionstart", () => el.removeClass("is-empty"));
     el.addEventListener("input", () => {
       const value = (el.textContent ?? "").replace(/ /g, " ");
       current = value;

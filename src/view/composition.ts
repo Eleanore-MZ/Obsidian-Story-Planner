@@ -28,8 +28,9 @@ export function guardComposition(root: HTMLElement): void {
   root.addEventListener(
     "compositionend",
     (e) => {
+      // Fields written in place (the Outline's) are contenteditable elements, not inputs: they get it too.
       const target = e.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || (target instanceof HTMLElement && target.isContentEditable)) {
         target.dispatchEvent(new Event("input", { bubbles: true }));
       }
     },

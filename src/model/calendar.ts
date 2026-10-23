@@ -399,6 +399,32 @@ export function formatStoryDate(story: Story, date: StoryDate, options: { zone?:
 }
 
 /**
+ * A story date as separate lines, largest first, for a header with room to
+ * stack them: the year (with its era), the month, the day (with its weekday),
+ * then the part of the day and clock time. Only the parts the date has; the
+ * zone, when it has one, follows the last.
+ */
+export function stackedDateParts(story: Story, date: StoryDate): string[] {
+  const calendar = findCalendar(story, date.calendar);
+  const formats = storyFormats(story);
+  const era = date.era ? calendar?.eras?.find((e) => e.id === date.era)?.name : undefined;
+  const lines = [era ? `${date.year} ${era}` : String(date.year)];
+  if (date.month !== undefined) lines.push(calendar?.months[date.month - 1]?.name ?? `Month ${date.month}`);
+  if (date.day !== undefined) {
+    const weekday = calendar ? weekdayOf(calendar, date) : undefined;
+    const name = weekday !== undefined ? calendar?.weekdays?.[weekday] : undefined;
+    lines.push(name ? `${name} ${date.day}` : String(date.day));
+  }
+  const time: string[] = [];
+  if (date.dayPart !== undefined) time.push(calendar?.dayParts?.find((p) => p.id === date.dayPart)?.name ?? date.dayPart);
+  if (date.minutes !== undefined) time.push(formatTime(calendar, date.minutes, formats.time));
+  if (time.length > 0) lines.push(time.join(" "));
+  const zone = date.zone ? story.zones.find((z) => z.id === date.zone) : undefined;
+  if (zone) lines[lines.length - 1] += ` (${zone.name})`;
+  return lines;
+}
+
+/**
  * A date with its end, such as "4 Frost 1531 – 9 Frost 1531". The end leaves
  * out a zone it shares with the start, and an end equal to the start is not repeated.
  */

@@ -12,7 +12,7 @@ import { Card, CharacterRole, CustomFieldDef, Id, Membership, Organization, OrgR
 // Organizations
 
 export function addOrganization(story: Story, name: string, parent?: Id): Id {
-  const org: Organization = { id: newId("o"), name: name.trim() || "New organization", color: freeColor(story.organizations) };
+  const org: Organization = { id: newId("o"), name: name.trim(), color: freeColor(story.organizations) };
   if (parent && story.organizations.some((o) => o.id === parent)) org.parent = parent;
   story.organizations.push(org);
   return org.id;

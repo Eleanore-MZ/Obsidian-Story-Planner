@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeOutline, outlineMarkdown } from "../src/format/outline";
+import { composeOutline, outlineContents, outlineMarkdown } from "../src/format/outline";
 import { parseStory, serializeStory } from "../src/format/storyFile";
 import { createCard, createEmptyStory } from "../src/model/defaults";
 import { setCardDuring } from "../src/model/edits";
@@ -129,6 +129,13 @@ describe("the composed outline", () => {
     expect(md).not.toContain("[[Note]]");
     expect(md).not.toContain("%%");
   });
+
+  it("keeps the writer's Markdown in synopses, unescaped", () => {
+    const s = story();
+    s.cards.k1!.synopsis = "She finds **the key**.\n\n- under the mat\n- *rusted*";
+    const md = outlineMarkdown(s);
+    expect(md).toContain("She finds **the key**.\n\n- under the mat  \n- *rusted*\n");
+  });
 });
 
 describe("off-page events during a chapter", () => {
@@ -148,5 +155,25 @@ describe("off-page events during a chapter", () => {
     expect(s.cards.k5!.during).toBe("c2");
     moveCard(s, "k5", { chapter: "c2", plotLine: "p1" });
     expect(s.cards.k5!.during).toBeUndefined();
+  });
+});
+
+describe("the story contents", () => {
+  it("lists the parts, people, plot lines, chapters and events in outline order", () => {
+    const s = createEmptyStory("Contents");
+    const ch = s.chapters[0]!;
+    const c = createCard({ title: "Scene", plotLine: s.plotLines[0]!.id, chapter: ch.id, order: 0 });
+    s.cards[c.id] = c;
+    s.events = [{ id: "ev", title: "The ledger", color: "#c00" }];
+    c.event = "ev";
+    const list = outlineContents(s);
+    const labels = list.map((e) => e.label);
+    expect(labels.slice(0, 2)).toEqual(["Story", "Characters"]);
+    expect(labels.indexOf("Plot")).toBeLessThan(labels.indexOf("Plot lines"));
+    const chapter = list.find((e) => e.chapterId === ch.id)!;
+    const event = list.find((e) => e.eventId === "ev")!;
+    expect(list.indexOf(event)).toBe(list.indexOf(chapter) + 1);
+    expect(event.unfold).toContain(`chapter:${ch.id}`);
+    expect(event.depth).toBe(chapter.depth + 1);
   });
 });

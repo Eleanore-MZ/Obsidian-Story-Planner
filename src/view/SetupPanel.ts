@@ -439,14 +439,18 @@ export class SetupPanel {
         line.toggleClass("is-in-act", showActs && !!chapter.act);
       }
     });
-    this.addRow(section, "New chapter (title optional)", "add-chapter", (name) => this.host.edit((s) => void addChapter(s, name.trim())), true);
-    if (showActs) this.addRow(section, "New act", "add-act", (name) =>
-      this.host.edit((s) => {
-        const act: Act = { id: newId("a") };
-        if (name.trim()) act.title = name.trim();
-        s.acts.push(act);
-      }),
-    );
+    // Chapters and acts need no title: Enter on an empty box makes one without, and puts the cursor in its title.
+    this.addRow(section, "New chapter", "add-chapter", (name) => {
+      let made = "";
+      this.host.edit((s) => void (made = addChapter(s, name.trim())));
+      return `chapter:${made}`;
+    }, "empty");
+    if (showActs) this.addRow(section, "New act", "add-act", (name) => {
+      const act: Act = { id: newId("a") };
+      if (name.trim()) act.title = name.trim();
+      this.host.edit((s) => void s.acts.push(act));
+      return `act:${act.id}`;
+    }, "empty");
   }
 
   /**
@@ -789,7 +793,7 @@ export class SetupPanel {
         }),
       );
     });
-    this.addRow(section, `Month ${calendar.months.length + 1}`, "add-month", (n) => this.calendarEdit((_, c) => void c.months.push({ name: n, days: 30 })), true);
+    this.addRow(section, `Month ${calendar.months.length + 1}`, "add-month", (n) => this.calendarEdit((_, c) => void c.months.push({ name: n, days: 30 })), "placeholder");
 
     this.subheading(section, "Leap years");
     const leapRow = section.createDiv({ cls: "story-planner-setup-row story-planner-setup-sentence" });
@@ -1242,7 +1246,13 @@ export class SetupPanel {
    * box: Enter adds (and the box stays open for the next one), Escape or
    * leaving it empty closes it.
    */
-  private addRow(parent: HTMLElement, placeholder: string, field: string, onAdd: (name: string) => void, placeholderIsDefault = false): void {
+  /**
+   * A "+ New …" button that opens a box to name the new thing; Enter adds it.
+   * An empty box adds nothing, unless `empty` says what it means: "placeholder"
+   * names it after the placeholder (a month), "empty" adds it without a name
+   * and puts the cursor in the field `onAdd` returns.
+   */
+  private addRow(parent: HTMLElement, placeholder: string, field: string, onAdd: (name: string) => string | void, empty: "none" | "placeholder" | "empty" = "none"): void {
     const row = parent.createDiv({ cls: "story-planner-setup-add" });
     if (this.adding !== field) {
       const open = row.createEl("button", { cls: "story-planner-setup-add-button" });
@@ -1252,14 +1262,14 @@ export class SetupPanel {
       open.addEventListener("click", () => {
         this.adding = field;
         row.empty();
-        this.addInput(row, placeholder, field, onAdd, placeholderIsDefault).focus();
+        this.addInput(row, placeholder, field, onAdd, empty).focus();
       });
       return;
     }
-    this.addInput(row, placeholder, field, onAdd, placeholderIsDefault);
+    this.addInput(row, placeholder, field, onAdd, empty);
   }
 
-  private addInput(row: HTMLElement, placeholder: string, field: string, onAdd: (name: string) => void, placeholderIsDefault: boolean): HTMLInputElement {
+  private addInput(row: HTMLElement, placeholder: string, field: string, onAdd: (name: string) => string | void, empty: "none" | "placeholder" | "empty"): HTMLInputElement {
     const input = row.createEl("input");
     input.type = "text";
     input.placeholder = `${placeholder}, then Enter`;
@@ -1271,8 +1281,15 @@ export class SetupPanel {
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
-        const name = input.value.trim() || (placeholderIsDefault ? placeholder : "");
-        if (name) onAdd(name);
+        const typed = input.value.trim();
+        if (typed) onAdd(typed);
+        else if (empty === "placeholder") onAdd(placeholder);
+        else if (empty === "empty") {
+          const made = onAdd("");
+          this.adding = null;
+          this.refresh(this.story);
+          if (made) this.el.querySelector<HTMLElement>(`[data-field="${CSS.escape(made)}"]`)?.focus();
+        }
       } else if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();

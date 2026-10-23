@@ -363,6 +363,18 @@ export function showEvents<T extends { kind: string }>(
     push("event-card", event.id, lane, items[at]!.slot, items[at]!.slot, []);
   }
 
+  // An event inside another in the same plot line (its rows within the
+  // other's, or starting later where they overlap) sits on top of it, a step
+  // in, as a card on a long one does.
+  const cardsOf = added.filter((a) => a.item.kind === "event-card");
+  const outerFirst = [...cardsOf].sort((a, b) => (b.span ?? 1) - (a.span ?? 1) || a.slot - b.slot);
+  outerFirst.forEach((inner, i) => {
+    const end = inner.slot + (inner.span ?? 1) - 1;
+    for (const outer of outerFirst.slice(0, i)) {
+      if (outer.lane === inner.lane && outer.slot <= end && outer.slot + (outer.span ?? 1) - 1 >= inner.slot) inner.depth = (inner.depth ?? 0) + 1;
+    }
+  });
+
   const kept = items.filter((_, i) => !drop.has(i));
   items.length = 0;
   items.push(...kept, ...added);

@@ -308,6 +308,30 @@ export function escapeText(text: string): string {
   return text.replace(/\s*\n\s*/g, " ").replace(INLINE_SPECIAL, (ch) => `\\${ch}`);
 }
 
+/**
+ * Keeps the writer's own Markdown (emphasis, lists, quotes, code, links to
+ * web pages) but stops it from making anything Obsidian would act on, or that
+ * would break the document around it: tags, [[links]] and embeds, %% comments,
+ * HTML, block ids, headings, setext underlines and code fences. Used for the
+ * longer texts (synopses, summaries) in exported notes and the Outline tab.
+ */
+export function safeMarkdown(text: string): string {
+  return text
+    .split("\n")
+    .map((line) =>
+      line
+        // A backslash just before something escaped here stays a backslash, so it cannot undo the escape.
+        .replace(/\\(?=[#%<!]|\[\[|\]\])/g, "\\\\")
+        .replace(/[#%<]/g, (ch) => `\\${ch}`)
+        .replace(/\[\[|\]\]/g, (pair) => `\\${pair[0]}\\${pair[1]}`)
+        .replace(/!(?=\[)/g, "\\!")
+        .replace(/(\s)\^([A-Za-z0-9-]+\s*)$/, "$1\\^$2")
+        .replace(/^(\s*)(`{3,}|~{3,})/, "$1\\$2")
+        .replace(/^(\s*)([-=])(\2*\s*)$/, "$1\\$2$3"),
+    )
+    .join("\n");
+}
+
 /** Like escapeText, but also stops a line from starting a list, quote or heading. */
 export function escapeLine(line: string): string {
   return escapeText(line.trim())

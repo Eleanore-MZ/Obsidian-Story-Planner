@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isStoryText, outlineWasEdited, parseStory, renderOutline, serializeStory } from "../src/format/storyFile";
+import { isStoryText, outlineWasEdited, parseStory, renderOutline, safeMarkdown, serializeStory } from "../src/format/storyFile";
 import { createCard, createEmptyStory } from "../src/model/defaults";
 import { Story } from "../src/model/types";
 
@@ -171,6 +171,35 @@ describe("text that could break the note", () => {
     // A name that would break the link's label falls back to the note's own name.
     expect(outline).toContain("Characters: [[People/Mara]]");
     expect(parseOk(serializeStory(story)).story).toEqual(story);
+  });
+});
+
+describe("safe Markdown, for synopses in exported notes", () => {
+  it("keeps emphasis, lists, quotes and code", () => {
+    const text = "**Bold** and *italic* and `code`\n- one\n- two\n1. first\n> said";
+    expect(safeMarkdown(text)).toBe(text);
+  });
+
+  it("stops tags, links, embeds, comments and HTML", () => {
+    const out = safeMarkdown("A #clue, [[Note]], ![[Pic.png]], ![img](x.png), %%hidden%%, <b>hi</b>");
+    expect(out).not.toMatch(/(^|[^\\])#clue/);
+    expect(out).not.toContain("[[");
+    expect(out).not.toMatch(/(^|[^\\])!\[/);
+    expect(out).not.toMatch(/(^|[^\\])%/);
+    expect(out).not.toMatch(/(^|[^\\])</);
+  });
+
+  it("stops headings, fences, setext underlines and block ids", () => {
+    expect(safeMarkdown("# Not a heading")).toBe("\\# Not a heading");
+    expect(safeMarkdown("```\ncode")).toBe("\\```\ncode");
+    expect(safeMarkdown("Title\n---")).toBe("Title\n\\---");
+    expect(safeMarkdown("Title\n===")).toBe("Title\n\\===");
+    expect(safeMarkdown("Ends with ^ref1")).toBe("Ends with \\^ref1");
+  });
+
+  it("keeps a writer's backslash from undoing an escape", () => {
+    expect(safeMarkdown("\\#tag")).toBe("\\\\\\#tag");
+    expect(safeMarkdown("\\[[Note]]")).toBe("\\\\\\[\\[Note\\]\\]");
   });
 });
 

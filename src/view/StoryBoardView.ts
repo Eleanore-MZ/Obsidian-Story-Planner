@@ -1,4 +1,4 @@
-import { Menu, Notice, Scope, setIcon, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
+import { MarkdownRenderer, Menu, Notice, Scope, setIcon, TextFileView, TFile, WorkspaceLeaf } from "obsidian";
 import type StoryPlannerPlugin from "../main";
 import { orderedTabs, type StoryTab } from "../settings";
 import { cardShows, type CardShow } from "../model/cardShows";
@@ -6,16 +6,17 @@ import { addCardAt, addCharacterByName, deleteCard, duringChapter, echoByDrop, s
 import { History } from "../model/history";
 import { CardTarget, chapterCards, moveCard, moveInList } from "../model/moves";
 import { SnapshotInfo } from "../model/snapshots";
-import { cardMoment, compareDates, dateInZone, mainCalendar, effectiveZone, formatDateRange, formatStoryDate, precisionOf } from "../model/calendar";
+import { cardMoment, compareDates, dateInZone, mainCalendar, effectiveZone, formatDateRange, formatStoryDate, precisionOf, stackedDateParts } from "../model/calendar";
 import { Clash, dropWithinSpan, findClashes, placeLastInTime, reorderInTime, referenceDate, timeSorted } from "../model/storyTime";
 import { Card, Character, CharacterRole, Id, Organization, OrgRole, Story, StoryDate, StoryEvent } from "../model/types";
 import { isUntitled } from "../model/defaults";
-import { outlineWasEdited, parseStory, serializeStory } from "../format/storyFile";
+import { outlineWasEdited, parseStory, safeMarkdown, serializeStory } from "../format/storyFile";
+import { ContentsEntry, outlineContents } from "../format/outline";
 import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree, plotLineColor } from "../model/setup";
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
 import { cardMatches, cardsInReadingOrder, queryTerms, searchCards } from "../model/search";
 import { deleteCards, moveCardsTo, setEventOnCards } from "../model/groupEdits";
-import { addEvent, emptyEvents, eventColor, eventPath, eventTree, setCardEvent, setEventPlotLine, toggleExpanded } from "../model/events";
+import { addEvent, emptyEvents, eventCards, eventColor, eventPath, eventTree, setCardEvent, setEventPlotLine, toggleExpanded } from "../model/events";
 import { orgDescendants, orgTree, setCardOrg } from "../model/entities";
 import { CardPanel, NoteHost } from "./CardPanel";
 import { Minimap } from "./Minimap";
@@ -156,6 +157,8 @@ export class StoryBoardView extends TextFileView {
       this.setViewState({ foldedOutline: [...set] });
     },
     dimmed: (card) => !!this.story && this.highlighted(card, this.story) === false,
+    // Made safe the same way as in the exported outline, so it reads the same and nothing in it is a tag or link.
+    renderMarkdown: (text, el) => void MarkdownRenderer.render(this.app, safeMarkdown(text), el, this.file?.path ?? "", this),
   });
   /** Character and organization profiles, in the Characters view. */
   private profiles = new ProfilesView({
@@ -285,6 +288,27 @@ export class StoryBoardView extends TextFileView {
 
   getIcon(): string {
     return STORY_ICON;
+  }
+
+  onResize(): void {
+    this.fitToolbar();
+    if (this.tab === "time") this.fitTimeLabels();
+  }
+
+  /**
+   * Keeps the tab bar inside the pane: when it does not fit, the tabs shrink
+   * to their icons; if it still does not fit, the buttons wrap onto a second
+   * line (and onto more, in a very narrow pane).
+   */
+  private fitToolbar(): void {
+    const row = this.headerEl.querySelector<HTMLElement>(":scope > .story-planner-tabs-row");
+    if (!row) return;
+    row.removeClass("is-icon-tabs", "is-wrapped");
+    const fits = () => row.scrollWidth <= row.clientWidth + 1;
+    if (fits()) return;
+    row.addClass("is-icon-tabs");
+    if (fits()) return;
+    row.addClass("is-wrapped");
   }
 
   async onOpen(): Promise<void> {
@@ -431,6 +455,49 @@ export class StoryBoardView extends TextFileView {
     this.anchor = cardId;
     this.panel.show(this.story, cardId);
     this.markSelection();
+  }
+
+  /**
+   * Goes to a line of the story's contents. On Main, a chapter scrolls the
+   * board to it and an event with scenes opens its page there; anything else
+   * opens the Outline tab, with the sections around it unfolded, scrolled to it.
+   */
+  goTo(entry: ContentsEntry): void {
+    const story = this.story;
+    if (!story) return;
+    if (this.tab === "board" && entry.chapterId) {
+      const header = this.boardEl.querySelector<HTMLElement>(`.story-planner-chapter-header[data-chapter-id="${CSS.escape(entry.chapterId)}"]`);
+      if (header) {
+        header.scrollIntoView({ block: "start", inline: "start", behavior: "smooth" });
+        return;
+      }
+    }
+    if (this.tab === "board" && entry.eventId) {
+      const first = eventCards(story, entry.eventId, true)[0];
+      if (first) {
+        this.selectEvent(entry.eventId);
+        const el = this.boardEl.querySelector<HTMLElement>(`[data-event-id="${CSS.escape(entry.eventId)}"]`) ?? this.boardEl.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(first.id)}"]`);
+        el?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+        return;
+      }
+    }
+    const folded = (this.viewState()?.foldedOutline ?? []).filter((key) => !entry.unfold.includes(key) && key !== entry.anchor);
+    this.setViewState({ tab: "outline", foldedOutline: folded });
+    window.requestAnimationFrame(() => {
+      const el = this.boardEl.querySelector<HTMLElement>(`[data-anchor="${CSS.escape(entry.anchor)}"]`);
+      el?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }
+
+  /** Goes to a heading of the story note, such as Obsidian's Outline lists: the contents line with that name. */
+  goToHeading(heading: string): void {
+    if (!this.story) return;
+    const plain = (text: string) => text.replace(/\\/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim().toLowerCase();
+    const wanted = plain(heading);
+    // The note's own title and its "About the story" are the Story part.
+    const story = wanted === "about the story" || wanted === plain(this.story.title) ? "story" : wanted;
+    const entry = outlineContents(this.story).find((e) => plain(e.label) === story || (story === "story" && e.anchor === "story"));
+    if (entry) this.goTo(entry);
   }
 
   /** Opens an event's page in the panel; no card stays selected. */
@@ -1178,6 +1245,7 @@ export class StoryBoardView extends TextFileView {
 
   /** Redraws the toolbar and board. `typing` means the change came from typing in the panel. */
   private render(typing = false): void {
+    this.plugin.boardChanged(this);
     const root = this.headerEl;
     this.dropTargets.clear();
     // The search box is redrawn with the toolbar; keep the cursor in it.
@@ -1319,6 +1387,7 @@ export class StoryBoardView extends TextFileView {
     gear.setAttr("aria-pressed", String(tab === "setup"));
     gear.toggleClass("is-active", tab === "setup");
     gear.addEventListener("click", () => this.showTab(tab === "setup" ? (this.viewState()?.lastView ?? "board") : "setup"));
+    this.fitToolbar();
 
     // Keep the panel on the selected card (or cards); it closes if the card is gone (after an undo, say).
     for (const id of [...this.multi]) if (!story.cards[id]) this.multi.delete(id);
@@ -1353,6 +1422,7 @@ export class StoryBoardView extends TextFileView {
     else if (this.tab === "outline") this.fillOutline(content, story);
     else this.fillBoard(content, story);
     this.boardEl.replaceChildren(...Array.from(content.childNodes));
+    if (this.tab === "time") this.fitTimeLabels();
     this.boardEl.scrollTop = scrollTop;
     this.boardEl.scrollLeft = scrollLeft;
     if (focused) {
@@ -1520,6 +1590,7 @@ ${plotLine.synopsis.trim()}`);
       case "chapter-header": {
         const chapter = story.chapters.find((c) => c.id === item.chapterId);
         const el = grid.createDiv({ cls: "story-planner-chapter-header" });
+        if (item.chapterId) el.dataset.chapterId = item.chapterId;
         // The first chapter of an act (and off-page after an act) carries the line between acts.
         if (actsShown(story)) {
           const index = chapter ? story.chapters.indexOf(chapter) : story.chapters.length;
@@ -2073,11 +2144,35 @@ ${plotLine.synopsis.trim()}`);
   }
 
   /** A date in the date column; its label stays in view while a tall span scrolls past. */
-  private timeHeader(grid: HTMLElement, label: string, start?: number): HTMLElement {
+  /**
+   * A span's date in the date column: one line, or, where its row is tall
+   * enough, the year, month, day and time stacked (see fitTimeLabels).
+   */
+  private timeHeader(grid: HTMLElement, label: string, start?: number, date?: StoryDate): HTMLElement {
     const el = grid.createDiv({ cls: "story-planner-time-header" });
     if (start !== undefined) el.dataset.start = String(start);
     el.createSpan({ cls: "story-planner-time-label", text: label });
+    const parts = date && this.story ? stackedDateParts(this.story, date) : [];
+    if (parts.length > 1) {
+      const stack = el.createDiv({ cls: "story-planner-time-stack" });
+      stack.setAttr("aria-hidden", "true");
+      for (const part of parts) stack.createDiv({ text: part });
+      el.setAttr("title", label);
+    }
     return el;
+  }
+
+  /** Stacks each date whose header has the height for all its lines; the rest stay on one line. Runs again when the board is resized. */
+  private fitTimeLabels(): void {
+    for (const el of Array.from(this.boardEl.querySelectorAll<HTMLElement>(".story-planner-time-header"))) {
+      const stack = el.querySelector<HTMLElement>(":scope > .story-planner-time-stack");
+      if (!stack) continue;
+      const style = getComputedStyle(stack);
+      const line = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.3 || 16;
+      const padding = parseFloat(getComputedStyle(el).paddingTop) + parseFloat(getComputedStyle(el).paddingBottom);
+      const fold = el.querySelector<HTMLElement>(":scope > .story-planner-fold-count")?.offsetHeight ?? 0;
+      el.toggleClass("is-stacked", el.clientHeight - padding - fold >= stack.childElementCount * line);
+    }
   }
 
   /**
@@ -2216,16 +2311,19 @@ ${plotLine.synopsis.trim()}`);
   /**
    * Hairlines between the lanes, and across the board at the start of each
    * chapter or span after the first, so the grid reads at a glance. Acts
-   * have their own, stronger line.
+   * have their own, stronger line. Cards that run over several rows (events,
+   * long cards) are drawn over the lines, and what sits on them over them.
    */
   private drawGridLines(grid: HTMLElement): void {
+    this.liftSpanning(grid);
     const lanes = this.gridLanes.get(grid);
     if (!lanes) return;
     const vertical = this.orientation === "vertical";
     let line = lanes.lead + 1;
     lanes.ids.forEach((_, i) => {
       if (i > 0) {
-        const el = grid.createDiv({ cls: "story-planner-lane-line" });
+        const el = createDiv({ cls: "story-planner-lane-line" });
+        grid.prepend(el);
         if (vertical) {
           el.style.gridColumn = String(line);
           el.style.gridRow = "1 / -1";
@@ -2244,7 +2342,8 @@ ${plotLine.synopsis.trim()}`);
       if (at > 2) rows.add(at);
     }
     for (const at of rows) {
-      const el = grid.createDiv({ cls: "story-planner-row-line" });
+      const el = createDiv({ cls: "story-planner-row-line" });
+      grid.prepend(el);
       if (vertical) {
         el.style.gridRow = String(at);
         el.style.gridColumn = "1 / -1";
@@ -2253,6 +2352,19 @@ ${plotLine.synopsis.trim()}`);
         el.style.gridRow = "1 / -1";
       }
     }
+  }
+
+  /**
+   * Moves the cards that run over several rows to the end of the grid, and
+   * then the ones on top of them, deepest last: on the same layer as the
+   * lines between rows and acts, the later one is drawn on top. Every item
+   * has its own grid position, so the order changes nothing else.
+   */
+  private liftSpanning(grid: HTMLElement): void {
+    const spanning = Array.from(grid.querySelectorAll<HTMLElement>(":scope > .story-planner-event-card:not(.is-nested), :scope > .is-long:not(.is-nested)"));
+    const nested = Array.from(grid.querySelectorAll<HTMLElement>(":scope > .is-nested"));
+    nested.sort((a, b) => Number(a.style.getPropertyValue("--depth")) - Number(b.style.getPropertyValue("--depth")));
+    for (const el of [...spanning, ...nested]) grid.appendChild(el);
   }
 
   /** Marks everything in a folded lane, so it shows as a thin strip. */
@@ -2379,7 +2491,7 @@ ${plotLine.synopsis.trim()}`);
         return this.renderItem(grid, item, story);
 
       case "time-header": {
-        const el = this.timeHeader(grid, item.bucket.label, item.bucket.start);
+        const el = this.timeHeader(grid, item.bucket.label, item.bucket.start, item.bucket.date);
         // The story's own start and end, marked lightly on the whole timeline.
         if (item.bucket.id === this.storySpan.start) el.addClass("is-story-start");
         if (item.bucket.id === this.storySpan.end) el.addClass("is-story-end");

@@ -14,7 +14,8 @@ import { DEFAULT_CARD_SHOWS, DEFAULT_SETTINGS, StoryPlannerSettings, StoryPlanne
 import { STORY_BOARD_VIEW, StoryBoardView } from "./view/StoryBoardView";
 import { registerIcon, STORY_ICON } from "./icon";
 import { ChoiceModal, ExportChoice, ExportModal, TextPromptModal } from "./view/modals";
-import { outlineMarkdown } from "./format/outline";
+import { outlineContents, outlineMarkdown } from "./format/outline";
+import { ContentsView, STORY_CONTENTS_VIEW } from "./view/ContentsView";
 
 export default class StoryPlannerPlugin extends Plugin {
   settings: StoryPlannerSettings = DEFAULT_SETTINGS;
@@ -23,6 +24,11 @@ export default class StoryPlannerPlugin extends Plugin {
   snapshots!: SnapshotStore;
   /** The pane linked notes open in, beside the board; reused while it is open. */
   private noteLeaf: WorkspaceLeaf | null = null;
+  /** The board last in front, which the contents view follows. */
+  private frontBoard: StoryBoardView | null = null;
+  private contentsTimer: number | null = null;
+  /** Panes that show a story board, so one turned into Markdown by something else (Obsidian's Outline) can turn back. */
+  private boardLeaves = new WeakSet<WorkspaceLeaf>();
 
   async onload(): Promise<void> {
     registerIcon();
@@ -31,6 +37,25 @@ export default class StoryPlannerPlugin extends Plugin {
     this.snapshots = new SnapshotStore(this.app.vault.adapter, `${pluginDir}/snapshots`, () => this.settings.snapshotsPerStory);
 
     this.registerView(STORY_BOARD_VIEW, (leaf) => new StoryBoardView(leaf, this));
+    this.registerView(STORY_CONTENTS_VIEW, (leaf) => new ContentsView(leaf, this));
+
+    this.addCommand({
+      id: "show-story-contents",
+      name: "Show story contents",
+      callback: () => void this.showContents(),
+    });
+
+    // The contents view follows the board in front.
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", (leaf) => {
+        if (leaf?.view instanceof StoryBoardView) this.boardChanged(leaf.view);
+      }),
+    );
+
+    // Obsidian's Outline, clicked while a story board is in front, opens the
+    // note as Markdown in the board's pane. Unless the writer chose Markdown,
+    // the pane turns back into the board, at the heading that was clicked.
+    this.registerEvent(this.app.workspace.on("layout-change", () => this.boardsBack()));
     this.addSettingTab(new StoryPlannerSettingTab(this.app, this));
 
     this.addRibbonIcon(STORY_ICON, "Open story", () => new StoryPickerModal(this).open());
@@ -132,6 +157,58 @@ export default class StoryPlannerPlugin extends Plugin {
     // Boards show a broken-link marker for linked notes that are gone, and drop it when they come back.
     this.registerEvent(this.app.vault.on("delete", (file) => this.refreshLinks(file.path)));
     this.registerEvent(this.app.vault.on("create", (file) => this.refreshLinks(file.path)));
+  }
+
+  /** Opens the story contents in the right sidebar, or shows it if it is open. */
+  async showContents(): Promise<void> {
+    let leaf = this.app.workspace.getLeavesOfType(STORY_CONTENTS_VIEW)[0];
+    if (!leaf) {
+      leaf = this.app.workspace.getRightLeaf(false) ?? undefined;
+      if (!leaf) return;
+      await leaf.setViewState({ type: STORY_CONTENTS_VIEW, active: false });
+    }
+    await this.app.workspace.revealLeaf(leaf);
+  }
+
+  /** The board the contents view lists: the last one in front, while it is open. */
+  lastBoard(): StoryBoardView | null {
+    if (this.frontBoard && this.boards().includes(this.frontBoard)) return this.frontBoard;
+    return this.boards()[0] ?? null;
+  }
+
+  /** A board came to the front or its story changed: the contents view catches up, a moment later. */
+  boardChanged(board: StoryBoardView): void {
+    this.boardLeaves.add(board.leaf);
+    const active = this.app.workspace.getActiveViewOfType(StoryBoardView);
+    if (active === board || !this.frontBoard || !this.boards().includes(this.frontBoard)) this.frontBoard = board;
+    if (this.frontBoard !== board) return;
+    if (this.contentsTimer !== null) window.clearTimeout(this.contentsTimer);
+    this.contentsTimer = window.setTimeout(() => {
+      this.contentsTimer = null;
+      for (const leaf of this.app.workspace.getLeavesOfType(STORY_CONTENTS_VIEW)) (leaf.view as ContentsView).show(this.lastBoard());
+    }, 150);
+  }
+
+  private boardsBack(): void {
+    if (!this.settings.autoOpenStories) return;
+    for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+      if (!this.boardLeaves.has(leaf)) continue;
+      const view = leaf.view as MarkdownView;
+      const file = view.file;
+      this.boardLeaves.delete(leaf);
+      if (!file || this.markdownOverride.has(file.path) || !this.isStoryFile(file)) continue;
+      // Wait for the note to scroll to its heading, then read which one it is.
+      window.setTimeout(() => {
+        if (leaf.view !== view) return;
+        const line = view.editor?.getCursor().line ?? 0;
+        const headings = this.app.metadataCache.getFileCache(file)?.headings ?? [];
+        const heading = [...headings].reverse().find((h) => h.position.start.line <= line)?.heading;
+        void this.openAsBoard(leaf, file).then(() => {
+          const board = leaf.view instanceof StoryBoardView ? leaf.view : null;
+          if (board && heading) board.goToHeading(heading);
+        });
+      }, 50);
+    }
   }
 
   private boards(): StoryBoardView[] {

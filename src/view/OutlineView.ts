@@ -31,6 +31,8 @@ export interface OutlineHost {
   toggleFold(key: string): void;
   /** False when the board's search or highlight dims the card. */
   dimmed(card: Card): boolean;
+  /** Draws a writer's text as Markdown into `el`, as it reads in the exported outline. */
+  renderMarkdown(text: string, el: HTMLElement): void;
 }
 
 /**
@@ -61,6 +63,7 @@ export class OutlineView {
   private section(into: HTMLElement, tag: "h2" | "h3" | "h4" | "h5", key: string, heading: (h: HTMLElement) => void): { head: HTMLElement; body: HTMLElement | null } {
     const folded = this.host.folded().has(key);
     const head = into.createEl(tag, { cls: "story-planner-outline-heading" });
+    head.dataset.anchor = key;
     const fold = head.createEl("button", { cls: "story-planner-fold clickable-icon" });
     setIcon(fold, folded ? "chevron-right" : "chevron-down");
     fold.setAttr("aria-label", folded ? "Unfold" : "Fold");
@@ -73,8 +76,9 @@ export class OutlineView {
    * A block: something the outline lists, with its hover controls. `add`
    * makes another of its kind below it; `remove` deletes it.
    */
-  private block(into: HTMLElement, cls: string, options: { add?: () => void; remove?: () => void; label: string }): HTMLElement {
+  private block(into: HTMLElement, cls: string, options: { add?: () => void; remove?: () => void; label: string; anchor?: string }): HTMLElement {
     const block = into.createDiv({ cls: `story-planner-outline-block ${cls}` });
+    if (options.anchor) block.dataset.anchor = options.anchor;
     if (options.add) {
       const add = block.createEl("button", { cls: "story-planner-outline-add clickable-icon" });
       setIcon(add, "plus");
@@ -101,7 +105,9 @@ export class OutlineView {
   /**
    * Text written in place, looking like the rest of the page: a title line
    * (Enter leaves it) or a paragraph (Enter starts a new line). Escape
-   * leaves either. Saves as you type, one undo step per field.
+   * leaves either. Saves as you type, one undo step per field. A paragraph
+   * reads as rendered Markdown until it is clicked, and shows its source
+   * while it is being written.
    */
   private text(
     into: HTMLElement,
@@ -114,14 +120,50 @@ export class OutlineView {
     save: (s: Story, value: string) => boolean | void,
   ): HTMLElement {
     const el = into.createEl(tag as "div", { cls: `story-planner-outline-text ${cls}` }) as HTMLElement;
-    el.setAttr("contenteditable", "plaintext-only");
     el.setAttr("spellcheck", "true");
     el.dataset.placeholder = placeholder;
     el.dataset.field = field;
-    el.textContent = value;
     el.toggleClass("is-multiline", multiline);
+    let current = value;
+    const write = () => {
+      el.removeClass("is-rendered");
+      el.removeAttribute("tabindex");
+      el.setAttr("contenteditable", "plaintext-only");
+      el.textContent = current;
+    };
+    const read = () => {
+      el.removeAttribute("contenteditable");
+      el.addClass("is-rendered");
+      el.setAttr("tabindex", "0");
+      el.empty();
+      this.host.renderMarkdown(current, el);
+    };
+    if (multiline && current.trim()) {
+      read();
+      // Focus (a click, Tab, or the board giving the cursor back after a redraw) shows the source to write in.
+      el.addEventListener("focus", () => {
+        if (!el.hasClass("is-rendered")) return;
+        write();
+        el.focus();
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        window.getSelection()?.removeAllRanges();
+        window.getSelection()?.addRange(range);
+      });
+      // A link in the text opens instead.
+      el.addEventListener("mousedown", (e) => {
+        if (el.hasClass("is-rendered") && (e.target as HTMLElement).closest("a")) e.preventDefault();
+      });
+      el.addEventListener("blur", () => {
+        if (current.trim()) read();
+      });
+    } else {
+      write();
+    }
     el.addEventListener("input", () => {
       const value = (el.textContent ?? "").replace(/ /g, " ");
+      current = value;
       el.toggleClass("is-empty", value.length === 0);
       this.host.edit((s) => save(s, multiline ? value : value.replace(/\n/g, " ")), field);
     });
@@ -217,6 +259,7 @@ export class OutlineView {
         },
       });
       block.style.setProperty("--lane-color", entity.color);
+      block.dataset.anchor = `entity:${entity.id}`;
       if (!orgs) {
         reorderHandle(block, "outline-characters", i, (to) => this.host.edit((s) => moveIndex(s.characters, i, to)));
       }
@@ -365,6 +408,7 @@ export class OutlineView {
                 ),
             });
             head.style.setProperty("--event-color", eventColor(story, event.id));
+            if (!seen.has(event.id)) head.dataset.anchor = `event:${event.id}`;
             const parent = event.parent ? story.events.find((e) => e.id === event.parent) : undefined;
             const title = head.createDiv({ cls: "story-planner-outline-event" });
             if (parent) title.createSpan({ cls: "story-planner-outline-number", text: parent.title || "Untitled arc" });
@@ -405,6 +449,7 @@ export class OutlineView {
     if (!body) return;
     story.plotLines.forEach((p, i) => {
       const block = this.block(body, "is-entity", {
+        anchor: `plotline:${p.id}`,
         label: "plot line",
         add: () => {
           let made: Id | null = null;

@@ -5,7 +5,8 @@ import { cardsInReadingOrder } from "../model/search";
 import { locationPath } from "../model/setup";
 import { timeSorted } from "../model/storyTime";
 import { Card, CharacterRole, Story } from "../model/types";
-import { escapeLine, escapeText } from "./storyFile";
+import { markdownLines } from "./outline";
+import { escapeText } from "./storyFile";
 
 // Exports of a story to other formats. Each is written to a new file the
 // writer names; the story note itself is never changed by an export.
@@ -44,8 +45,9 @@ function facts(story: Story, card: Card) {
 
 /**
  * The story as a clean Markdown document: chapters and scenes in reading
- * order, or scenes in the order they happen. Text is escaped, so nothing in a
- * card turns into a tag, link or comment in the exported note.
+ * order, or scenes in the order they happen. Names are escaped; synopses keep
+ * their own Markdown, but nothing in a card turns into a tag, link, embed or
+ * comment in the exported note.
  */
 export function exportMarkdown(story: Story, order: ExportOrder): string {
   const out: string[] = [`# ${escapeText(story.title)}`, ""];
@@ -64,8 +66,7 @@ export function exportMarkdown(story: Story, order: ExportOrder): string {
     }
     if (f.tags.length > 0) out.push(`**Scene tags:** ${f.tags.map(escapeText).join(", ")}`, "");
     if (card.synopsis.trim()) {
-      for (const line of card.synopsis.trim().split(/\n+/)) out.push(escapeLine(line));
-      out.push("");
+      out.push(...markdownLines(card.synopsis), "");
     }
   };
 
@@ -78,11 +79,11 @@ export function exportMarkdown(story: Story, order: ExportOrder): string {
       const act = withActs && chapter.act ? story.acts.find((a) => a.id === chapter.act) : undefined;
       if (act && act.id !== currentAct) {
         out.push(`## ${escapeText(actTitle(story, act))}`, "");
-        if (act.summary?.trim()) out.push(escapeLine(act.summary.trim()), "");
+        if (act.summary?.trim()) out.push(...markdownLines(act.summary), "");
       }
       currentAct = act?.id;
       out.push(`${withActs ? "###" : "##"} ${escapeText(chapterTitle(story, chapter, numbers))}`, "");
-      if (chapter.summary?.trim()) out.push(escapeLine(chapter.summary.trim()), "");
+      if (chapter.summary?.trim()) out.push(...markdownLines(chapter.summary), "");
       for (const card of cards.filter((c) => c.chapter === chapter.id)) writeCard(card, false);
     }
     const offPage = cards.filter((c) => c.chapter === null || !chapterIds.has(c.chapter));

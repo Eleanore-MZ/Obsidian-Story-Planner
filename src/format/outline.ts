@@ -6,7 +6,7 @@ import { fieldsFor, orgMembers, orgTree } from "../model/entities";
 import { eventOf } from "../model/events";
 import { cardsInReadingOrder } from "../model/search";
 import { Act, Card, Chapter, Character, CustomValue, Entity, Organization, Story, StoryEvent, StoryInfo } from "../model/types";
-import { escapeLine, escapeText } from "./storyFile";
+import { escapeText, safeMarkdown } from "./storyFile";
 
 // The composed outline, in four parts: the story (what it is), its
 // characters, its organizations, and its plot: the plot lines, then acts,
@@ -39,6 +39,53 @@ export interface OutlinePart {
   heading: string;
   synopsis: string;
   chapters: OutlineChapter[];
+}
+
+/** One line of the story's contents, as the Contents side view lists it. */
+export interface ContentsEntry {
+  label: string;
+  /** How far in it is listed. */
+  depth: number;
+  /** Where it is on the Outline tab (its `data-anchor`). */
+  anchor: string;
+  /** The Outline tab's folded sections that must open to show it. */
+  unfold: string[];
+  chapterId?: string;
+  eventId?: string;
+}
+
+/**
+ * The story's contents, in the Outline tab's order: Story, Characters and
+ * Organizations with their members, Plot with its plot lines, then the acts,
+ * chapters and the events in each chapter (each event where it first shows).
+ */
+export function outlineContents(story: Story): ContentsEntry[] {
+  const out: ContentsEntry[] = [{ label: "Story", depth: 0, anchor: "story", unfold: [] }];
+  out.push({ label: "Characters", depth: 0, anchor: "characters", unfold: [] });
+  for (const c of story.characters) out.push({ label: c.name || "Unnamed", depth: 1, anchor: `entity:${c.id}`, unfold: ["characters"] });
+  out.push({ label: "Organizations", depth: 0, anchor: "organizations", unfold: [] });
+  for (const { org, depth } of orgTree(story)) out.push({ label: org.name || "Unnamed", depth: 1 + depth, anchor: `entity:${org.id}`, unfold: ["organizations"] });
+  out.push({ label: "Plot", depth: 0, anchor: "plot", unfold: [] });
+  out.push({ label: "Plot lines", depth: 1, anchor: "plot-lines", unfold: ["plot"] });
+  for (const p of story.plotLines) out.push({ label: p.name || "Unnamed", depth: 2, anchor: `plotline:${p.id}`, unfold: ["plot", "plot-lines"] });
+  const seen = new Set<string>();
+  for (const part of composeOutline(story)) {
+    const above = ["plot"];
+    if (part.act) {
+      out.push({ label: part.heading, depth: 1, anchor: `act:${part.act.id}`, unfold: [...above] });
+      above.push(`act:${part.act.id}`);
+    }
+    for (const chapter of part.chapters) {
+      const key = `chapter:${chapter.chapter?.id ?? "off"}`;
+      out.push({ label: chapter.heading, depth: above.length, anchor: key, unfold: [...above], ...(chapter.chapter ? { chapterId: chapter.chapter.id } : {}) });
+      for (const group of chapter.groups) {
+        if (!group.event || seen.has(group.event.id)) continue;
+        seen.add(group.event.id);
+        out.push({ label: group.event.title || "Untitled event", depth: above.length + 1, anchor: `event:${group.event.id}`, unfold: [...above, key], eventId: group.event.id });
+      }
+    }
+  }
+  return out;
 }
 
 /** The front matter that marks a note as an exported outline, so a later export may replace it. */
@@ -160,16 +207,24 @@ function customFacts(story: Story, kind: "character" | "organization", e: Entity
  * "#### Chapter 1: Title" and its synopsis, the chapter's events as headings
  * one level down with their synopsis (the first time each appears), and the
  * scenes, then the chapter's background. Without acts, chapters are "###".
- * Parts with nothing in them are left out. Text is escaped, so nothing in
- * the story becomes a tag, link or comment in the note.
+ * Parts with nothing in them are left out. Names are escaped; synopses and
+ * summaries keep their own Markdown (emphasis, lists) but nothing in them
+ * becomes a tag, link, embed or comment in the note.
  */
+/**
+ * A text the writer wrote, as safe Markdown lines: blank lines stay (one at a
+ * time), and a line followed by another in the same block ends in two spaces,
+ * so it stays its own line with strict line breaks on.
+ */
+export function markdownLines(text: string): string[] {
+  const lines = safeMarkdown(text.trim().replace(/\n\s*\n(\s*\n)+/g, "\n\n")).split("\n").map((line) => line.trimEnd());
+  return lines.map((line, i) => (line && lines[i + 1] ? `${line}  ` : line));
+}
+
 export function outlineMarkdown(story: Story): string {
   const out: string[] = ["---", OUTLINE_MARKER, "---", "", `# ${escapeText(story.title)}`, ""];
-  // Lines end in two spaces where the next line belongs to the same block,
-  // so they stay separate lines with strict line breaks on.
   const paragraph = (text: string) => {
-    const lines = text.split(/\n+/).filter((line) => line.trim()).map(escapeLine);
-    lines.forEach((line, i) => out.push(i < lines.length - 1 ? `${line}  ` : line));
+    out.push(...markdownLines(text));
     out.push("");
   };
   const facts = (list: [string, string][]) => {

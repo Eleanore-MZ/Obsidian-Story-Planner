@@ -293,3 +293,17 @@ describe("reading times and offsets", () => {
     expect(formatOffset(cal, -45)).toBe("-0:45");
   });
 });
+
+describe("a date stacked a part to a line", () => {
+  it("lists year, month, day and time, only the parts the date has", async () => {
+    const { stackedDateParts } = await import("../src/model/calendar");
+    const { createEmptyStory } = await import("../src/model/defaults");
+    const s = createEmptyStory("Stack");
+    expect(stackedDateParts(s, { calendar: "main", year: 2024 })).toEqual(["2024"]);
+    const lines = stackedDateParts(s, { calendar: "main", year: 2024, month: 3, day: 2, minutes: 9 * 60 + 5 });
+    expect(lines).toHaveLength(4);
+    expect(lines[0]).toBe("2024");
+    expect(lines[2]).toMatch(/2$/);
+    expect(lines[3]).toContain("09");
+  });
+});

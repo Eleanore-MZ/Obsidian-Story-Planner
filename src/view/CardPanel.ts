@@ -372,7 +372,7 @@ export class CardPanel {
       if (value === MIXED) return;
       if (value === NEW_EVENT) {
         edit((s) => {
-          const created = addEvent(s, "New event");
+          const created = addEvent(s, "");
           return setEventOnCards(s, ids, created);
         });
       } else edit((s) => setEventOnCards(s, ids, value || undefined));
@@ -628,7 +628,7 @@ export class CardPanel {
     const eventValue = this.prop(props, "Event", "flag");
     const eventSelect = this.select(eventValue, eventOptions(story), card.event && story.events.some((e) => e.id === card.event) ? card.event : "", (value) => {
       if (value === NEW_EVENT) {
-        this.host.edit((s) => setCardEvent(s, id, addEvent(s, isUntitled(card.title) ? "New event" : card.title)));
+        this.host.edit((s) => setCardEvent(s, id, addEvent(s, isUntitled(card.title) ? "" : card.title)));
       } else this.host.edit((s) => setCardEvent(s, id, value || undefined));
     });
     eventSelect.dataset.field = "event";

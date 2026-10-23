@@ -1863,9 +1863,14 @@ body.story-planner-reordering * {
   color: var(--text-faint);
 }
 
+/* Cards running over several rows, and what sits on them, are drawn over
+   the lines between rows and acts (the board moves them after the lines),
+   and under the sticky headers. */
+.story-planner-grid > .story-planner-event-card,
+.story-planner-grid > .is-long,
 .story-planner .is-nested {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 .story-planner-grid.is-vertical .is-nested {
@@ -3551,15 +3556,61 @@ body.story-planner-marquee-active * {
   flex-basis: 100%;
 }
 
-/* Narrow windows: the view tabs shrink to their icons. */
-.story-planner-tabs-row {
-  container-type: inline-size;
+/* A date's words, small; stacked a part to a line where its row has room. */
+.story-planner-time-header > .story-planner-time-label,
+.story-planner-time-stack {
+  font-size: var(--font-ui-smaller);
+  line-height: 1.3;
 }
 
-@container (max-width: 720px) {
-  .story-planner-tab .story-planner-tab-label {
-    display: none;
-  }
+.story-planner-time-stack {
+  display: none;
+  flex: 1 1 0;
+  min-width: 0;
+  background: var(--background-primary);
+}
+
+.story-planner-time-stack > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-planner-time-stack > div:not(:first-child) {
+  font-weight: normal;
+}
+
+.story-planner-time-header.is-stacked > .story-planner-time-label {
+  display: none;
+}
+
+.story-planner-time-header.is-stacked > .story-planner-time-stack {
+  display: block;
+}
+
+.story-planner-grid.is-vertical .story-planner-time-stack {
+  position: sticky;
+  top: calc(var(--story-planner-head-size, 48px) + var(--size-4-3));
+}
+
+/* A tab bar too wide for the pane: first the view tabs shrink to their
+   icons, then the buttons wrap onto more lines (the board measures which). */
+.story-planner-tabs-row.is-icon-tabs .story-planner-tab .story-planner-tab-label {
+  display: none;
+}
+
+.story-planner-tabs-row.is-wrapped,
+.story-planner-tabs-row.is-wrapped .story-planner-tab-actions {
+  flex-wrap: wrap;
+}
+
+.story-planner-tabs-row.is-wrapped .story-planner-tab-actions {
+  min-width: 0;
+  row-gap: var(--size-4-1);
+}
+
+.story-planner-tabs-row .story-planner-tab-actions select {
+  max-width: 100%;
 }
 
 /* Square icon buttons in the tab bar; a toggle that is on is tinted with the accent. */
@@ -4219,6 +4270,29 @@ body.story-planner-marquee-active * {
   border-radius: 0;
 }
 
+/* A paragraph read as Markdown, until it is clicked to write in. */
+.story-planner-outline-text.is-rendered {
+  white-space: normal;
+}
+
+.story-planner-outline-text.is-rendered > :first-child {
+  margin-top: 0;
+}
+
+.story-planner-outline-text.is-rendered > :last-child {
+  margin-bottom: 0;
+}
+
+.story-planner-outline-text.is-rendered p {
+  margin: 0 0 var(--size-4-2);
+}
+
+.story-planner-outline-text.is-rendered ul,
+.story-planner-outline-text.is-rendered ol {
+  margin: 0 0 var(--size-4-2);
+  padding-left: 1.5em;
+}
+
 .story-planner-outline-text:focus {
   background: color-mix(in srgb, var(--interactive-accent) 6%, transparent);
 }
@@ -4407,4 +4481,41 @@ body.story-planner-marquee-active * {
 .story-planner .story-planner-outline-start:hover {
   color: var(--text-normal);
   background: transparent;
+}
+
+/* The story contents, in the sidebar: the Outline tab's headings, to jump to. */
+.story-planner-contents {
+  padding: var(--size-4-2);
+}
+
+.story-planner-contents-title {
+  margin: 0 0 var(--size-4-2);
+  padding: 0 var(--size-4-2);
+  font-weight: var(--font-semibold);
+}
+
+.story-planner-contents-empty {
+  padding: var(--size-4-2);
+  color: var(--text-muted);
+}
+
+.story-planner-contents .story-planner-contents-item {
+  padding: 2px var(--size-4-2) 2px calc(var(--size-4-2) + var(--depth, 0) * 1.1em);
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.story-planner-contents .story-planner-contents-item.is-part {
+  margin-top: var(--size-4-1);
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+}
+
+.story-planner-contents .story-planner-contents-item:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
 }

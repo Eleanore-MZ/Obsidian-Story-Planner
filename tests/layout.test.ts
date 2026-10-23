@@ -49,6 +49,31 @@ describe("board layout", () => {
     expect(layout(["ev"]).items.some((p) => p.item.kind === "event-card")).toBe(false);
   });
 
+  it("puts an event inside another in the same plot line on top of it, a step in", () => {
+    const { story, main } = storyWithTwoPlotLines();
+    const ch = story.chapters[0]!.id;
+    const add = (title: string, order: number) => {
+      const c = createCard({ title, plotLine: main, chapter: ch, order });
+      story.cards[c.id] = c;
+      return c;
+    };
+    const a = add("A", 3);
+    const f = add("Festival", 4);
+    const b = add("B", 5);
+    story.events = [
+      { id: "ledger", title: "The ledger", color: "#c00" },
+      { id: "festival", title: "The festival", color: "#0c0" },
+    ];
+    a.event = b.event = "ledger";
+    f.event = "festival";
+    const items = computeBoardLayout(story, "vertical", false, new Set(), true, { expanded: new Set() }).items;
+    const ledger = items.find((p) => p.item.kind === "event-card" && (p.item as { eventId: string }).eventId === "ledger")!;
+    const festival = items.find((p) => p.item.kind === "event-card" && (p.item as { eventId: string }).eventId === "festival")!;
+    expect(ledger.span).toBe(3);
+    expect(ledger.depth ?? 0).toBe(0);
+    expect(festival.depth).toBe(1);
+  });
+
   it("keeps an event as one card when another scene cuts in, with that scene on top of it, a step in", () => {
     const { story, main } = storyWithTwoPlotLines();
     const ch = story.chapters[0]!.id;

@@ -1,6 +1,6 @@
 {
   "name": "obsidian-story-planner",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Lightweight plot planning for Obsidian: plot lines, chapters, story time and characters, one note per story.",
   "main": "main.js",
   "private": true,

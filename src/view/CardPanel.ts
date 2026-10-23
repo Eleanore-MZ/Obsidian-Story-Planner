@@ -123,6 +123,11 @@ export class CardPanel {
    * bring together: characters, organizations, places, and the scenes
    * themselves. A `soft` refresh, while typing, leaves the fields alone.
    */
+  /** Puts the cursor in the shown event's title. */
+  focusEventTitle(): void {
+    this.el.querySelector<HTMLInputElement>('[data-field="event-title"]')?.focus();
+  }
+
   showEvent(story: Story, eventId: Id, soft = false): void {
     this.story = story;
     const event = story.events.find((e) => e.id === eventId);

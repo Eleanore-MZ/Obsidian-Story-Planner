@@ -12,6 +12,7 @@ import { Card, Character, CharacterRole, Id, Organization, OrgRole, Story, Story
 import { isUntitled } from "../model/defaults";
 import { outlineWasEdited, parseStory, safeMarkdown, serializeStory } from "../format/storyFile";
 import { ContentsEntry, outlineContents } from "../format/outline";
+import { createEvent, NewEventPlace } from "../model/eventCreation";
 import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree, plotLineColor } from "../model/setup";
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
 import { cardMatches, cardsInReadingOrder, queryTerms, searchCards } from "../model/search";
@@ -303,6 +304,7 @@ export class StoryBoardView extends TextFileView {
   private fitToolbar(): void {
     const row = this.headerEl.querySelector<HTMLElement>(":scope > .story-planner-tabs-row");
     if (!row) return;
+    for (const select of Array.from(row.querySelectorAll<HTMLSelectElement>("select"))) fitSelect(select);
     row.removeClass("is-icon-tabs", "is-wrapped");
     const fits = () => row.scrollWidth <= row.clientWidth + 1;
     if (fits()) return;
@@ -1026,27 +1028,32 @@ export class StoryBoardView extends TextFileView {
   }
 
   /**
-   * Makes an event, named in a small dialog, and opens its page. `at` places
-   * it: its plot line, and the chapter it shows at until it has scenes, or a
-   * story-time span, where it starts with a first scene so it shows there.
+   * Makes an event with a first scene, so it shows on the board straight
+   * away, and opens its page with the cursor in its title. `at` places it (a
+   * double-click's cell); from the toolbar it goes beside the selected card,
+   * or in the first plot line and chapter (in story time, the first span).
    */
-  private newEvent(at: { plotLine?: Id; chapter?: Id | null; date?: StoryDate } = {}): void {
-    new TextPromptModal(this.app, "New event", "", (title) => {
-      let made: Id | null = null;
-      this.mutate((s) => {
-        made = addEvent(s, title);
-        const event = s.events.find((e) => e.id === made)!;
-        if (at.plotLine) event.plotLine = at.plotLine;
-        if (at.chapter) event.chapter = at.chapter;
-        if (at.date && at.plotLine) {
-          const card = addCardAt(s, { chapter: null, plotLine: at.plotLine });
-          setCardDate(s, card, "date", { ...at.date });
-          placeLastInTime(s, card);
-          setCardEvent(s, card, made!);
-        }
-      });
-      if (made) this.selectEvent(made);
-    }).open();
+  private newEvent(at: NewEventPlace = {}): void {
+    const story = this.story;
+    if (!story) return;
+    const selected = this.panel.selected ? story.cards[this.panel.selected] : undefined;
+    const place: NewEventPlace = { ...at };
+    if (!place.plotLine && selected) place.plotLine = selected.plotLine;
+    if (place.chapter === undefined && !place.date) {
+      if (this.tab === "time") place.date = selected?.date ?? [...this.buckets.values()][0]?.date;
+      else if (selected) place.chapter = selected.chapter;
+    }
+    const made: { ids: { eventId: Id; cardId: Id } | null } = { ids: null };
+    this.mutate((s) => {
+      made.ids = createEvent(s, place);
+      return made.ids !== null;
+    });
+    if (!made.ids) {
+      new Notice("Add a plot line first: an event's scenes live in one.");
+      return;
+    }
+    this.selectEvent(made.ids.eventId);
+    this.panel.focusEventTitle();
   }
 
   /** Whether the current board shows events in place of their scenes. */
@@ -2086,8 +2093,9 @@ ${plotLine.synopsis.trim()}`);
     if (story.zones.length > 0) {
       const zones = actions.createEl("select", { cls: "dropdown" });
       zones.setAttr("aria-label", "Show times in");
-      zones.createEl("option", { text: "Local times" }).value = "";
-      for (const zone of story.zones) zones.createEl("option", { text: `Times in ${zone.name}` }).value = zone.id;
+      zones.setAttr("title", "Show times in");
+      zones.createEl("option", { text: "Local" }).value = "";
+      for (const zone of story.zones) zones.createEl("option", { text: zone.name }).value = zone.id;
       zones.value = this.zoneView;
       zones.addEventListener("change", () => this.setViewState({ timeZoneView: zones.value }));
     }
@@ -3529,4 +3537,22 @@ function moveToChapter(story: Story, cardId: Id, background: boolean, target: Ca
   }
   const moved = moveCard(story, cardId, target);
   return (target.chapter === null && setCardDuring(story, cardId, undefined)) || moved;
+}
+
+/**
+ * Sizes a dropdown to the option it shows, rather than to its longest one,
+ * so the toolbar keeps its room; it fits itself again when it changes.
+ */
+function fitSelect(select: HTMLSelectElement): void {
+  const style = getComputedStyle(select);
+  const context = document.createElement("canvas").getContext("2d");
+  if (!context) return;
+  context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  const text = select.selectedOptions[0]?.text.trim() ?? "";
+  const room = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+  select.style.width = `${Math.ceil(context.measureText(text).width + room + 2)}px`;
+  if (!select.dataset.fits) {
+    select.dataset.fits = "true";
+    select.addEventListener("change", () => fitSelect(select));
+  }
 }

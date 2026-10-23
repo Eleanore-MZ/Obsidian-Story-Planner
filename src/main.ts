@@ -14,7 +14,7 @@ import { DEFAULT_CARD_SHOWS, DEFAULT_SETTINGS, StoryPlannerSettings, StoryPlanne
 import { STORY_BOARD_VIEW, StoryBoardView } from "./view/StoryBoardView";
 import { registerIcon, STORY_ICON } from "./icon";
 import { ChoiceModal, ExportChoice, ExportModal, TextPromptModal } from "./view/modals";
-import { outlineContents, outlineMarkdown } from "./format/outline";
+import { OutlineAxis, outlineContents, outlineMarkdown } from "./format/outline";
 import { ContentsView, STORY_CONTENTS_VIEW } from "./view/ContentsView";
 
 export default class StoryPlannerPlugin extends Plugin {
@@ -304,10 +304,11 @@ export default class StoryPlannerPlugin extends Plugin {
    * any other note of that name is never touched, and the outline goes to a
    * new note beside it instead.
    */
-  async exportOutline(file: TFile, story: Story): Promise<void> {
+  /** Writes the outline as a note beside the story, in the order the Outline tab shows: by chapter or by story time. */
+  async exportOutline(file: TFile, story: Story, axis: OutlineAxis = "chapters"): Promise<void> {
     const folder = file.parent && file.parent.path !== "/" ? `${file.parent.path}/` : "";
     const stem = `${folder}${file.basename} outline`;
-    const text = outlineMarkdown(story);
+    const text = outlineMarkdown(story, axis);
     const write = async (path: string, existing?: TFile) => {
       try {
         const target = existing ? (await this.app.vault.modify(existing, text), existing) : await this.app.vault.create(path, text);

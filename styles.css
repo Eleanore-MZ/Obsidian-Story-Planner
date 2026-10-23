@@ -4432,6 +4432,15 @@ body.story-planner-marquee-active * {
   color: var(--text-faint);
 }
 
+/* In story-time order, the chapter a scene is in, as a quiet tag after its plot line. */
+.story-planner-outline-scene-chapter {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
+  padding: 0 var(--size-2-2);
+  border: 1px solid var(--background-modifier-border);
+  white-space: nowrap;
+}
+
 .story-planner-outline-block.is-scene p.story-planner-outline-text {
   margin: var(--size-2-1) 0 0;
 }

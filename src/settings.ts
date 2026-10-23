@@ -53,6 +53,8 @@ export interface StoryViewState {
   orgProfileId?: string;
   characterLanes?: string[];
   characterAxis?: TrackAxis;
+  /** The Outline tab's plot: chapter by chapter, or in story-time order. */
+  outlineAxis?: "chapters" | "time";
   characterOrientation?: Orientation;
   /** With two or more lanes, show only the scenes they share. */
   sharedOnly?: boolean;

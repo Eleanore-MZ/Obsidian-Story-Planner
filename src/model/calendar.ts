@@ -408,12 +408,28 @@ export function stackedDateParts(story: Story, date: StoryDate): string[] {
   const calendar = findCalendar(story, date.calendar);
   const formats = storyFormats(story);
   const era = date.era ? calendar?.eras?.find((e) => e.id === date.era)?.name : undefined;
-  const lines = [era ? `${date.year} ${era}` : String(date.year)];
-  if (date.month !== undefined) lines.push(calendar?.months[date.month - 1]?.name ?? `Month ${date.month}`);
+  // Each part as the story's date format writes it: a month as a number, a name or a short name; padded or not.
+  const uses = (token: string) => usesToken(formats.date, token);
+  const year = uses("YYYY") ? pad(date.year, 4) : String(date.year);
+  const lines = [era ? `${year} ${era}` : year];
+  if (date.month !== undefined) {
+    const month = calendar?.months[date.month - 1];
+    const width = Math.max(2, String(calendar?.months.length ?? 12).length);
+    lines.push(
+      uses("MMMM")
+        ? (month?.name ?? `Month ${date.month}`)
+        : uses("MMM")
+          ? (month?.short ?? (month?.name ?? `Month ${date.month}`).slice(0, 3))
+          : uses("M")
+            ? String(date.month)
+            : pad(date.month, width),
+    );
+  }
   if (date.day !== undefined) {
-    const weekday = calendar ? weekdayOf(calendar, date) : undefined;
+    const weekday = calendar && uses("dddd") ? weekdayOf(calendar, date) : undefined;
     const name = weekday !== undefined ? calendar?.weekdays?.[weekday] : undefined;
-    lines.push(name ? `${name} ${date.day}` : String(date.day));
+    const day = uses("D") && !uses("DD") ? String(date.day) : pad(date.day, 2);
+    lines.push(name ? `${name} ${day}` : day);
   }
   const time: string[] = [];
   if (date.dayPart !== undefined) time.push(calendar?.dayParts?.find((p) => p.id === date.dayPart)?.name ?? date.dayPart);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { composeOutline, outlineContents, outlineMarkdown } from "../src/format/outline";
+import { composeOutline, composeTimeOutline, outlineContents, outlineMarkdown } from "../src/format/outline";
 import { parseStory, serializeStory } from "../src/format/storyFile";
 import { createCard, createEmptyStory } from "../src/model/defaults";
 import { setCardDuring } from "../src/model/edits";
@@ -175,5 +175,52 @@ describe("the story contents", () => {
     expect(list.indexOf(event)).toBe(list.indexOf(chapter) + 1);
     expect(event.unfold).toContain(`chapter:${ch.id}`);
     expect(event.depth).toBe(chapter.depth + 1);
+  });
+});
+
+describe("the outline in story-time order", () => {
+  const timed = () => {
+    const s = createEmptyStory("Timed");
+    s.dateFormat = "YYYY/MM/DD";
+    const ch = s.chapters[0]!.id;
+    const p = s.plotLines[0]!.id;
+    const add = (title: string, date: Story["cards"][string]["date"], chapter: string | null = ch, order = 0) => {
+      const c = createCard({ title, plotLine: p, chapter, order });
+      if (date) c.date = date;
+      s.cards[c.id] = c;
+      return c;
+    };
+    const late = add("Late", { calendar: "main", year: 1531, month: 12, day: 4 }, ch, 0);
+    const early = add("Early", { calendar: "main", year: 1531, month: 3, day: 9 }, ch, 1);
+    const yearOnly = add("Some time that year", { calendar: "main", year: 1531 }, ch, 2);
+    const offPage = add("Off-page", { calendar: "main", year: 1531, month: 12, day: 4 }, null, 0);
+    const undated = add("Whenever", undefined, ch, 3);
+    return { s, late, early, yearOnly, offPage, undated };
+  };
+
+  it("groups scenes by year, month and day, in the order they happen, with undated ones last", () => {
+    const { s, late, early, yearOnly, offPage, undated } = timed();
+    const t = composeTimeOutline(s);
+    expect(t.spans.map((y) => y.heading)).toEqual(["1531"]);
+    const year = t.spans[0]!;
+    expect(year.groups.flatMap((g) => g.cards.map((c) => c.id))).toEqual([yearOnly.id]);
+    expect(year.spans.map((m) => m.heading)).toEqual(["1531/03", "1531/12"]);
+    expect(year.spans[0]!.spans[0]!.groups[0]!.cards.map((c) => c.id)).toEqual([early.id]);
+    // Off-page scenes are in time order with the rest.
+    const dec4 = year.spans[1]!.spans[0]!;
+    expect(dec4.heading).toBe("1531/12/04");
+    expect(dec4.groups.flatMap((g) => g.cards.map((c) => c.id)).sort()).toEqual([late.id, offPage.id].sort());
+    expect(t.undated.flatMap((g) => g.cards.map((c) => c.id))).toEqual([undated.id]);
+  });
+
+  it("exports in that order, with each scene's chapter", () => {
+    const { s } = timed();
+    const md = outlineMarkdown(s, "time");
+    expect(md.indexOf("### 1531\n")).toBeGreaterThan(-1);
+    expect(md.indexOf("#### 1531/03")).toBeLessThan(md.indexOf("#### 1531/12"));
+    expect(md).toContain("##### 1531/12/04");
+    expect(md).toContain("**Off-page** (Main plot · Off-page)".replace("Main plot", s.plotLines[0]!.name));
+    expect(md.indexOf("### Undated")).toBeGreaterThan(md.indexOf("1531/12/04"));
+    expect(md).not.toContain("### Chapter");
   });
 });

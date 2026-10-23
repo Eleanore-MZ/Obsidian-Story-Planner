@@ -1,8 +1,9 @@
 import { setIcon } from "obsidian";
-import { characterFacts, composeOutline, INFO_LABELS, organizationFacts } from "../format/outline";
+import { characterFacts, composeOutline, composeTimeOutline, INFO_LABELS, OutlineAxis, OutlineGroup, organizationFacts, sceneChapterLabel, TimeOutlineSpan, timeSlot } from "../format/outline";
+import { placeLastInTime, reorderInTime } from "../model/storyTime";
 import { actHeading, actsShown, chapterHeading, chapterTitle, deleteAct, startActAt } from "../model/chapters";
 import { isUntitled } from "../model/defaults";
-import { addCardAt, deleteCard, updateCard } from "../model/edits";
+import { addCardAt, deleteCard, setCardDate, updateCard } from "../model/edits";
 import { addOrganization, deleteOrganization, orgTree } from "../model/entities";
 import { addEvent, deleteEvent, eventCards, eventColor, setCardEvent } from "../model/events";
 import { moveCard } from "../model/moves";
@@ -31,7 +32,9 @@ export interface OutlineHost {
   toggleFold(key: string): void;
   /** False when the board's search or highlight dims the card. */
   dimmed(card: Card): boolean;
-  /** Draws a writer's text as Markdown into `el`, as it reads in the exported outline. */
+  /** The plot's order: chapter by chapter, or in story time. */
+  axis(): OutlineAxis;
+    /** Draws a writer's text as Markdown into `el`, as it reads in the exported outline. */
   renderMarkdown(text: string, el: HTMLElement): void;
 }
 
@@ -296,6 +299,10 @@ export class OutlineView {
     const { body: plot } = this.section(doc, "h2", "plot", (h) => h.createSpan({ text: "Plot" }));
     if (!plot) return;
     this.plotLines(plot, story);
+    if (this.host.axis() === "time") {
+      this.timePlot(plot, story);
+      return;
+    }
     const withActs = actsShown(story);
     const seen = new Set<Id>();
     for (const part of composeOutline(story)) {
@@ -389,48 +396,24 @@ export class OutlineView {
         const ids = chapter.cards.map((c) => c.id);
         let index = 0;
         chapter.groups.forEach((g, gi) => {
-          if (g.event) {
-            const event = g.event;
-            const count = eventCards(story, event.id, true).length;
-            const head = this.block(body, "is-event", {
-              label: "event",
-              // A new event below, with a first scene in this chapter after this event's scenes.
-              add: () =>
-                this.host.edit((s) => {
-                  const last = g.cards[g.cards.length - 1]!;
-                  const id = addEvent(s, "");
-                  const card = addCardAt(s, { chapter: ch ? ch.id : null, plotLine: last.plotLine, afterCardId: last.id });
-                  setCardEvent(s, card, id);
-                }),
-              remove: () =>
-                this.confirmDelete(count, event.title || "this event", `Its ${count === 1 ? "scene stays" : `${count} scenes stay`}, in no event.`, () =>
-                  this.host.edit((s) => deleteEvent(s, event.id)),
-                ),
+          this.eventHead(body, story, g, gi, seen, `${ch?.id ?? "off"}:${gi}`, (s, last, id) => {
+            const card = addCardAt(s, { chapter: ch ? ch.id : null, plotLine: last.plotLine, afterCardId: last.id });
+            setCardEvent(s, card, id);
+          });
+          for (const card of g.cards) {
+            this.scene(body, story, card, {
+              reorder: {
+                group: `outline:${ch?.id ?? "off"}`,
+                index: index++,
+                move: (s, to) => {
+                  const rest = ids.filter((id) => id !== card.id);
+                  rest.splice(to, 0, card.id);
+                  const next = rest[to + 1];
+                  return moveCard(s, card.id, { chapter: ch ? ch.id : null, plotLine: s.cards[card.id]!.plotLine, ...(next ? { beforeCardId: next } : {}) });
+                },
+              },
             });
-            head.style.setProperty("--event-color", eventColor(story, event.id));
-            if (!seen.has(event.id)) head.dataset.anchor = `event:${event.id}`;
-            const parent = event.parent ? story.events.find((e) => e.id === event.parent) : undefined;
-            const title = head.createDiv({ cls: "story-planner-outline-event" });
-            if (parent) title.createSpan({ cls: "story-planner-outline-number", text: parent.title || "Untitled arc" });
-            this.text(title, "span", "story-planner-outline-heading-text", event.title, "Untitled event", `outline-event:${event.id}:${ch?.id ?? "off"}:${gi}`, false, (s, v) => {
-              const e = s.events.find((x) => x.id === event.id);
-              if (!e || e.title === v) return false;
-              e.title = v;
-            });
-            // An event's synopsis where it first appears.
-            if (!seen.has(event.id)) {
-              this.text(head, "p", "story-planner-outline-paragraph is-synopsis", event.synopsis ?? "", "What happens in this event", `outline-event-synopsis:${event.id}`, true, (s, v) => {
-                const e = s.events.find((x) => x.id === event.id);
-                if (!e || (e.synopsis ?? "") === v) return false;
-                if (v.trim()) e.synopsis = v;
-                else delete e.synopsis;
-              });
-              seen.add(event.id);
-            }
-          } else if (gi > 0) {
-            body.createDiv({ cls: "story-planner-outline-other", text: "Other scenes" });
           }
-          for (const card of g.cards) this.scene(body, story, card, { group: `outline:${ch?.id ?? "off"}`, index: index++, chapter: ch ? ch.id : null, ids });
         });
         if (chapter.cards.length === 0 && ch) {
           body.createEl("button", { cls: "story-planner-outline-start", text: "+ Scene" }).addEventListener("click", () => this.addScene(story, { chapter: ch.id, plotLine: story.plotLines[0]?.id }));
@@ -442,6 +425,128 @@ export class OutlineView {
         }
       });
     }
+  }
+
+  /**
+   * An event at the head of its run of scenes: its title, written in place,
+   * and its synopsis where it first appears. Its + makes a new event below,
+   * whose first scene `addAfter` places after this run's last scene.
+   */
+  private eventHead(body: HTMLElement, story: Story, g: OutlineGroup, gi: number, seen: Set<Id>, key: string, addAfter: (s: Story, last: Card, eventId: Id) => void): void {
+    if (!g.event) {
+      if (gi > 0) body.createDiv({ cls: "story-planner-outline-other", text: "Other scenes" });
+      return;
+    }
+    const event = g.event;
+    const count = eventCards(story, event.id, true).length;
+    const head = this.block(body, "is-event", {
+      label: "event",
+      add: () =>
+        this.host.edit((s) => {
+          const id = addEvent(s, "");
+          addAfter(s, g.cards[g.cards.length - 1]!, id);
+        }),
+      remove: () =>
+        this.confirmDelete(count, event.title || "this event", `Its ${count === 1 ? "scene stays" : `${count} scenes stay`}, in no event.`, () =>
+          this.host.edit((s) => deleteEvent(s, event.id)),
+        ),
+    });
+    head.style.setProperty("--event-color", eventColor(story, event.id));
+    if (!seen.has(event.id)) head.dataset.anchor = `event:${event.id}`;
+    const parent = event.parent ? story.events.find((e) => e.id === event.parent) : undefined;
+    const title = head.createDiv({ cls: "story-planner-outline-event" });
+    if (parent) title.createSpan({ cls: "story-planner-outline-number", text: parent.title || "Untitled arc" });
+    this.text(title, "span", "story-planner-outline-heading-text", event.title, "Untitled event", `outline-event:${event.id}:${key}`, false, (s, v) => {
+      const e = s.events.find((x) => x.id === event.id);
+      if (!e || e.title === v) return false;
+      e.title = v;
+    });
+    // An event's synopsis where it first appears.
+    if (!seen.has(event.id)) {
+      this.text(head, "p", "story-planner-outline-paragraph is-synopsis", event.synopsis ?? "", "What happens in this event", `outline-event-synopsis:${event.id}`, true, (s, v) => {
+        const e = s.events.find((x) => x.id === event.id);
+        if (!e || (e.synopsis ?? "") === v) return false;
+        if (v.trim()) e.synopsis = v;
+        else delete e.synopsis;
+      });
+      seen.add(event.id);
+    }
+  }
+
+  /**
+   * The plot in the order things happen: years, months and days, folding
+   * like chapters, each with its scenes (off-page ones too) in runs by event,
+   * and the undated scenes last. Each scene names its chapter. A scene's grip
+   * moves it only among the scenes at the same moment; its + adds one just
+   * after it, at the same time.
+   */
+  private timePlot(plot: HTMLElement, story: Story): void {
+    const time = composeTimeOutline(story);
+    const seen = new Set<Id>();
+    const tags: Record<TimeOutlineSpan["level"], "h3" | "h4" | "h5"> = { year: "h3", month: "h4", day: "h5" };
+    const groups = (body: HTMLElement, list: OutlineGroup[], key: string) => {
+      // The scenes at each moment, in order, for their grips.
+      const slots = new Map<string, Id[]>();
+      for (const g of list) for (const card of g.cards) slots.set(timeSlot(story, card), [...(slots.get(timeSlot(story, card)) ?? []), card.id]);
+      list.forEach((g, gi) => {
+        this.eventHead(body, story, g, gi, seen, `${key}:${gi}`, (s, last, id) => {
+          const card = this.sceneAfterInTime(s, last);
+          setCardEvent(s, card, id);
+        });
+        for (const card of g.cards) {
+          const slot = timeSlot(story, card);
+          const ids = slots.get(slot)!;
+          this.scene(body, story, card, {
+            chapterLabel: sceneChapterLabel(story, card),
+            addAfterInTime: !!card.date,
+            ...(card.date && ids.length > 1
+              ? {
+                  reorder: {
+                    group: `outline-time:${slot}`,
+                    index: ids.indexOf(card.id),
+                    move: (s: Story, to: number) => {
+                      const rest = ids.filter((id) => id !== card.id);
+                      if (rest.length === 0) return false;
+                      return to < rest.length ? reorderInTime(s, card.id, rest[to]!, false) : reorderInTime(s, card.id, rest[rest.length - 1]!, true);
+                    },
+                  },
+                }
+              : {}),
+          });
+        }
+      });
+    };
+    const span = (into: HTMLElement, sp: TimeOutlineSpan) => {
+      const block = this.block(into, "is-chapter is-time-span", { label: sp.level });
+      const { body } = this.section(block, tags[sp.level], `time:${sp.key}`, (h) => {
+        h.addClass("story-planner-outline-chapter");
+        h.createSpan({ cls: "story-planner-outline-heading-text", text: sp.heading });
+      });
+      if (!body) return;
+      groups(body, sp.groups, sp.key);
+      for (const inner of sp.spans) span(body, inner);
+    };
+    for (const sp of time.spans) span(plot, sp);
+    if (time.undated.length > 0) {
+      const block = this.block(plot, "is-chapter is-time-span", { label: "undated scenes" });
+      const { body } = this.section(block, "h3", "time:undated", (h) => {
+        h.addClass("story-planner-outline-chapter");
+        h.createSpan({ cls: "story-planner-outline-heading-text", text: "Undated" });
+      });
+      if (body) groups(body, time.undated, "undated");
+    }
+    if (time.spans.length === 0 && time.undated.length === 0) plot.createDiv({ cls: "story-planner-outline-other", text: "No scenes yet" });
+  }
+
+  /** A new scene just after another in story time: same chapter, plot line and moment. */
+  private sceneAfterInTime(s: Story, after: Card): Id {
+    const id = addCardAt(s, { chapter: after.chapter, plotLine: after.plotLine, afterCardId: after.id });
+    if (after.date) {
+      setCardDate(s, id, "date", { ...after.date });
+      placeLastInTime(s, id);
+      reorderInTime(s, id, after.id, true);
+    }
+    return id;
   }
 
   private plotLines(plot: HTMLElement, story: Story): void {
@@ -497,10 +602,27 @@ export class OutlineView {
   }
 
   /** A scene: its title and synopsis, its plot line in the margin, a grip to reorder it, an arrow to it on the board. */
-  private scene(into: HTMLElement, story: Story, card: Card, reorder?: { group: string; index: number; chapter: Id | null; ids: Id[] }): void {
+  private scene(
+    into: HTMLElement,
+    story: Story,
+    card: Card,
+    options: { reorder?: { group: string; index: number; move: (s: Story, to: number) => boolean | void }; chapterLabel?: string; addAfterInTime?: boolean } = {},
+  ): void {
+    const reorder = options.reorder;
     const block = this.block(into, "is-scene", {
       label: "scene",
-      add: () => this.addScene(story, { chapter: card.chapter, plotLine: card.plotLine, after: card.id, event: card.event }),
+      add: () => {
+        if (!options.addAfterInTime) {
+          this.addScene(story, { chapter: card.chapter, plotLine: card.plotLine, after: card.id, event: card.event });
+          return;
+        }
+        let made: Id | null = null;
+        this.host.edit((s) => {
+          made = this.sceneAfterInTime(s, s.cards[card.id]!);
+          if (card.event) setCardEvent(s, made, card.event);
+        });
+        if (made) this.focusLater(`outline-card-title:${made}`);
+      },
       remove: () => {
         this.host.edit((s) => deleteCard(s, card.id));
         this.host.notice(`Deleted "${isUntitled(card.title) ? "Untitled" : card.title}". Press Ctrl+Z to undo.`);
@@ -509,21 +631,13 @@ export class OutlineView {
     block.dataset.cardId = card.id;
     const plotLine = story.plotLines.find((p) => p.id === card.plotLine);
     block.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
-    if (reorder) {
-      reorderHandle(block, reorder.group, reorder.index, (to) =>
-        this.host.edit((s) => {
-          const rest = reorder.ids.filter((id) => id !== card.id);
-          rest.splice(to, 0, card.id);
-          const next = rest[to + 1];
-          return moveCard(s, card.id, { chapter: reorder.chapter, plotLine: s.cards[card.id]!.plotLine, ...(next ? { beforeCardId: next } : {}) });
-        }),
-      );
-    }
+    if (reorder) reorderHandle(block, reorder.group, reorder.index, (to) => this.host.edit((s) => reorder.move(s, to)));
     const head = block.createDiv({ cls: "story-planner-outline-scene-head" });
     this.text(head, "span", "story-planner-outline-scene-title", isUntitled(card.title) ? "" : card.title, "Untitled", `outline-card-title:${card.id}`, false, (s, v) =>
       updateCard(s, card.id, { title: v }),
     );
     if (plotLine) head.createSpan({ cls: "story-planner-outline-scene-plot", text: plotLine.name });
+    if (options.chapterLabel) head.createSpan({ cls: "story-planner-outline-scene-chapter", text: options.chapterLabel });
     const go = head.createEl("button", { cls: "story-planner-outline-go clickable-icon" });
     setIcon(go, "arrow-up-right");
     go.setAttr("aria-label", "Go to the card");

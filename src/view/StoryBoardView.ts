@@ -158,6 +158,7 @@ export class StoryBoardView extends TextFileView {
       this.setViewState({ foldedOutline: [...set] });
     },
     dimmed: (card) => !!this.story && this.highlighted(card, this.story) === false,
+    axis: () => this.viewState()?.outlineAxis ?? "chapters",
     // Made safe the same way as in the exported outline, so it reads the same and nothing in it is a tag or link.
     renderMarkdown: (text, el) => void MarkdownRenderer.render(this.app, safeMarkdown(text), el, this.file?.path ?? "", this),
   });
@@ -484,7 +485,8 @@ export class StoryBoardView extends TextFileView {
       }
     }
     const folded = (this.viewState()?.foldedOutline ?? []).filter((key) => !entry.unfold.includes(key) && key !== entry.anchor);
-    this.setViewState({ tab: "outline", foldedOutline: folded });
+    const byChapter = /^(act|chapter|event):/.test(entry.anchor);
+    this.setViewState({ tab: "outline", foldedOutline: folded, ...(byChapter ? { outlineAxis: "chapters" as const } : {}) });
     window.requestAnimationFrame(() => {
       const el = this.boardEl.querySelector<HTMLElement>(`[data-anchor="${CSS.escape(entry.anchor)}"]`);
       el?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -1344,8 +1346,15 @@ export class StoryBoardView extends TextFileView {
     if (onCharacters) this.characterActions(tabsRow.createDiv({ cls: "story-planner-tab-actions" }), story);
     if (onOutline) {
       const actions = tabsRow.createDiv({ cls: "story-planner-tab-actions" });
+      // The plot chapter by chapter, or in the order things happen; the export follows.
+      const axis = actions.createEl("select", { cls: "dropdown" });
+      axis.setAttr("aria-label", "Order");
+      axis.createEl("option", { text: "By chapter" }).value = "chapters";
+      axis.createEl("option", { text: "By story time" }).value = "time";
+      axis.value = this.viewState()?.outlineAxis ?? "chapters";
+      axis.addEventListener("change", () => this.setViewState({ outlineAxis: axis.value as "chapters" | "time" }));
       this.toolIcon(actions, "file-output", "Export outline", () => {
-        if (this.file && this.story) void this.plugin.exportOutline(this.file, this.story);
+        if (this.file && this.story) void this.plugin.exportOutline(this.file, this.story, this.viewState()?.outlineAxis ?? "chapters");
       });
     }
     if (onBoard) {

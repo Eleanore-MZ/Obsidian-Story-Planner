@@ -306,4 +306,14 @@ describe("a date stacked a part to a line", () => {
     expect(lines[2]).toMatch(/2$/);
     expect(lines[3]).toContain("09");
   });
+
+  it("writes each part as the story's date format does: numeric months for YYYY/MM/DD, names for MMMM", async () => {
+    const { stackedDateParts } = await import("../src/model/calendar");
+    const { createEmptyStory } = await import("../src/model/defaults");
+    const s = createEmptyStory("Stack");
+    s.dateFormat = "YYYY/MM/DD";
+    expect(stackedDateParts(s, { calendar: "main", year: 1531, month: 12, day: 4 })).toEqual(["1531", "12", "04"]);
+    s.dateFormat = "D MMMM YYYY";
+    expect(stackedDateParts(s, { calendar: "main", year: 1531, month: 12, day: 4 }).slice(1)).toEqual([s.calendars[0]!.months[11]!.name, "4"]);
+  });
 });

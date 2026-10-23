@@ -1,4 +1,5 @@
-import { formatDateRange } from "../model/calendar";
+import { cardMoment, formatDateRange, formatStoryDate } from "../model/calendar";
+import { referenceDate, timeSorted } from "../model/storyTime";
 import { actsShown, actTitle, chapterNumbers, chapterTitle } from "../model/chapters";
 import { isUntitled } from "../model/defaults";
 import { duringChapter } from "../model/edits";
@@ -112,6 +113,68 @@ export function groupByEvent(story: Story, cards: Card[]): OutlineGroup[] {
   return groups;
 }
 
+/** A year, month or day of the plot in story-time order, with its scenes and the shorter spans inside it. */
+export interface TimeOutlineSpan {
+  /** Stable key, for folding: the date it covers. */
+  key: string;
+  level: "year" | "month" | "day";
+  /** The date at this precision, in the story's date format. */
+  heading: string;
+  /** Scenes dated only to this span (a year-only date in a year), in runs by event. */
+  groups: OutlineGroup[];
+  spans: TimeOutlineSpan[];
+}
+
+export interface TimeOutline {
+  spans: TimeOutlineSpan[];
+  /** Scenes with no date, in reading order. */
+  undated: OutlineGroup[];
+}
+
+/** Adds a card to runs by event: to the last run when it is the same event, else as a new run. */
+function addToGroups(story: Story, groups: OutlineGroup[], card: Card): void {
+  const event = eventOf(story, card) ?? null;
+  const last = groups[groups.length - 1];
+  if (last && last.event?.id === event?.id) last.cards.push(card);
+  else groups.push({ event, cards: [card] });
+}
+
+/**
+ * The plot in story-time order: years, months inside them and days inside
+ * those, each with its scenes (off-page ones too) in the order they happen,
+ * in runs by event; scenes with no date come last, in reading order.
+ */
+export function composeTimeOutline(story: Story): TimeOutline {
+  const all = Object.values(story.cards);
+  const spans: TimeOutlineSpan[] = [];
+  const child = (list: TimeOutlineSpan[], key: string, level: TimeOutlineSpan["level"], heading: string) => {
+    let span = list[list.length - 1];
+    if (!span || span.key !== key) {
+      span = { key, level, heading, groups: [], spans: [] };
+      list.push(span);
+    }
+    return span;
+  };
+  for (const card of timeSorted(story, all.filter((c) => c.date))) {
+    const d = referenceDate(story, card)!;
+    const base = { calendar: d.calendar, year: d.year, ...(d.era ? { era: d.era } : {}) };
+    const yearKey = `${d.calendar}:${d.era ?? ""}:${d.year}`;
+    let span = child(spans, yearKey, "year", formatStoryDate(story, base));
+    if (d.month !== undefined) {
+      span = child(span.spans, `${yearKey}:${d.month}`, "month", formatStoryDate(story, { ...base, month: d.month }));
+      if (d.day !== undefined) span = child(span.spans, `${yearKey}:${d.month}:${d.day}`, "day", formatStoryDate(story, { ...base, month: d.month, day: d.day }));
+    }
+    addToGroups(story, span.groups, card);
+  }
+  return { spans, undated: groupByEvent(story, cardsInReadingOrder(story).filter((c) => !c.date)) };
+}
+
+/** Which scenes happen at the same moment as this one (the ones its grip can reorder it among), as a key. */
+export function timeSlot(story: Story, card: Card): string {
+  const m = cardMoment(story, card);
+  return m ? `${m.key}:${m.precision}` : "undated";
+}
+
 /** The plot as parts (acts, or one part without acts) of chapters of scenes. */
 export function composeOutline(story: Story): OutlinePart[] {
   const cards = cardsInReadingOrder(story);
@@ -221,7 +284,16 @@ export function markdownLines(text: string): string[] {
   return lines.map((line, i) => (line && lines[i + 1] ? `${line}  ` : line));
 }
 
-export function outlineMarkdown(story: Story): string {
+/** The scene's chapter, as the story-time outline labels it: its title, or "Off-page". */
+export function sceneChapterLabel(story: Story, card: Card): string {
+  const chapter = story.chapters.find((c) => c.id === card.chapter);
+  return chapter ? chapterTitle(story, chapter, chapterNumbers(story)) : "Off-page";
+}
+
+/** The plot's order in the outline: chapter by chapter, or the order things happen in. */
+export type OutlineAxis = "chapters" | "time";
+
+export function outlineMarkdown(story: Story, axis: OutlineAxis = "chapters"): string {
   const out: string[] = ["---", OUTLINE_MARKER, "---", "", `# ${escapeText(story.title)}`, ""];
   const paragraph = (text: string) => {
     out.push(...markdownLines(text));
@@ -280,11 +352,41 @@ export function outlineMarkdown(story: Story): string {
   const seen = new Set<string>();
   const writeCard = (card: Card) => {
     const { title, plotLine } = outlineCardLine(story, card);
-    const label = [title ? `**${escapeText(title)}**` : "", plotLine ? `(${escapeText(plotLine)})` : ""].filter(Boolean).join(" ");
+    // In story time, each scene says which chapter it is in.
+    const where = [plotLine, axis === "time" ? sceneChapterLabel(story, card) : ""].filter(Boolean).join(" · ");
+    const label = [title ? `**${escapeText(title)}**` : "", where ? `(${escapeText(where)})` : ""].filter(Boolean).join(" ");
     if (label) out.push(`${label}  `);
     if (card.synopsis.trim()) paragraph(card.synopsis.trim());
     else out.push("");
   };
+  const writeGroups = (groups: OutlineGroup[], level: string) =>
+    groups.forEach((group, i) => {
+      if (!group.event && i > 0) out.push(`${level} Other scenes`, "");
+      if (group.event) {
+        const parent = group.event.parent ? story.events.find((e) => e.id === group.event!.parent) : undefined;
+        const name = [parent?.title, group.event.title || "Untitled event"].filter(Boolean).join(" › ");
+        out.push(`${level} ${escapeText(name)}`, "");
+        if (!seen.has(group.event.id) && group.event.synopsis?.trim()) paragraph(group.event.synopsis.trim());
+        seen.add(group.event.id);
+      }
+      for (const card of group.cards) writeCard(card);
+    });
+  if (axis === "time") {
+    // Years at ###, months and days a level down each; events one level below their span.
+    const time = composeTimeOutline(story);
+    const writeSpan = (span: TimeOutlineSpan, depth: number) => {
+      const level = "#".repeat(Math.min(6, 3 + depth));
+      out.push(`${level} ${escapeText(span.heading)}`, "");
+      writeGroups(span.groups, "#".repeat(Math.min(6, 4 + depth)));
+      for (const inner of span.spans) writeSpan(inner, depth + 1);
+    };
+    for (const span of time.spans) writeSpan(span, 0);
+    if (time.undated.length > 0) {
+      out.push("### Undated", "");
+      writeGroups(time.undated, "####");
+    }
+    return out.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
+  }
   for (const part of composeOutline(story)) {
     if (part.act) {
       out.push(`### ${escapeText(part.heading)}`, "");

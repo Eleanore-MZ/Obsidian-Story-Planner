@@ -147,10 +147,20 @@ export function computeTrackLayout(
         slot++;
       }
       if (!reach || bucket.end > reach.end) reach = bucket;
-      const stacks: Id[][] = lanes.map(() => []);
-      for (const card of cards) for (const lane of lanesOf(card)) stacks[lane]!.push(card.id);
+      // Each scene takes one row across all its lanes, so it lines up with itself; a lane's
+      // scenes keep their order, and scenes in different lanes may share a row.
+      const stacks: (Id | undefined)[][] = lanes.map(() => []);
+      const next = lanes.map(() => 0);
+      for (const card of cards) {
+        const own = lanesOf(card);
+        const row = Math.max(0, ...own.map((l) => next[l]!));
+        for (const lane of own) {
+          stacks[lane]![row] = card.id;
+          next[lane] = row + 1;
+        }
+      }
       // The tallest stack, and a slim row at the end for adding a card after the others.
-      const height = Math.max(...stacks.map((s) => s.length), 0) + 1;
+      const height = Math.max(...next, 0) + 1;
       items.push({ item: { kind: "time-header", bucket }, slot, lane: 0, span: height });
       stacks.forEach((stack, lane) => {
         for (let i = 0; i < height; i++) {

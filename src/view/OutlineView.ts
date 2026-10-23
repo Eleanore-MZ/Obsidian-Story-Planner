@@ -1,4 +1,4 @@
-import { setIcon } from "obsidian";
+import { Menu, setIcon } from "obsidian";
 import { characterFacts, composeOutline, composeTimeOutline, INFO_LABELS, OutlineAxis, OutlineGroup, organizationFacts, sceneChapterLabel, TimeOutlineSpan, timeSlot } from "../format/outline";
 import { placeLastInTime, reorderInTime } from "../model/storyTime";
 import { actHeading, actsShown, chapterHeading, chapterTitle, deleteAct, startActAt } from "../model/chapters";
@@ -9,6 +9,7 @@ import { addEvent, deleteEvent, eventCards, eventColor, setCardEvent } from "../
 import { moveCard } from "../model/moves";
 import { addChapter, addCharacter, addPlotLine, cardsInChapter, deleteChapter, deleteCharacter, deletePlotLine, moveIndex, plotLineColor } from "../model/setup";
 import { Card, Id, Story, StoryInfo } from "../model/types";
+import { continueList, indentLine } from "./listKeys";
 import { reorderHandle } from "./reorder";
 
 /** A question with choices, as the board asks it in a dialog. */
@@ -51,6 +52,9 @@ export interface OutlineHost {
  * ordinary edit, so Ctrl+Z undoes it.
  */
 export class OutlineView {
+  /** Headings whose entries the rail folds away, while the board is open. */
+  private railFolded = new Set<string>();
+
   constructor(private host: OutlineHost) {}
 
   render(parent: HTMLElement, story: Story): void {
@@ -86,48 +90,84 @@ export class OutlineView {
     toggle.addEventListener("click", () => this.host.setRailOpen(!open));
     if (!open) return;
     const list = rail.createDiv({ cls: "story-planner-outline-rail-list" });
-    const targets: { el: HTMLElement; item: HTMLElement }[] = [];
+    // The headings in page order, each with how far in it is and the heading it is under.
+    type Entry = { el: HTMLElement; text: string; depth: number; key: string; parent: number; children: boolean; item: HTMLElement | null };
+    const entries: Entry[] = [];
+    const stack: number[] = [];
     for (const el of Array.from(doc.querySelectorAll<HTMLElement>("[data-anchor]"))) {
       const text = railLabel(el);
       if (!text) continue;
       // How far in: one step for each section it is inside.
       let depth = 0;
       for (let p = el.parentElement; p && p !== doc; p = p.parentElement) if (p.hasClass("story-planner-outline-body")) depth++;
-      const item = list.createDiv({ cls: "story-planner-outline-rail-item", text });
-      item.style.setProperty("--depth", String(depth));
-      item.toggleClass("is-part", depth === 0);
-      item.setAttr("title", text);
-      item.addEventListener("click", () => el.scrollIntoView({ block: "start", behavior: "smooth" }));
-      targets.push({ el, item });
+      while (stack.length > 0 && entries[stack[stack.length - 1]!]!.depth >= depth) stack.pop();
+      const parent = stack.length > 0 ? stack[stack.length - 1]! : -1;
+      if (parent >= 0) entries[parent]!.children = true;
+      entries.push({ el, text, depth, key: el.dataset.anchor!, parent, children: false, item: null });
+      stack.push(entries.length - 1);
     }
+    // Drawn again when an entry folds its children away, in the rail only.
+    const draw = () => {
+      list.empty();
+      const hidden = (e: Entry): boolean => e.parent >= 0 && (this.railFolded.has(entries[e.parent]!.key) || hidden(entries[e.parent]!));
+      for (const e of entries) {
+        e.item = null;
+        if (hidden(e)) continue;
+        const item = list.createDiv({ cls: "story-planner-outline-rail-item" });
+        item.style.setProperty("--depth", String(e.depth));
+        item.addClass(`is-level-${Math.min(e.depth, 3)}`);
+        item.setAttr("title", e.text);
+        if (e.children) {
+          const folded = this.railFolded.has(e.key);
+          const fold = item.createSpan({ cls: "story-planner-outline-rail-fold" });
+          setIcon(fold, folded ? "chevron-right" : "chevron-down");
+          fold.setAttr("aria-label", folded ? "Show what is under it" : "Hide what is under it");
+          fold.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            if (folded) this.railFolded.delete(e.key);
+            else this.railFolded.add(e.key);
+            draw();
+            mark?.();
+          });
+        } else {
+          item.createSpan({ cls: "story-planner-outline-rail-fold is-leaf" });
+        }
+        item.createSpan({ cls: "story-planner-outline-rail-text", text: e.text });
+        item.addEventListener("click", () => e.el.scrollIntoView({ block: "start", behavior: "smooth" }));
+        e.item = item;
+      }
+    };
+    let mark: (() => void) | null = null;
+    draw();
     // Once the page is on screen, follow its scrolling.
     window.requestAnimationFrame(() => {
       const scroller = layout.closest<HTMLElement>(".story-planner-board");
       if (!scroller) return;
-      let current: HTMLElement | null = null;
-      const mark = () => {
+      const follow = () => {
         if (!layout.isConnected) {
-          scroller.removeEventListener("scroll", mark);
+          scroller.removeEventListener("scroll", follow);
           return;
         }
         const top = scroller.getBoundingClientRect().top + 24;
-        let at = targets[0];
-        for (const t of targets) {
-          if (t.el.getBoundingClientRect().top <= top) at = t;
+        let at = entries[0];
+        for (const e of entries) {
+          if (e.el.getBoundingClientRect().top <= top) at = e;
           else break;
         }
-        if (at && at.item !== current) {
-          current?.removeClass("is-current");
-          at.item.addClass("is-current");
-          current = at.item;
-          // Keep the marked line in view in a long list.
-          const box = list.getBoundingClientRect();
-          const line = at.item.getBoundingClientRect();
-          if (line.top < box.top || line.bottom > box.bottom) at.item.scrollIntoView({ block: "nearest" });
-        }
+        // A heading folded away in the rail is marked by the one it is under.
+        while (at && !at.item && at.parent >= 0) at = entries[at.parent];
+        const item = at?.item;
+        if (!item || item.hasClass("is-current")) return;
+        list.querySelector(".is-current")?.removeClass("is-current");
+        item.addClass("is-current");
+        // Keep the marked line in view in a long list.
+        const box = list.getBoundingClientRect();
+        const line = item.getBoundingClientRect();
+        if (line.top < box.top || line.bottom > box.bottom) item.scrollIntoView({ block: "nearest" });
       };
-      scroller.addEventListener("scroll", mark, { passive: true });
-      mark();
+      mark = follow;
+      scroller.addEventListener("scroll", follow, { passive: true });
+      follow();
     });
   }
 
@@ -213,8 +253,9 @@ export class OutlineView {
       el.empty();
       this.host.renderMarkdown(current, el);
     };
-    if (multiline && current.trim()) {
-      read();
+    if (multiline) {
+      if (current.trim()) read();
+      else write();
       // Focus (a click, Tab, or the board giving the cursor back after a redraw) shows the source to write in.
       el.addEventListener("focus", () => {
         if (!el.hasClass("is-rendered")) return;
@@ -230,6 +271,7 @@ export class OutlineView {
       el.addEventListener("mousedown", (e) => {
         if (el.hasClass("is-rendered") && (e.target as HTMLElement).closest("a")) e.preventDefault();
       });
+      // Written in and left: it reads as Markdown again (an empty one stays ready to write in).
       el.addEventListener("blur", () => {
         if (current.trim()) read();
       });
@@ -248,6 +290,29 @@ export class OutlineView {
         e.preventDefault();
         e.stopPropagation();
         el.blur();
+        return;
+      }
+      // In a paragraph, lists are written as in a note: Enter carries the
+      // item marker on (an empty item ends the list), Tab and Shift+Tab move
+      // the line in and out.
+      if (!multiline || e.ctrlKey || e.metaKey || e.altKey) return;
+      if ((e.key === "Enter" && !e.shiftKey) || e.key === "Tab") {
+        const text = el.textContent ?? "";
+        const caret = caretOffset(el);
+        if (caret === null) return;
+        const change = e.key === "Enter" ? continueList(text, caret) : indentLine(text, caret, e.shiftKey);
+        if (!change) return;
+        e.preventDefault();
+        e.stopPropagation();
+        // Through the browser's own editing, so new lines show as typed ones do and Ctrl+Z in the field still works.
+        selectText(el, change.from, change.to);
+        if (change.to > change.from) document.execCommand("delete");
+        // Text goes in as typed text; each new line as a line break, which is what the field keeps.
+        change.insert.split("\n").forEach((piece, i) => {
+          if (i > 0) document.execCommand("insertLineBreak");
+          if (piece) document.execCommand("insertText", false, piece);
+        });
+        setCaret(el, change.caret);
       }
     });
     el.toggleClass("is-empty", value.length === 0);
@@ -708,8 +773,19 @@ export class OutlineView {
     this.text(head, "span", "story-planner-outline-scene-title", isUntitled(card.title) ? "" : card.title, "Untitled", `outline-card-title:${card.id}`, false, (s, v) =>
       updateCard(s, card.id, { title: v }),
     );
-    if (plotLine) head.createSpan({ cls: "story-planner-outline-scene-plot", text: plotLine.name });
-    if (options.chapterLabel) head.createSpan({ cls: "story-planner-outline-scene-chapter", text: options.chapterLabel });
+    // The plot line and (in story time) the chapter: a click on either offers the others, to move the scene there.
+    if (plotLine) {
+      const tag = head.createEl("button", { cls: "story-planner-outline-scene-plot", text: plotLine.name });
+      tag.setAttr("aria-label", "Move to another plot line");
+      tag.setAttr("title", "Move to another plot line");
+      tag.addEventListener("click", (e) => this.plotLineMenu(e, story, card));
+    }
+    if (options.chapterLabel) {
+      const tag = head.createEl("button", { cls: "story-planner-outline-scene-chapter", text: options.chapterLabel });
+      tag.setAttr("aria-label", "Move to another chapter");
+      tag.setAttr("title", "Move to another chapter");
+      tag.addEventListener("click", (e) => this.chapterMenu(e, story, card));
+    }
     const go = head.createEl("button", { cls: "story-planner-outline-go clickable-icon" });
     setIcon(go, "arrow-up-right");
     go.setAttr("aria-label", "Go to the card");
@@ -719,6 +795,58 @@ export class OutlineView {
       updateCard(s, card.id, { synopsis: v }),
     );
     if (this.host.dimmed(card)) block.addClass("is-dimmed");
+  }
+
+  /** The plot lines, each with its colour, to move a scene to; it keeps its place in its chapter. */
+  private plotLineMenu(e: MouseEvent, story: Story, card: Card): void {
+    e.stopPropagation();
+    const menu = new Menu();
+    for (const p of story.plotLines) {
+      menu.addItem((item) => {
+        const title = createFragment();
+        const square = title.createSpan({ cls: "story-planner-menu-swatch" });
+        square.style.setProperty("--swatch-color", plotLineColor(story, p) ?? p.color);
+        title.appendText(p.name || "Unnamed");
+        item.setTitle(title).setChecked(p.id === card.plotLine);
+        item.onClick(() => {
+          if (p.id === card.plotLine) return;
+          this.host.edit((s) => moveCard(s, card.id, { chapter: s.cards[card.id]!.chapter, plotLine: p.id, besideCardId: card.id }));
+        });
+      });
+    }
+    menu.showAtMouseEvent(e);
+  }
+
+  /** The chapters, under their acts, and off-page, to move a scene to; it goes at the end of the chapter. */
+  private chapterMenu(e: MouseEvent, story: Story, card: Card): void {
+    e.stopPropagation();
+    const menu = new Menu();
+    const move = (chapter: Id | null) => {
+      if (chapter === card.chapter) return;
+      this.host.edit((s) => moveCard(s, card.id, { chapter, plotLine: s.cards[card.id]!.plotLine }));
+    };
+    const withActs = actsShown(story);
+    let act: Id | undefined | null = null;
+    for (const ch of story.chapters) {
+      const inAct = withActs ? ch.act : undefined;
+      if (withActs && inAct !== act) {
+        act = inAct;
+        const a = story.acts.find((x) => x.id === inAct);
+        if (a) {
+          menu.addSeparator();
+          menu.addItem((item) => item.setTitle(actHeading(story, a) + (a.title ? `: ${a.title}` : "")).setDisabled(true));
+        }
+      }
+      menu.addItem((item) =>
+        item
+          .setTitle(chapterTitle(story, ch))
+          .setChecked(ch.id === card.chapter)
+          .onClick(() => move(ch.id)),
+      );
+    }
+    menu.addSeparator();
+    menu.addItem((item) => item.setTitle("Off-page").setChecked(card.chapter === null).onClick(() => move(null)));
+    menu.showAtMouseEvent(e);
   }
 
   /** A new scene, just after another (or at the end of a chapter), in the same plot line and event. */
@@ -777,4 +905,54 @@ function railLabel(el: HTMLElement): string {
     return parts.join(": ");
   }
   return "";
+}
+
+/** Where the cursor is in a text field written in place, as a character offset; null when it is not in it. */
+function caretOffset(el: HTMLElement): number | null {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+  const range = selection.getRangeAt(0);
+  if (!el.contains(range.endContainer)) return null;
+  const before = document.createRange();
+  before.selectNodeContents(el);
+  before.setEnd(range.endContainer, range.endOffset);
+  return before.toString().length;
+}
+
+/** Selects characters `from`..`to` of a text field written in place. */
+function selectText(el: HTMLElement, from: number, to: number): void {
+  const at = (offset: number): [Node, number] => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let left = offset;
+    let last: Node | null = null;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const length = node.textContent?.length ?? 0;
+      if (left <= length) return [node, left];
+      left -= length;
+      last = node;
+    }
+    return last ? [last, last.textContent?.length ?? 0] : [el, el.childNodes.length];
+  };
+  const range = document.createRange();
+  range.setStart(...at(from));
+  range.setEnd(...at(to));
+  window.getSelection()?.removeAllRanges();
+  window.getSelection()?.addRange(range);
+}
+
+function setCaret(el: HTMLElement, offset: number): void {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let left = offset;
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const length = node.textContent?.length ?? 0;
+    if (left <= length) {
+      const range = document.createRange();
+      range.setStart(node, left);
+      range.collapse(true);
+      window.getSelection()?.removeAllRanges();
+      window.getSelection()?.addRange(range);
+      return;
+    }
+    left -= length;
+  }
 }

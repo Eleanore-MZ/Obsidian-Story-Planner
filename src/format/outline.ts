@@ -227,7 +227,7 @@ export function fieldText(story: Story, value: CustomValue): string {
 /** The facts about a character the outline lists: aliases, role, organizations, birth and death, the story's own fields. */
 export function characterFacts(story: Story, c: Character): [string, string][] {
   const facts: [string, string][] = [];
-  if (c.aliases?.length) facts.push(["Also known as", c.aliases.join(", ")]);
+  if (c.aliases?.length) facts.push(["Aliases", c.aliases.join(", ")]);
   if (c.role?.trim()) facts.push(["Role", c.role.trim()]);
   const orgs = (c.orgs ?? [])
     .map((m) => {
@@ -281,7 +281,16 @@ function customFacts(story: Story, kind: "character" | "organization", e: Entity
  */
 export function markdownLines(text: string): string[] {
   const lines = safeMarkdown(text.trim().replace(/\n\s*\n(\s*\n)+/g, "\n\n")).split("\n").map((line) => line.trimEnd());
-  return lines.map((line, i) => (line && lines[i + 1] ? `${line}  ` : line));
+  // Code blocks keep their lines as they are, without the two spaces.
+  let inCode = false;
+  return lines.map((line, i) => {
+    const fence = /^\s{0,3}(`{3,}|~{3,})/.test(line);
+    const code = inCode || fence;
+    if (fence) inCode = !inCode;
+    const next = lines[i + 1];
+    const nextFence = next !== undefined && /^\s{0,3}(`{3,}|~{3,})/.test(next);
+    return !code && line && next && !nextFence ? `${line}  ` : line;
+  });
 }
 
 /** The scene's chapter, as the story-time outline labels it: its title, or "Off-page". */

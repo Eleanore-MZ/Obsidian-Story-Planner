@@ -151,6 +151,8 @@ export class LaneModal extends Modal {
     private onDone: (chosen: string[]) => void,
     /** Characters (the default) or organizations. */
     private of: "characters" | "organizations" = "characters",
+    /** The dialog's title, when it chooses something other than lanes. */
+    private title?: string,
   ) {
     super(app);
     this.chosen = [...chosen];
@@ -162,7 +164,7 @@ export class LaneModal extends Modal {
 
   onOpen(): void {
     guardComposition(this.modalEl);
-    this.titleEl.setText(this.of === "organizations" ? "Organizations to track" : "Characters to track");
+    this.titleEl.setText(this.title ?? (this.of === "organizations" ? "Organizations to track" : "Characters to track"));
     this.draw();
   }
 

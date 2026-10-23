@@ -176,6 +176,7 @@ export class StoryBoardView extends TextFileView {
           ? { orgProfileId: id, orgMode: "profiles", tab: "organizations" }
           : { profileId: id, characterMode: "profiles", tab: "characters" },
       ),
+    pickCharacters: (chosen, title, onDone) => new LaneModal(this.app, this.story!, chosen, onDone, "characters", title).open(),
     notes: this.noteHost(),
   });
   /** When Ctrl+wheel last zoomed, so one notch is one step. */
@@ -1077,12 +1078,16 @@ export class StoryBoardView extends TextFileView {
     this.render();
   }
 
-  /** The chapter a card is in, for its badge; an off-page event says which chapter it happens during. */
+  /**
+   * The chapter a card is in, for its badge. An off-page event says which
+   * chapter it happens during, if any; otherwise it has no badge, since its
+   * dashed edge already marks it off-page.
+   */
   private chapterBadge(story: Story, card: Card): string {
     const chapter = story.chapters.find((c) => c.id === card.chapter);
     if (chapter) return chapterTitle(story, chapter);
     const during = story.chapters.find((c) => c.id === duringChapter(story, card));
-    return during ? `Off-page, during ${chapterTitle(story, during)}` : "Off-page";
+    return during ? `During ${chapterTitle(story, during)}` : "";
   }
 
   /** Whether cards show a piece of information, by the plugin's Layout settings. */
@@ -1377,7 +1382,9 @@ export class StoryBoardView extends TextFileView {
     }
 
     const actions = tabsRow.querySelector<HTMLElement>(".story-planner-tab-actions") ?? tabsRow.createDiv({ cls: "story-planner-tab-actions" });
-    if (withPanel && !onOutline) {
+    // The minimap is for boards: not the Outline page, nor the profiles.
+    const mapped = withPanel && !onOutline && !(onCharacters && this.characterMode === "profiles");
+    if (mapped) {
       const on = !!this.viewState()?.minimap;
       this.toolIcon(actions, "map", on ? "Minimap shown (click to hide)" : "Minimap", () => this.setViewState({ minimap: !on }), on);
     }
@@ -1420,7 +1427,7 @@ export class StoryBoardView extends TextFileView {
     // While typing on the board itself (a profile, the outline), it is not redrawn under the cursor.
     const typingOnBoard = typing && this.boardEl.contains(document.activeElement);
     if (withPanel && !typingOnBoard) this.renderBoard(story);
-    this.minimap.setVisible(withPanel && !onOutline && !!this.viewState()?.minimap);
+    this.minimap.setVisible(mapped && !!this.viewState()?.minimap);
   }
 
   /**
@@ -2011,7 +2018,7 @@ ${plotLine.synopsis.trim()}`);
       for (const entry of card.characters) {
         const character = story.characters.find((c) => c.id === entry.id);
         if (!character) continue;
-        const chip = chips.createSpan({ cls: `story-planner-role-chip role-${entry.role}`, text: character.name });
+        const chip = chips.createSpan({ cls: `story-planner-role-chip role-${entry.role}`, text: character.shortName?.trim() || character.name });
         chip.style.setProperty("--chip-color", character.color);
         chip.setAttr("title", `${character.name}: ${ROLE_LABELS[entry.role]}`);
       }
@@ -2022,7 +2029,7 @@ ${plotLine.synopsis.trim()}`);
       for (const entry of card.orgs) {
         const org = story.organizations.find((o) => o.id === entry.id);
         if (!org) continue;
-        const chip = chips.createSpan({ cls: `story-planner-role-chip role-${entry.role}`, text: org.shortName || org.name });
+        const chip = chips.createSpan({ cls: `story-planner-role-chip role-${entry.role}`, text: org.shortName?.trim() || org.name });
         chip.style.setProperty("--chip-color", org.color);
         chip.setAttr("title", `${org.name}: ${entry.role === "mentioned" ? "mentioned" : "involved"}`);
       }
@@ -2632,7 +2639,8 @@ ${plotLine.synopsis.trim()}`);
     if (!chapter) el.addClass("is-off-page");
     el.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
     this.writtenToggle(el, card);
-    if (this.shows("chapter")) el.createDiv({ cls: "story-planner-card-badge", text: this.chapterBadge(story, card) });
+    const badge = this.shows("chapter") ? this.chapterBadge(story, card) : "";
+    if (badge) el.createDiv({ cls: "story-planner-card-badge", text: badge });
     this.cardTitle(el, card);
     if (card.date && this.shows("date")) {
       const when = el.createDiv({ cls: "story-planner-card-date", text: this.timeLabel(card, story) });
@@ -2974,7 +2982,8 @@ ${plotLine.synopsis.trim()}`);
     if (!chapter) el.addClass("is-off-page");
     el.style.setProperty("--lane-color", plotLineColor(story, plotLine) ?? "var(--interactive-accent)");
     this.writtenToggle(el, card);
-    if (this.characterAxis === "time" && this.shows("chapter")) el.createDiv({ cls: "story-planner-card-badge", text: this.chapterBadge(story, card) });
+    const badge = this.characterAxis === "time" && this.shows("chapter") ? this.chapterBadge(story, card) : "";
+    if (badge) el.createDiv({ cls: "story-planner-card-badge", text: badge });
     const role = el.createDiv({ cls: "story-planner-appearance-role" });
     const subject = (this.ofOrgs ? story.organizations : story.characters).find((c) => c.id === entry.id);
     role.createSpan({ cls: `story-planner-presence role-${entry.role}` }).style.setProperty("--lane-color", subject?.color ?? "var(--text-normal)");

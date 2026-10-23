@@ -309,27 +309,71 @@ export function escapeText(text: string): string {
 }
 
 /**
- * Keeps the writer's own Markdown (emphasis, lists, quotes, code, links to
- * web pages) but stops it from making anything Obsidian would act on, or that
- * would break the document around it: tags, [[links]] and embeds, %% comments,
- * HTML, block ids, headings, setext underlines and code fences. Used for the
- * longer texts (synopses, summaries) in exported notes and the Outline tab.
+ * Keeps the writer's own Markdown (emphasis, strikethrough, lists and task
+ * lists, quotes, inline code and code blocks, links to web pages, rules) but
+ * stops it from making anything Obsidian would act on, or that would break
+ * the document around it: tags, [[links]] and embeds, %% comments, HTML,
+ * block ids, headings and setext underlines. Code is left as written, since
+ * Obsidian makes nothing of it; a code block left open is closed at the end,
+ * so it cannot swallow what follows. Used for the longer texts (synopses,
+ * summaries) in exported notes and the Outline tab.
  */
 export function safeMarkdown(text: string): string {
-  return text
-    .split("\n")
-    .map((line) =>
-      line
-        // A backslash just before something escaped here stays a backslash, so it cannot undo the escape.
-        .replace(/\\(?=[#%<!]|\[\[|\]\])/g, "\\\\")
-        .replace(/[#%<]/g, (ch) => `\\${ch}`)
-        .replace(/\[\[|\]\]/g, (pair) => `\\${pair[0]}\\${pair[1]}`)
-        .replace(/!(?=\[)/g, "\\!")
-        .replace(/(\s)\^([A-Za-z0-9-]+\s*)$/, "$1\\^$2")
-        .replace(/^(\s*)(`{3,}|~{3,})/, "$1\\$2")
-        .replace(/^(\s*)([-=])(\2*\s*)$/, "$1\\$2$3"),
-    )
-    .join("\n");
+  const out: string[] = [];
+  let fence: { char: string; length: number } | null = null;
+  let previous = "";
+  for (const line of text.split("\n")) {
+    if (fence) {
+      out.push(line);
+      const close = /^\s{0,3}(`{3,}|~{3,})\s*$/.exec(line);
+      if (close && close[1]![0] === fence.char && close[1]!.length >= fence.length) fence = null;
+    } else {
+      const open = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+      if (open) {
+        fence = { char: open[1]![0]!, length: open[1]!.length };
+        out.push(line);
+      } else {
+        out.push(safeLine(line, previous));
+      }
+    }
+    previous = line;
+  }
+  if (fence) out.push(fence.char.repeat(fence.length));
+  return out.join("\n");
+}
+
+/** One line outside code blocks, made safe; inline code in it is left as written. */
+function safeLine(line: string, previous: string): string {
+  const parts: string[] = [];
+  let rest = line;
+  for (;;) {
+    const open = /`+/.exec(rest);
+    if (!open) break;
+    const close = rest.indexOf(open[0], open.index + open[0].length);
+    // A run of backticks closed by the same run is code; one never closed is just text.
+    if (close === -1 || /`/.test(rest[close + open[0].length] ?? "")) break;
+    parts.push(safeText(rest.slice(0, open.index)), rest.slice(open.index, close + open[0].length));
+    rest = rest.slice(close + open[0].length);
+  }
+  parts.push(safeText(rest));
+  return (
+    parts
+      .join("")
+      .replace(/(\s)\^([A-Za-z0-9-]+\s*)$/, "$1\\^$2")
+      // A line of = or - under a line of text would make it a heading; after a blank line, --- is a rule.
+      .replace(/^(\s*)([-=])(\2*\s*)$/, (all, space: string, mark: string, tail: string) => (previous.trim() ? `${space}\\${mark}${tail}` : all))
+  );
+}
+
+function safeText(text: string): string {
+  return (
+    text
+      // A backslash just before something escaped here stays a backslash, so it cannot undo the escape.
+      .replace(/\\(?=[#%<!]|\[\[|\]\])/g, "\\\\")
+      .replace(/[#%<]/g, (ch) => `\\${ch}`)
+      .replace(/\[\[|\]\]/g, (pair) => `\\${pair[0]}\\${pair[1]}`)
+      .replace(/!(?=\[)/g, "\\!")
+  );
 }
 
 /** Like escapeText, but also stops a line from starting a list, quote or heading. */

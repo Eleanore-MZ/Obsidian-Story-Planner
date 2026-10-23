@@ -4427,17 +4427,38 @@ body.story-planner-marquee-active * {
   min-width: 2em;
 }
 
-.story-planner-outline-scene-plot {
+.story-planner .story-planner-outline-scene-plot,
+.story-planner .story-planner-outline-scene-chapter {
+  height: auto;
+  padding: 0 var(--size-2-2);
   font-size: var(--font-ui-smaller);
   color: var(--text-faint);
+  background: transparent;
+  box-shadow: none;
+  border: 1px solid transparent;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.story-planner .story-planner-outline-scene-plot:hover,
+.story-planner .story-planner-outline-scene-chapter:hover {
+  color: var(--text-normal);
+  border-color: var(--background-modifier-border);
+}
+
+/* A plot line's colour in a menu. */
+.story-planner-menu-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: var(--size-2-3);
+  background: var(--swatch-color);
+  vertical-align: baseline;
 }
 
 /* In story-time order, the chapter a scene is in, as a quiet tag after its plot line. */
-.story-planner-outline-scene-chapter {
-  font-size: var(--font-ui-smaller);
-  color: var(--text-faint);
-  padding: 0 var(--size-2-2);
-  border: 1px solid var(--background-modifier-border);
+.story-planner .story-planner-outline-scene-chapter {
+  border-color: var(--background-modifier-border);
   white-space: nowrap;
 }
 
@@ -4572,19 +4593,56 @@ body.story-planner-marquee-active * {
 }
 
 .story-planner-outline-rail-item {
-  padding: 1px 0 1px calc(var(--depth, 0) * 0.9em);
-  font-size: var(--font-ui-smaller);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 0 1px calc(var(--depth, 0) * 0.8em);
   line-height: 1.5;
   color: var(--text-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   cursor: pointer;
 }
 
-.story-planner-outline-rail-item.is-part {
+.story-planner-outline-rail-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* One size per level: the parts largest, then acts or years, chapters or months, events or days. */
+.story-planner-outline-rail-item.is-level-0 {
   margin-top: var(--size-4-1);
+  font-size: var(--font-ui-small);
   color: var(--text-muted);
+}
+
+.story-planner-outline-rail-item.is-level-1 {
+  font-size: var(--font-ui-smaller);
+}
+
+.story-planner-outline-rail-item.is-level-2 {
+  font-size: calc(var(--font-ui-smaller) * 0.94);
+}
+
+.story-planner-outline-rail-item.is-level-3 {
+  font-size: calc(var(--font-ui-smaller) * 0.88);
+}
+
+.story-planner-outline-rail-fold {
+  flex: none;
+  display: inline-flex;
+  width: 12px;
+  height: 12px;
+  color: var(--text-faint);
+}
+
+.story-planner-outline-rail-fold svg {
+  width: 12px;
+  height: 12px;
+}
+
+.story-planner-outline-rail-fold:not(.is-leaf):hover {
+  color: var(--text-normal);
 }
 
 .story-planner-outline-rail-item:hover {
@@ -4600,4 +4658,31 @@ body.story-planner-marquee-active * {
   .story-planner-outline-rail {
     display: none;
   }
+}
+
+/* "Add members…" on an organization's profile: a quiet button under its members. */
+.story-planner .story-planner-profile-add {
+  align-self: flex-start;
+  margin-top: var(--size-2-2);
+  padding: 2px var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  background: transparent;
+  box-shadow: none;
+  border: 1px dashed var(--background-modifier-border);
+  color: var(--text-muted);
+}
+
+/* Markdown in the Outline's paragraphs: code, quotes and rules, sized to the page. */
+.story-planner-outline-text.is-rendered pre {
+  margin: 0 0 var(--size-4-2);
+  padding: var(--size-4-2);
+  white-space: pre-wrap;
+}
+
+.story-planner-outline-text.is-rendered blockquote {
+  margin: 0 0 var(--size-4-2);
+}
+
+.story-planner-outline-text.is-rendered hr {
+  margin: var(--size-4-2) 0;
 }

@@ -228,3 +228,28 @@ describe("shared scenes", () => {
     expect(layout.hidden).toBe(1);
   });
 });
+
+describe("a scene in several lanes, in story time", () => {
+  it("takes the same row in each of its lanes", () => {
+    const story = createEmptyStory("Rows");
+    const p = story.plotLines[0]!.id;
+    story.characters = [
+      { id: "a", name: "A", color: "#c00" },
+      { id: "b", name: "B", color: "#0c0" },
+    ];
+    const at = (title: string, people: string[], order: number) => {
+      const c = createCard({ title, plotLine: p, chapter: story.chapters[0]!.id, order });
+      c.date = { calendar: "main", year: 1531, month: 5, day: 4 };
+      c.timeOrder = order;
+      c.characters = people.map((id) => ({ id, role: "present" as const }));
+      story.cards[c.id] = c;
+      return c;
+    };
+    at("A alone", ["a"], 1);
+    const both = at("Both", ["a", "b"], 2);
+    const layout = computeTrackLayout(story, ["a", "b"], "time", "day", "vertical");
+    const rows = layout.items.filter((i) => i.item.kind === "appearance" && (i.item as { cardId: string }).cardId === both.id).map((i) => i.row);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toBe(rows[1]);
+  });
+});

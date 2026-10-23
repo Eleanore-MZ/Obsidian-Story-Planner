@@ -287,7 +287,7 @@ export class CardPanel {
     for (const card of cards) {
       const row = scenes.createDiv({ cls: "story-planner-profile-scene" });
       const p = story.plotLines.find((x) => x.id === card.plotLine);
-      row.style.setProperty("--lane-color", p?.color ?? "var(--text-faint)");
+      row.style.setProperty("--lane-color", plotLineColor(story, p) ?? "var(--text-faint)");
       row.createSpan({ cls: "story-planner-profile-scene-title", text: isUntitled(card.title) ? card.synopsis.split(/\r?\n/)[0] || "Untitled" : card.title });
       row.createSpan({ cls: "story-planner-profile-detail", text: [chapterTitle(story, story.chapters.find((c) => c.id === card.chapter)), card.date ? formatDateRange(story, card.date, card.endDate) : ""].filter(Boolean).join(" · ") });
       row.addEventListener("click", () => this.host.openCard?.(card.id));

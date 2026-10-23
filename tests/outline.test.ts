@@ -100,7 +100,7 @@ describe("the composed outline", () => {
     const md = outlineMarkdown(s);
     const at = (text: string) => md.indexOf(text);
     expect(md).toContain("## Story\n\n**Logline:** A death at the harbour.\n\n**Premise:**  \nA watchwoman.  \nA courier.\n");
-    expect(md).toContain("## Characters\n\n### Mara\n\n**Also known as:** The Watch  \n**Role:** Investigator  \n**Organizations:** The Watch (Captain)\n\nHarbour watch.\n");
+    expect(md).toContain("## Characters\n\n### Mara\n\n**Aliases:** The Watch  \n**Role:** Investigator  \n**Organizations:** The Watch (Captain)\n\nHarbour watch.\n");
     expect(md).toContain("## Organizations\n\n### The Watch\n\n**Members:** Mara (Captain)  \n**Motto:** Never twice\n\nKeeps the harbour.\n");
     expect(md).toContain("### Plot lines\n\n**Investigation**  \nWho killed Oren.\n");
     expect(md).toContain("##### The case › The pier\n\nMorning at the pier.\n\n**Body found**");
@@ -222,5 +222,53 @@ describe("the outline in story-time order", () => {
     expect(md).toContain("**Off-page** (Main plot · Off-page)".replace("Main plot", s.plotLines[0]!.name));
     expect(md.indexOf("### Undated")).toBeGreaterThan(md.indexOf("1531/12/04"));
     expect(md).not.toContain("### Chapter");
+  });
+});
+
+describe("Markdown in synopses, in the exported outline", () => {
+  it("keeps code blocks whole and closed, and lists and rules as written", () => {
+    const s = createEmptyStory("Code");
+    const c = createCard({ title: "Scene", plotLine: s.plotLines[0]!.id, chapter: s.chapters[0]!.id, order: 0 });
+    c.synopsis = "Notes:\n```\n#include <x>\nline two\n\n- a\n  - b\n\n---\n\nAfter";
+    s.cards[c.id] = c;
+    const md = outlineMarkdown(s);
+    // The open block is closed at the end of the synopsis; lines inside it get no trailing spaces.
+    expect(md).toContain("Notes:\n```\n#include <x>\nline two\n\n- a\n  - b\n\n---\n\nAfter\n```\n");
+    // What follows the synopsis is outside any code block.
+    const after = md.slice(md.indexOf("After\n```\n") + "After\n```\n".length);
+    expect(after.includes("```")).toBe(false);
+  });
+
+  it("round-trips code and lists through the story file, one line per card", () => {
+    const s = createEmptyStory("Code");
+    const c = createCard({ title: "Scene", plotLine: s.plotLines[0]!.id, chapter: s.chapters[0]!.id, order: 0 });
+    c.synopsis = "```\ncode %% [[x]]\n```\n- [ ] task\n  1. nested";
+    s.cards[c.id] = c;
+    const text = serializeStory(s);
+    const back = parseStory(text);
+    expect(back.ok && back.story.cards[c.id]!.synopsis).toBe(c.synopsis);
+    // The card is still one line in the data block.
+    expect(text.split("\n").filter((l) => l.includes(`"id":"${c.id}"`))).toHaveLength(1);
+  });
+});
+
+describe("writing lists in the Outline tab", () => {
+  it("carries the marker on at Enter, and ends the list on an empty item", async () => {
+    const { continueList } = await import("../src/view/listKeys");
+    expect(continueList("- one", 5)).toMatchObject({ text: "- one\n- ", caret: 8 });
+    expect(continueList("  3. three", 10)).toMatchObject({ text: "  3. three\n  4. ", caret: 16 });
+    expect(continueList("- [x] done", 10)).toMatchObject({ text: "- [x] done\n- [ ] ", caret: 17 });
+    // An empty item ends the list, leaving an empty line to go on writing in.
+    expect(continueList("- one\n- ", 8)).toMatchObject({ text: "- one\n", caret: 6, from: 6, to: 8, insert: "" });
+    expect(continueList("plain text", 10)).toBeNull();
+    // In the middle of an item, Enter is an ordinary new line.
+    expect(continueList("- one two", 5)).toBeNull();
+  });
+
+  it("moves a list line in and out with Tab and Shift+Tab", async () => {
+    const { indentLine } = await import("../src/view/listKeys");
+    expect(indentLine("- a\n- b", 7, false)).toMatchObject({ text: "- a\n  - b", caret: 9 });
+    expect(indentLine("- a\n  - b", 9, true)).toMatchObject({ text: "- a\n- b", caret: 7 });
+    expect(indentLine("plain", 3, false)).toBeNull();
   });
 });

@@ -189,12 +189,26 @@ describe("safe Markdown, for synopses in exported notes", () => {
     expect(out).not.toMatch(/(^|[^\\])</);
   });
 
-  it("stops headings, fences, setext underlines and block ids", () => {
+  it("stops headings, setext underlines and block ids", () => {
     expect(safeMarkdown("# Not a heading")).toBe("\\# Not a heading");
-    expect(safeMarkdown("```\ncode")).toBe("\\```\ncode");
     expect(safeMarkdown("Title\n---")).toBe("Title\n\\---");
     expect(safeMarkdown("Title\n===")).toBe("Title\n\\===");
     expect(safeMarkdown("Ends with ^ref1")).toBe("Ends with \\^ref1");
+  });
+
+  it("keeps rules, strikethrough, task lists, nested lists and links", () => {
+    const text = "Before\n\n---\n\n~~gone~~ and [a site](https://example.com)\n- [ ] to do\n- [x] done\n  - nested\n    1. deeper";
+    expect(safeMarkdown(text)).toBe(text);
+  });
+
+  it("leaves code as written, and closes a code block left open so it cannot swallow what follows", () => {
+    const block = "```js\nconst tag = '#x'; // [[not a link]] %% <b>\n```";
+    expect(safeMarkdown(block)).toBe(block);
+    expect(safeMarkdown("Use `#tag` and `[[x]]` here, but #this")).toBe("Use `#tag` and `[[x]]` here, but \\#this");
+    expect(safeMarkdown("```\nnever closed")).toBe("```\nnever closed\n```");
+    expect(safeMarkdown("~~~~\na\n~~~\nb")).toBe("~~~~\na\n~~~\nb\n~~~~");
+    // A lone backtick is plain text, and what follows it is still made safe.
+    expect(safeMarkdown("it`s #here")).toBe("it`s \\#here");
   });
 
   it("keeps a writer's backslash from undoing an escape", () => {

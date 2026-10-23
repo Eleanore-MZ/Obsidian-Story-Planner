@@ -1,7 +1,7 @@
 import { setIcon } from "obsidian";
 import { formatDateRange } from "../model/calendar";
 import { chapterTitleOf } from "../model/chapters";
-import { addCharacter } from "../model/setup";
+import { addCharacter, plotLineColor } from "../model/setup";
 import {
   addOrganization,
   characterAppearances,
@@ -16,7 +16,7 @@ import {
 import { isUntitled } from "../model/defaults";
 import { noteName } from "../model/links";
 import { Appearances } from "../model/entities";
-import { Character, CustomValue, Entity, Id, Organization, Story, StoryDate } from "../model/types";
+import { Character, CustomValue, Entity, Id, Membership, Organization, Story, StoryDate } from "../model/types";
 import { NoteHost } from "./CardPanel";
 import { colorSwatch } from "./colorPicker";
 import { DateEditor } from "./DateEditor";
@@ -29,6 +29,8 @@ export interface ProfilesHost {
   /** Whose profile is shown, for each kind. */
   shown(kind: "character" | "organization"): { id?: Id };
   show(kind: "character" | "organization", id?: Id): void;
+  /** Lets the writer tick characters in a dialog; `onDone` gets the ones ticked. */
+  pickCharacters(chosen: Id[], title: string, onDone: (chosen: Id[]) => void): void;
   notes: NoteHost;
 }
 
@@ -102,7 +104,7 @@ export class ProfilesView {
     this.heading(page, character, (name) => edit((c) => void (c.name = name), `profile-name:${id}`), (color) => edit((c) => void (c.color = color)));
     const props = page.createDiv({ cls: "story-planner-props" });
     this.text(props, "Short name", "text-cursor-input", character.shortName, (v) => edit((c) => set(c, "shortName", v), `short:${id}`));
-    this.text(props, "Also known as", "at-sign", character.aliases?.join(", "), (v) =>
+    this.text(props, "Aliases", "at-sign", character.aliases?.join(", "), (v) =>
       edit((c) => {
         const names = v.split(",").map((n) => n.trim()).filter(Boolean);
         if (names.length > 0) c.aliases = names;
@@ -152,18 +154,26 @@ export class ProfilesView {
     );
     this.noteRow(props, org.note, (path) => edit((o) => set(o, "note", path)));
 
-    // Members, from the characters' memberships.
+    // Members: the characters' memberships, written here or on their own profiles, the same data either way.
     const members = orgMembers(story, id);
     const box = this.row(props, "Members", "users");
-    if (members.length === 0) box.createSpan({ cls: "story-planner-multi-empty", text: "None yet: add an organization on a character's profile" });
     for (const { characterId, membership } of members) {
       const c = story.characters.find((x) => x.id === characterId)!;
-      const line = box.createDiv({ cls: "story-planner-profile-member" });
-      const name = line.createEl("a", { text: c.name });
-      name.addEventListener("click", () => this.host.show("character", c.id));
-      const detail = [membership.rank, membership.from || membership.until ? spanText(story, membership.from, membership.until) : ""].filter(Boolean).join(", ");
-      if (detail) line.createSpan({ cls: "story-planner-profile-detail", text: detail });
+      this.membershipEditor(box, story, c, org, membership, "character");
     }
+    const add = box.createEl("button", { cls: "story-planner-profile-add", text: story.characters.length > 0 ? "Add members…" : "No characters yet" });
+    add.disabled = story.characters.length === 0;
+    add.addEventListener("click", () =>
+      this.host.pickCharacters(members.map((m) => m.characterId), `Members of ${org.name || "this organization"}`, (chosen) =>
+        this.host.edit((s) => {
+          let changed = false;
+          const had = new Set(orgMembers(s, id).map((m) => m.characterId));
+          for (const cid of chosen) if (!had.has(cid)) changed = setMembership(s, cid, id, {}) || changed;
+          for (const cid of had) if (!chosen.includes(cid)) changed = setMembership(s, cid, id, null) || changed;
+          return changed;
+        }),
+      ),
+    );
     this.appearances(page, story, orgAppearances(story, id), false);
   }
 
@@ -268,27 +278,7 @@ export class ProfilesView {
     const id = character.id;
     for (const m of character.orgs ?? []) {
       const org = story.organizations.find((o) => o.id === m.id);
-      if (!org) continue;
-      const box = cell.createDiv({ cls: "story-planner-profile-membership" });
-      const top = box.createDiv({ cls: "story-planner-profile-membership-top" });
-      const chip = top.createSpan({ cls: "story-planner-role-chip role-present", text: org.name });
-      chip.style.setProperty("--chip-color", org.color);
-      chip.addEventListener("click", () => this.host.show("organization", org.id));
-      const rank = top.createEl("input", { cls: "story-planner-profile-input" });
-      rank.type = "text";
-      rank.placeholder = "Rank";
-      rank.value = m.rank ?? "";
-      rank.dataset.field = `rank:${id}:${org.id}`;
-      rank.addEventListener("input", () => this.host.edit((s) => setMembership(s, id, org.id, { rank: rank.value }), `rank:${id}:${org.id}`));
-      const remove = top.createEl("button", { cls: "clickable-icon", text: "×" });
-      remove.setAttr("aria-label", `Leave ${org.name}`);
-      remove.addEventListener("click", () => this.host.edit((s) => setMembership(s, id, org.id, null)));
-      const dates = box.createDiv({ cls: "story-planner-profile-membership-dates" });
-      const from = dates.createDiv({ cls: "story-planner-date-part-of-range" });
-      new DateEditor(from, story, m.from, `from:${id}:${org.id}`, "Zone: default", (d) => this.host.edit((s) => setMembership(s, id, org.id, { from: d })));
-      dates.createSpan({ cls: "story-planner-date-arrow", text: "→" });
-      const until = dates.createDiv({ cls: "story-planner-date-part-of-range" });
-      new DateEditor(until, story, m.until, `until:${id}:${org.id}`, "Zone: default", (d) => this.host.edit((s) => setMembership(s, id, org.id, { until: d })));
+      if (org) this.membershipEditor(cell, story, character, org, m, "organization");
     }
     const others = story.organizations.filter((o) => !character.orgs?.some((m) => m.id === o.id));
     const add = cell.createEl("select", { cls: "dropdown" });
@@ -297,6 +287,38 @@ export class ProfilesView {
     add.addEventListener("change", () => {
       if (add.value) this.host.edit((s) => setMembership(s, id, add.value, {}));
     });
+  }
+
+  /**
+   * One membership, as both profiles show it: a chip naming the other side
+   * (`show` says which: the organization on a character's profile, the
+   * character on an organization's), the rank, a × to end it, and from and until.
+   */
+  private membershipEditor(parent: HTMLElement, story: Story, character: Character, org: Organization, m: Membership, show: "character" | "organization"): void {
+    const id = character.id;
+    const other = show === "organization" ? org : character;
+    const box = parent.createDiv({ cls: "story-planner-profile-membership" });
+    const top = box.createDiv({ cls: "story-planner-profile-membership-top" });
+    const chip = top.createSpan({ cls: "story-planner-role-chip role-present", text: other.name || "Unnamed" });
+    chip.style.setProperty("--chip-color", other.color);
+    chip.addEventListener("click", () => this.host.show(show, other.id));
+    const rank = top.createEl("input", { cls: "story-planner-profile-input" });
+    rank.type = "text";
+    rank.placeholder = "Rank";
+    rank.value = m.rank ?? "";
+    rank.dataset.field = `rank:${id}:${org.id}`;
+    rank.addEventListener("input", () => this.host.edit((s) => setMembership(s, id, org.id, { rank: rank.value }), `rank:${id}:${org.id}`));
+    const remove = top.createEl("button", { cls: "clickable-icon", text: "×" });
+    const label = show === "organization" ? `Leave ${org.name}` : `Remove ${character.name} from ${org.name}`;
+    remove.setAttr("aria-label", label);
+    remove.setAttr("title", label);
+    remove.addEventListener("click", () => this.host.edit((s) => setMembership(s, id, org.id, null)));
+    const dates = box.createDiv({ cls: "story-planner-profile-membership-dates" });
+    const from = dates.createDiv({ cls: "story-planner-date-part-of-range" });
+    new DateEditor(from, story, m.from, `from:${id}:${org.id}`, "Zone: default", (d) => this.host.edit((s) => setMembership(s, id, org.id, { from: d })));
+    dates.createSpan({ cls: "story-planner-date-arrow", text: "→" });
+    const until = dates.createDiv({ cls: "story-planner-date-part-of-range" });
+    new DateEditor(until, story, m.until, `until:${id}:${org.id}`, "Zone: default", (d) => this.host.edit((s) => setMembership(s, id, org.id, { until: d })));
   }
 
   /** What the scenes say: first and last appearance, how often in each role, which plot lines, and every scene. */
@@ -320,13 +342,13 @@ export class ProfilesView {
       const p = story.plotLines.find((x) => x.id === id);
       if (!p) continue;
       const chip = lines.createSpan({ cls: "story-planner-role-chip role-present", text: `${p.name} ${count}` });
-      chip.style.setProperty("--chip-color", p.color);
+      chip.style.setProperty("--chip-color", plotLineColor(story, p) ?? p.color);
     }
     const list = section.createDiv({ cls: "story-planner-profile-scenes" });
     for (const card of a.cards) {
       const row = list.createDiv({ cls: "story-planner-profile-scene" });
       const p = story.plotLines.find((x) => x.id === card.plotLine);
-      row.style.setProperty("--lane-color", p?.color ?? "var(--text-faint)");
+      row.style.setProperty("--lane-color", plotLineColor(story, p) ?? "var(--text-faint)");
       row.createSpan({ cls: "story-planner-profile-scene-title", text: title(card) });
       row.createSpan({
         cls: "story-planner-profile-detail",
@@ -339,12 +361,6 @@ export class ProfilesView {
 
 function title(card: { title: string; synopsis: string }): string {
   return isUntitled(card.title) ? card.synopsis.split(/\r?\n/)[0] || "Untitled" : card.title;
-}
-
-function spanText(story: Story, from?: StoryDate, until?: StoryDate): string {
-  if (from && until) return formatDateRange(story, from, until);
-  if (from) return `from ${formatDateRange(story, from, undefined)}`;
-  return `until ${formatDateRange(story, until!, undefined)}`;
 }
 
 /** Sets an optional text or date property, or removes it when empty. */

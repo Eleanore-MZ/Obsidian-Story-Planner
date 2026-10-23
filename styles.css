@@ -4528,3 +4528,76 @@ body.story-planner-marquee-active * {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
+
+/* The Outline tab's navigation rail: the page's headings at its right, light,
+   with a hairline at its left; the one in view in the accent colour. */
+.story-planner-outline-layout {
+  display: flex;
+  align-items: flex-start;
+  container-type: inline-size;
+}
+
+.story-planner-outline-layout > .story-planner-outline {
+  flex: 1;
+  min-width: 0;
+}
+
+.story-planner-outline-rail {
+  position: sticky;
+  top: 0;
+  flex: none;
+  width: 200px;
+  max-height: calc(100vh - 160px);
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--size-4-4);
+  padding-left: var(--size-4-2);
+  border-left: 1px solid var(--background-modifier-border);
+}
+
+.story-planner-outline-rail.is-collapsed {
+  width: auto;
+  padding-left: var(--size-2-2);
+}
+
+.story-planner-outline-rail-toggle {
+  align-self: flex-end;
+  padding: 2px;
+}
+
+.story-planner-outline-rail-list {
+  overflow-y: auto;
+  min-height: 0;
+  padding-bottom: var(--size-4-4);
+}
+
+.story-planner-outline-rail-item {
+  padding: 1px 0 1px calc(var(--depth, 0) * 0.9em);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.5;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.story-planner-outline-rail-item.is-part {
+  margin-top: var(--size-4-1);
+  color: var(--text-muted);
+}
+
+.story-planner-outline-rail-item:hover {
+  color: var(--text-normal);
+}
+
+.story-planner-outline-rail-item.is-current {
+  color: var(--text-accent);
+}
+
+/* Too narrow for the page and the rail: the page keeps the room. */
+@container (max-width: 640px) {
+  .story-planner-outline-rail {
+    display: none;
+  }
+}

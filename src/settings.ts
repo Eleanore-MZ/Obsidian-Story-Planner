@@ -55,6 +55,8 @@ export interface StoryViewState {
   characterAxis?: TrackAxis;
   /** The Outline tab's plot: chapter by chapter, or in story-time order. */
   outlineAxis?: "chapters" | "time";
+  /** The Outline tab's navigation rail: open (the default) or folded to a strip. */
+  outlineRail?: boolean;
   characterOrientation?: Orientation;
   /** With two or more lanes, show only the scenes they share. */
   sharedOnly?: boolean;

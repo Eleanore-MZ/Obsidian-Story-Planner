@@ -34,6 +34,9 @@ export interface OutlineHost {
   dimmed(card: Card): boolean;
   /** The plot's order: chapter by chapter, or in story time. */
   axis(): OutlineAxis;
+  /** Whether the navigation rail at the right is open, or folded to a strip. */
+  railOpen(): boolean;
+  setRailOpen(open: boolean): void;
     /** Draws a writer's text as Markdown into `el`, as it reads in the exported outline. */
   renderMarkdown(text: string, el: HTMLElement): void;
 }
@@ -51,12 +54,81 @@ export class OutlineView {
   constructor(private host: OutlineHost) {}
 
   render(parent: HTMLElement, story: Story): void {
-    const doc = parent.createDiv({ cls: "story-planner-outline is-page" });
+    const layout = parent.createDiv({ cls: "story-planner-outline-layout" });
+    const doc = layout.createDiv({ cls: "story-planner-outline is-page" });
     doc.createEl("h1", { cls: "story-planner-outline-title", text: story.title });
     this.storyPart(doc, story);
     this.peoplePart(doc, story, "characters");
     this.peoplePart(doc, story, "organizations");
     this.plotPart(doc, story);
+    this.rail(layout, doc);
+  }
+
+  // -------------------------------------------------------------------------
+  // The navigation rail
+
+  /**
+   * A slim list of the page's headings at its right, indented by level: the
+   * parts, people, plot lines, acts, chapters and events (or years, months
+   * and days in story-time order). The one in view is marked as the page
+   * scrolls; clicking one scrolls to it. It folds to a thin strip, and hides
+   * when the pane is too narrow for it.
+   */
+  private rail(layout: HTMLElement, doc: HTMLElement): void {
+    const open = this.host.railOpen();
+    const rail = layout.createDiv({ cls: "story-planner-outline-rail" });
+    rail.toggleClass("is-collapsed", !open);
+    const toggle = rail.createEl("button", { cls: "story-planner-outline-rail-toggle clickable-icon" });
+    setIcon(toggle, open ? "panel-right-close" : "panel-right-open");
+    const label = open ? "Hide the contents" : "Show the contents";
+    toggle.setAttr("aria-label", label);
+    toggle.setAttr("title", label);
+    toggle.addEventListener("click", () => this.host.setRailOpen(!open));
+    if (!open) return;
+    const list = rail.createDiv({ cls: "story-planner-outline-rail-list" });
+    const targets: { el: HTMLElement; item: HTMLElement }[] = [];
+    for (const el of Array.from(doc.querySelectorAll<HTMLElement>("[data-anchor]"))) {
+      const text = railLabel(el);
+      if (!text) continue;
+      // How far in: one step for each section it is inside.
+      let depth = 0;
+      for (let p = el.parentElement; p && p !== doc; p = p.parentElement) if (p.hasClass("story-planner-outline-body")) depth++;
+      const item = list.createDiv({ cls: "story-planner-outline-rail-item", text });
+      item.style.setProperty("--depth", String(depth));
+      item.toggleClass("is-part", depth === 0);
+      item.setAttr("title", text);
+      item.addEventListener("click", () => el.scrollIntoView({ block: "start", behavior: "smooth" }));
+      targets.push({ el, item });
+    }
+    // Once the page is on screen, follow its scrolling.
+    window.requestAnimationFrame(() => {
+      const scroller = layout.closest<HTMLElement>(".story-planner-board");
+      if (!scroller) return;
+      let current: HTMLElement | null = null;
+      const mark = () => {
+        if (!layout.isConnected) {
+          scroller.removeEventListener("scroll", mark);
+          return;
+        }
+        const top = scroller.getBoundingClientRect().top + 24;
+        let at = targets[0];
+        for (const t of targets) {
+          if (t.el.getBoundingClientRect().top <= top) at = t;
+          else break;
+        }
+        if (at && at.item !== current) {
+          current?.removeClass("is-current");
+          at.item.addClass("is-current");
+          current = at.item;
+          // Keep the marked line in view in a long list.
+          const box = list.getBoundingClientRect();
+          const line = at.item.getBoundingClientRect();
+          if (line.top < box.top || line.bottom > box.bottom) at.item.scrollIntoView({ block: "nearest" });
+        }
+      };
+      scroller.addEventListener("scroll", mark, { passive: true });
+      mark();
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -696,3 +768,13 @@ export class OutlineView {
   }
 }
 
+/** The words a heading or block shows on the rail: its name or title, without its buttons. */
+function railLabel(el: HTMLElement): string {
+  const named = el.querySelector<HTMLElement>(":scope > .story-planner-outline-name, :scope > .story-planner-outline-event .story-planner-outline-heading-text");
+  if (named) return named.textContent?.trim() || (el.hasClass("is-event") ? "Untitled event" : "Unnamed");
+  if (el.hasClass("story-planner-outline-heading")) {
+    const parts = Array.from(el.querySelectorAll<HTMLElement>(":scope > span")).map((s) => s.textContent?.trim() ?? "").filter(Boolean);
+    return parts.join(": ");
+  }
+  return "";
+}

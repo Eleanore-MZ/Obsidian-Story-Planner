@@ -159,6 +159,8 @@ export class StoryBoardView extends TextFileView {
     },
     dimmed: (card) => !!this.story && this.highlighted(card, this.story) === false,
     axis: () => this.viewState()?.outlineAxis ?? "chapters",
+    railOpen: () => this.viewState()?.outlineRail !== false,
+    setRailOpen: (open) => this.setViewState({ outlineRail: open }),
     // Made safe the same way as in the exported outline, so it reads the same and nothing in it is a tag or link.
     renderMarkdown: (text, el) => void MarkdownRenderer.render(this.app, safeMarkdown(text), el, this.file?.path ?? "", this),
   });

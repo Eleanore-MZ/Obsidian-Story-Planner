@@ -193,7 +193,6 @@ export class CardPanel {
     window.requestAnimationFrame(grow);
 
     const props = el.createDiv({ cls: "story-planner-props" });
-    colorSwatch(this.prop(props, "Colour", "palette"), event.color, (color) => edit((e) => void (e.color = color)));
 
     // The arc it is part of: an event that is not inside another. An event that holds others is an arc itself.
     const arcCell = this.prop(props, "Part of", "network");
@@ -278,15 +277,7 @@ export class CardPanel {
       }
     }
     const scenes = this.prop(props, "Scenes", "square-stack");
-    // While the board shows events, this one can show its scenes instead.
-    if (cards.length > 0 && this.host.setExpanded) {
-      const label = scenes.createEl("label", { cls: "story-planner-panel-check" });
-      const box = label.createEl("input");
-      box.type = "checkbox";
-      box.checked = !!this.host.expanded?.(id);
-      label.createSpan({ text: "Show its scenes on the board while showing events" });
-      box.addEventListener("change", () => this.host.setExpanded!(id, box.checked));
-    }
+
     if (cards.length === 0) scenes.createSpan({ cls: "story-planner-multi-empty", text: "None yet: choose this event on a card" });
     for (const card of cards) {
       const row = scenes.createDiv({ cls: "story-planner-profile-scene" });

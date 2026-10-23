@@ -4,7 +4,7 @@ import { actHeading, actsShown, chapterHeading, chapterTitle, deleteAct, startAc
 import { isUntitled } from "../model/defaults";
 import { addCardAt, deleteCard, updateCard } from "../model/edits";
 import { addOrganization, deleteOrganization, orgTree } from "../model/entities";
-import { addEvent, deleteEvent, eventCards, setCardEvent } from "../model/events";
+import { addEvent, deleteEvent, eventCards, eventColor, setCardEvent } from "../model/events";
 import { moveCard } from "../model/moves";
 import { addChapter, addCharacter, addPlotLine, cardsInChapter, deleteChapter, deleteCharacter, deletePlotLine, moveIndex, plotLineColor } from "../model/setup";
 import { Card, Id, Story, StoryInfo } from "../model/types";
@@ -364,7 +364,7 @@ export class OutlineView {
                   this.host.edit((s) => deleteEvent(s, event.id)),
                 ),
             });
-            head.style.setProperty("--event-color", event.color);
+            head.style.setProperty("--event-color", eventColor(story, event.id));
             const parent = event.parent ? story.events.find((e) => e.id === event.parent) : undefined;
             const title = head.createDiv({ cls: "story-planner-outline-event" });
             if (parent) title.createSpan({ cls: "story-planner-outline-number", text: parent.title || "Untitled arc" });

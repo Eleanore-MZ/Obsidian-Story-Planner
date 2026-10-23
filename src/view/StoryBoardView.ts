@@ -15,7 +15,7 @@ import { addChapter, addPlotLine, locationAndInside, locationPath, locationTree,
 import { addCardNote, linkedPaths, renameLinkedPath } from "../model/links";
 import { cardMatches, cardsInReadingOrder, queryTerms, searchCards } from "../model/search";
 import { deleteCards, moveCardsTo, setEventOnCards } from "../model/groupEdits";
-import { addEvent, emptyEvents, eventCards, eventOf, eventPath, eventSpan, eventTree, moveEvent, setEventParent } from "../model/events";
+import { addEvent, emptyEvents, eventColor, eventPath, eventTree, setEventPlotLine, toggleExpanded } from "../model/events";
 import { orgDescendants, orgTree, setCardOrg } from "../model/entities";
 import { CardPanel, NoteHost } from "./CardPanel";
 import { Minimap } from "./Minimap";
@@ -1269,7 +1269,7 @@ export class StoryBoardView extends TextFileView {
       this.toolIcon(actions, "rows-4", this.compact ? "Compact layout (click for cozy)" : "Compact layout", () => this.toggleCompact(), this.compact);
       // Event mode: each event's scenes as one block.
       const eventMode = !!this.viewState()?.eventMode;
-      this.toolIcon(actions, "flag", eventMode ? "Showing events (click for scenes)" : "Show events instead of their scenes", () => this.setViewState({ eventMode: !eventMode }), eventMode);
+      this.toolIcon(actions, "flag", eventMode ? "Showing events (click for scenes)" : "Show events instead of their scenes", () => this.setViewState({ eventMode: !eventMode, expandedEvents: [] }), eventMode);
     }
 
     const actions = tabsRow.querySelector<HTMLElement>(".story-planner-tab-actions") ?? tabsRow.createDiv({ cls: "story-planner-tab-actions" });
@@ -1381,7 +1381,7 @@ export class StoryBoardView extends TextFileView {
         strip.createSpan({ cls: "story-planner-profile-detail", text: "Events without scenes or chapter:" });
         for (const event of empty) {
           const chip = strip.createSpan({ cls: "story-planner-event-chip", text: event.title || "Untitled event" });
-          chip.style.setProperty("--event-color", event.color);
+          chip.style.setProperty("--event-color", eventColor(story, event.id));
           const chapter = event.chapter ? story.chapters.find((c) => c.id === event.chapter) : undefined;
           if (chapter) chip.createSpan({ cls: "story-planner-profile-detail", text: ` (${chapterTitle(story, chapter)})` });
           chip.addEventListener("click", () => this.selectEvent(event.id));
@@ -1632,7 +1632,7 @@ ${plotLine.synopsis.trim()}`);
         // An event shown as one card, in place of its scenes: built like a card, in the event's colour.
         const event = story.events.find((e) => e.id === item.eventId)!;
         const el = grid.createDiv({ cls: "story-planner-card story-planner-event-card" });
-        el.style.setProperty("--lane-color", event.color);
+        el.style.setProperty("--lane-color", eventColor(story, event.id));
         el.dataset.eventId = event.id;
         el.toggleClass("is-selected", this.panel.selectedEvent === event.id);
         // Written or not, as for a card.
@@ -1668,12 +1668,14 @@ ${plotLine.synopsis.trim()}`);
           stopBoardGestures(open);
           open.addEventListener("click", (e) => {
             e.stopPropagation();
-            this.setViewState({ expandedEvents: [...new Set([...(this.viewState()?.expandedEvents ?? []), event.id])] });
+            this.setViewState({ expandedEvents: toggleExpanded(this.viewState()?.expandedEvents ?? [], event.id) });
           });
         }
         const matches = item.cardIds.map((id) => story.cards[id]).filter((c): c is Card => !!c).map((c) => this.highlighted(c, story));
         if (matches.length > 0 && matches.every((m) => m === false)) el.addClass("is-dimmed");
         el.addEventListener("click", () => this.selectEvent(event.id));
+        // Dragged to another plot line, it lives there; its scenes stay where they are.
+        this.makeDraggable(el, { kind: "event", id: event.id });
         // A scene dropped on it joins the event.
         this.makeDropTarget(el, "card", null, () => {
           const ids = this.draggedMany ?? [this.dragged!.id];
@@ -1686,7 +1688,7 @@ ${plotLine.synopsis.trim()}`);
         // Where the event's scenes are in another plot line: an echo of it, like a card's.
         const event = story.events.find((e) => e.id === item.eventId)!;
         const el = grid.createDiv({ cls: "story-planner-echo story-planner-event-echo", text: event.title || "Untitled event" });
-        el.style.setProperty("--lane-color", event.color);
+        el.style.setProperty("--lane-color", eventColor(story, event.id));
         el.setAttr("title", `${event.title || "Untitled event"}: ${item.cardIds.length} ${item.cardIds.length === 1 ? "scene" : "scenes"} here`);
         el.addEventListener("click", () => this.selectEvent(event.id));
         this.makeDropTarget(el, "card", null, () => {
@@ -1915,10 +1917,23 @@ ${plotLine.synopsis.trim()}`);
     // The event it is part of: a small tab at the very top of the card, in the event's colour.
     const path = eventPath(story, card);
     if (path.length > 0 && this.shows("event")) {
+      const event = path[path.length - 1]!;
       const tab = createDiv({ cls: "story-planner-card-event", text: path.map((e) => e.title || "Untitled event").join(" › ") });
-      tab.style.setProperty("--event-color", path[path.length - 1]!.color);
+      tab.style.setProperty("--event-color", eventColor(story, event.id));
       el.prepend(tab);
       el.addClass("has-event");
+      // While the board shows events, this scene's event is shown as its scenes; the marker folds them back into the event.
+      const showing = (this.tab === "board" && this.viewState()?.eventMode) || (this.tab === "time" && this.viewState()?.timeEventMode) || this.tab === "events";
+      if (showing && (this.viewState()?.expandedEvents ?? []).includes(event.id)) {
+        tab.addClass("is-foldable");
+        tab.setAttr("title", "Show as the event again");
+        setIcon(tab.createSpan({ cls: "story-planner-card-event-fold" }), "chevrons-down-up");
+        stopBoardGestures(tab);
+        tab.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.setViewState({ expandedEvents: toggleExpanded(this.viewState()?.expandedEvents ?? [], event.id) });
+        });
+      }
     }
     if (story.tagsEnabled && card.tags.length > 0 && this.shows("tags")) {
       const chips = el.createDiv({ cls: "story-planner-card-tags" });
@@ -1969,7 +1984,7 @@ ${plotLine.synopsis.trim()}`);
     // Event mode, as on the board.
     if (story.events.length > 0) {
       const eventMode = !!this.viewState()?.timeEventMode;
-      this.toolIcon(actions, "flag", eventMode ? "Showing events (click for scenes)" : "Show events instead of their scenes", () => this.setViewState({ timeEventMode: !eventMode }), eventMode);
+      this.toolIcon(actions, "flag", eventMode ? "Showing events (click for scenes)" : "Show events instead of their scenes", () => this.setViewState({ timeEventMode: !eventMode, expandedEvents: [] }), eventMode);
     }
     if (story.zones.length > 0) {
       const zones = actions.createEl("select", { cls: "dropdown" });
@@ -3066,7 +3081,8 @@ ${plotLine.synopsis.trim()}`);
       const update = () => {
         if (!ghost) return;
         clearMark();
-        target = this.dropTargetAt(pointer.clientX, pointer.clientY, dragged.kind);
+        // An event card is dropped where a card could be: what matters is the plot line there.
+        target = this.dropTargetAt(pointer.clientX, pointer.clientY, dragged.kind === "event" ? "card" : dragged.kind);
         // Ctrl+Alt (Cmd+Alt) keeps an off-page event off-page, in the background of the chapter it lands in.
         const background = dragged.kind === "card" && (keys.ctrlKey || keys.metaKey) && keys.altKey && this.story?.cards[dragged.id]?.chapter === null;
         this.backgroundDrop = background;
@@ -3143,7 +3159,10 @@ ${plotLine.synopsis.trim()}`);
           this.suppressClick = true;
           window.setTimeout(() => (this.suppressClick = false), 0);
           if (drop && target) {
-            if (echo && target.spec.plotLine) this.dropAsEcho(dragged.id, target.spec.plotLine);
+            if (dragged.kind === "event") {
+              const plotLine = target.spec.plotLine;
+              if (plotLine) this.mutate((s) => setEventPlotLine(s, dragged.id, plotLine));
+            } else if (echo && target.spec.plotLine) this.dropAsEcho(dragged.id, target.spec.plotLine);
             else if (many && target.spec.board) {
               const { target: at, background } = target.spec.board(place);
               this.mutate((s) => moveCardsTo(s, many, dragged.id, at, !!background));

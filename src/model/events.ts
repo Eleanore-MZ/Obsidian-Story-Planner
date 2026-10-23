@@ -1,7 +1,7 @@
 import { compareDates } from "./calendar";
 import { newId } from "./defaults";
 import { cardsInReadingOrder } from "./search";
-import { freeColor } from "./setup";
+import { freeColor, plotLineColor } from "./setup";
 import { referenceDate, referenceEndDate, timeSorted } from "./storyTime";
 import { Card, Id, Story, StoryDate, StoryEvent } from "./types";
 
@@ -144,6 +144,31 @@ export function eventPlotLine(story: Story, id: Id): Id | undefined {
   let best: Id | undefined;
   for (const p of story.plotLines) if ((counts.get(p.id) ?? 0) > (best ? counts.get(best)! : 0)) best = p.id;
   return best ?? story.plotLines[0]?.id;
+}
+
+/** Sets the plot line an event lives in; a plot line that is already its automatic one clears the choice. */
+export function setEventPlotLine(story: Story, id: Id, plotLine: Id): boolean {
+  const event = story.events.find((e) => e.id === id);
+  if (!event || !story.plotLines.some((p) => p.id === plotLine)) return false;
+  if (eventPlotLine(story, id) === plotLine) return false;
+  event.plotLine = plotLine;
+  return true;
+}
+
+/** An event's colour: its main plot line's. */
+export function eventColor(story: Story, id: Id): string {
+  const plotLine = story.plotLines.find((p) => p.id === eventPlotLine(story, id));
+  return plotLineColor(story, plotLine) ?? plotLine?.color ?? "var(--interactive-accent)";
+}
+
+/**
+ * Whether the board shows an event's scenes in its place, while it shows
+ * events: the arrow on an event's card adds it to the expanded ones, the
+ * marker on one of its scenes takes it out again, and switching to events
+ * starts with none expanded.
+ */
+export function toggleExpanded(expanded: readonly Id[], id: Id): Id[] {
+  return expanded.includes(id) ? expanded.filter((x) => x !== id) : [...expanded, id];
 }
 
 /** Events with no cards of their own (and, for an arc, none in its events either). */

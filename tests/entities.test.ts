@@ -28,9 +28,13 @@ import {
   eventPath,
   eventSpan,
   eventTree,
+  eventColor,
+  eventPlotLine,
   moveEvent,
   setCardEvent,
   setEventParent,
+  setEventPlotLine,
+  toggleExpanded,
 } from "../src/model/events";
 import { Story, StoryDate } from "../src/model/types";
 
@@ -168,6 +172,26 @@ describe("events", () => {
     deleteEvent(s, arc, NOW);
     expect(s.cards.k3!.event).toBeUndefined();
     expect(s.events.find((x) => x.id === e)!.parent).toBeUndefined();
+  });
+
+  it("live in the plot line most of their scenes are in, or one chosen for them, and take its colour", () => {
+    const s = story();
+    const e = addEvent(s, "Siege");
+    setCardEvent(s, "k1", e, NOW);
+    setCardEvent(s, "k2", e, NOW);
+    setCardEvent(s, "k3", e, NOW);
+    // k1 and k3 are in p1, k2 in p2.
+    expect(eventPlotLine(s, e)).toBe("p1");
+    expect(eventColor(s, e)).toBe("#000");
+    expect(setEventPlotLine(s, e, "p2")).toBe(true);
+    expect(eventPlotLine(s, e)).toBe("p2");
+    expect(eventColor(s, e)).toBe("#111");
+    expect(setEventPlotLine(s, e, "p2")).toBe(false);
+  });
+
+  it("show their scenes on the board one by one, and fold back the same way", () => {
+    expect(toggleExpanded([], "a")).toEqual(["a"]);
+    expect(toggleExpanded(["a", "b"], "a")).toEqual(["b"]);
   });
 
   it("move in the list and into arcs", () => {

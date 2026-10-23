@@ -4109,7 +4109,7 @@ body.story-planner-marquee-active * {
   opacity: 0.5;
 }
 
-/* A card's event: a small tab in the event's colour, sitting on top of the card, apart from the rest. */
+/* A card's event: the small coloured square and its name, just above the card. */
 .story-planner-card.has-event {
   margin-top: 1.3em;
 }
@@ -4121,20 +4121,29 @@ body.story-planner-marquee-active * {
   max-width: calc(100% + 3px);
   height: 1.3em;
   margin: 0;
-  padding: 0 var(--size-4-2);
   overflow: hidden;
-  border: 1px solid var(--event-color);
-  border-bottom: none;
-  background: color-mix(in srgb, var(--event-color) 35%, var(--background-primary));
-  color: var(--text-normal);
-  font-size: var(--font-ui-smaller);
   line-height: 1.3em;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.story-planner-card.has-event > .story-planner-card-event::before {
-  content: none;
+.story-planner-card-event.is-foldable {
+  cursor: pointer;
+}
+
+.story-planner-card-event.is-foldable:hover {
+  color: var(--text-normal);
+}
+
+.story-planner-card-event-fold {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: var(--size-2-2);
+}
+
+.story-planner-card-event-fold svg {
+  width: 12px;
+  height: 12px;
 }
 
 /* An event shown as one card, in place of its scenes. */

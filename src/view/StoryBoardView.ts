@@ -1244,7 +1244,7 @@ export class StoryBoardView extends TextFileView {
     const path = this.file?.path;
     if (!path) return;
     const next: Orientation = this.orientation === "vertical" ? "horizontal" : "vertical";
-    const key = this.tab === "time" ? "timeOrientation" : this.tab === "characters" ? "characterOrientation" : "orientation";
+    const key = this.tab === "time" ? "timeOrientation" : this.tab === "characters" || this.tab === "organizations" ? "characterOrientation" : "orientation";
     this.plugin.settings.viewState[path] = { ...this.plugin.settings.viewState[path], [key]: next };
     void this.plugin.saveSettings();
     this.render();
@@ -1425,7 +1425,7 @@ export class StoryBoardView extends TextFileView {
       active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement ? [active.selectionStart, active.selectionEnd] : null;
     const content = document.createElement("div");
     if (this.tab === "time") this.fillTime(content, story);
-    else if (this.tab === "characters") this.fillCharacters(content, story);
+    else if (this.tab === "characters" || this.tab === "organizations") this.fillCharacters(content, story);
     else if (this.tab === "outline") this.fillOutline(content, story);
     else this.fillBoard(content, story);
     this.boardEl.replaceChildren(...Array.from(content.childNodes));
